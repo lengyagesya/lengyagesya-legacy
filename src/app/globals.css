@@ -1,6 +1,13 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@theme inline {
+  --color-legacy-black: #060606;
+  --color-legacy-ink: #0d0d10;
+  --color-legacy-gold: #d9b76c;
+  --color-legacy-pearl: #f5efe2;
+  --color-legacy-smoke: #9b958d;
+  --shadow-glow: 0 0 90px rgba(217, 183, 108, 0.18);
+}
 
 :root {
   color-scheme: dark;
