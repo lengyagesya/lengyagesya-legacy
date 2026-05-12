@@ -24,7 +24,7 @@ html {
 
 body {
   margin: 0;
-  background: #060606;
+  background: #050507;
   color: #f5efe2;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
     "Segoe UI", sans-serif;
@@ -40,7 +40,8 @@ a {
 }
 
 .btn-primary,
-.btn-secondary {
+.btn-secondary,
+.btn-quiet {
   display: inline-flex;
   min-height: 3.5rem;
   align-items: center;
@@ -73,8 +74,15 @@ a {
   backdrop-filter: blur(24px);
 }
 
+.btn-quiet {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.24);
+  color: #aaa39a;
+}
+
 .btn-primary:hover,
-.btn-secondary:hover {
+.btn-secondary:hover,
+.btn-quiet:hover {
   transform: translateY(-2px);
 }
 
@@ -83,12 +91,57 @@ a {
   box-shadow: 0 18px 60px rgba(217, 183, 108, 0.12);
 }
 
+.btn-quiet:hover {
+  border-color: rgba(255, 255, 255, 0.24);
+  color: #ffffff;
+}
+
+.input-field {
+  min-height: 3.25rem;
+  width: 100%;
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.26);
+  padding: 0.85rem 1rem;
+  color: #ffffff;
+  outline: none;
+  transition:
+    border-color 220ms ease,
+    background 220ms ease,
+    box-shadow 220ms ease;
+}
+
+.input-field::placeholder {
+  color: rgba(170, 163, 154, 0.7);
+}
+
+.input-field:focus {
+  border-color: rgba(217, 183, 108, 0.72);
+  background: rgba(0, 0, 0, 0.36);
+  box-shadow: 0 0 0 4px rgba(217, 183, 108, 0.08);
+}
+
+.input-field option {
+  background: #111114;
+  color: #ffffff;
+}
+
 .section-title {
   font-size: clamp(2.1rem, 5vw, 4.4rem);
   font-weight: 650;
   letter-spacing: 0;
   line-height: 1.03;
   color: #ffffff;
+}
+
+@media (max-width: 420px) {
+  .btn-primary,
+  .btn-secondary,
+  .btn-quiet {
+    padding-left: 1rem;
+    padding-right: 1rem;
+    letter-spacing: 0.12em;
+  }
 }
 
 .fade-up {
