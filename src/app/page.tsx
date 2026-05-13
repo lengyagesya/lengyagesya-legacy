@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, useEffect, useState } from "react";
+import { ChangeEvent, useEffect, useRef, useState } from "react";
 
 type UploadState = {
   name: string;
@@ -64,6 +64,7 @@ export default function Home() {
   const [previewGenerated, setPreviewGenerated] = useState(false);
   const [editableOutput, setEditableOutput] = useState("");
   const [hydrated, setHydrated] = useState(false);
+  const [officeFile, setOfficeFile] = useState<File | null>(null);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -141,6 +142,7 @@ export default function Home() {
         : extension.toUpperCase();
 
     const previewUrl = URL.createObjectURL(file);
+    setOfficeFile(extension === "doc" || extension === "docx" ? file : null);
 
     startScan({
       kind:
@@ -231,6 +233,7 @@ export default function Home() {
     setFields([]);
     setValues({});
     setEditableOutput("");
+    setOfficeFile(null);
     setLayoutStyle("Format Ringkas");
     setPageCount("1 Page");
     setPreviewGenerated(false);
@@ -450,6 +453,7 @@ export default function Home() {
                 </div>
 
                 <DocumentPreview
+                  officeFile={officeFile}
                   previewGenerated={previewGenerated}
                   upload={upload}
                 />
@@ -591,9 +595,11 @@ function ScanCard() {
 }
 
 function DocumentPreview({
+  officeFile,
   previewGenerated,
   upload,
 }: {
+  officeFile: File | null;
   previewGenerated: boolean;
   upload: UploadState | null;
 }) {
@@ -630,27 +636,7 @@ function DocumentPreview({
         ) : null}
 
         {upload?.kind === "office" && upload.previewUrl ? (
-          <object
-            className="h-full w-full"
-            data={upload.previewUrl}
-            title={`Output A4 ${upload.type}`}
-            type={
-              upload.type === "DOCX"
-                ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                : "application/msword"
-            }
-          >
-            <div className="flex h-full items-center justify-center p-10 text-center text-[#171513]">
-              <div>
-                <p className="text-2xl font-semibold">{upload.name}</p>
-                <p className="mt-3 text-sm text-[#655f58]">
-                  Browser ini tidak boleh render {upload.type} secara langsung.
-                  Fail asal tetap digunakan, tetapi paparan 100% memerlukan
-                  converter dokumen pada sistem.
-                </p>
-              </div>
-            </div>
-          </object>
+          <OfficeDocumentPreview file={officeFile} upload={upload} />
         ) : null}
 
         {upload && !upload.previewUrl ? (
@@ -666,6 +652,75 @@ function DocumentPreview({
       </div>
     </article>
   );
+}
+
+function OfficeDocumentPreview({
+  file,
+  upload,
+}: {
+  file: File | null;
+  upload: UploadState;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [renderError, setRenderError] = useState("");
+  const immediateError =
+    upload.type !== "DOCX"
+      ? "Format DOC lama tidak boleh dibaca tepat dalam browser. Sila upload DOCX."
+      : !file
+        ? "Sila upload semula fail DOCX untuk preview."
+        : "";
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    container.innerHTML = "";
+    window.setTimeout(() => setRenderError(""), 0);
+    if (immediateError) return;
+
+    let cancelled = false;
+
+    import("docx-preview")
+      .then(({ renderAsync }) =>
+        renderAsync(file, container, undefined, {
+          breakPages: true,
+          className: "ly-docx",
+          experimental: true,
+          ignoreFonts: false,
+          ignoreHeight: false,
+          ignoreWidth: false,
+          inWrapper: true,
+          renderFooters: true,
+          renderHeaders: true,
+          useBase64URL: true,
+        }),
+      )
+      .catch(() => {
+        if (!cancelled) {
+          setRenderError("DOCX ini tidak dapat dirender. Cuba simpan semula sebagai DOCX moden.");
+        }
+      });
+
+    return () => {
+      cancelled = true;
+      container.innerHTML = "";
+    };
+  }, [file, immediateError, upload.name, upload.type]);
+
+  const error = immediateError || renderError;
+
+  if (error) {
+    return (
+      <div className="flex h-full items-center justify-center p-10 text-center text-[#171513]">
+        <div>
+          <p className="text-2xl font-semibold">{upload.name}</p>
+          <p className="mt-3 text-sm text-[#655f58]">{error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  return <div className="ly-docx-output h-full w-full overflow-auto" ref={containerRef} />;
 }
 
 function detectDocument(fileName: string, fileType: string) {

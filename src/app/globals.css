@@ -144,6 +144,29 @@ body {
   box-shadow: 0 0 28px rgba(215, 227, 255, 0.6);
 }
 
+.ly-docx-output {
+  background: #ffffff;
+  color: #111111;
+}
+
+.ly-docx-output .docx-wrapper {
+  align-items: center;
+  background: #ffffff;
+  box-shadow: none;
+  min-height: 100%;
+  padding: 0 !important;
+}
+
+.ly-docx-output .docx-wrapper > section.docx {
+  box-shadow: none !important;
+  margin: 0 auto 1rem !important;
+  max-width: 100% !important;
+}
+
+.ly-docx-output .docx-wrapper > section.docx:first-child {
+  margin-top: 0 !important;
+}
+
 .intro-grid {
   background-image:
     linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
