@@ -5,7 +5,7 @@ import { ChangeEvent, useEffect, useState } from "react";
 type UploadState = {
   name: string;
   type: string;
-  kind: "image" | "pdf" | "file";
+  kind: "image" | "pdf" | "office";
   previewUrl?: string;
   status: "Template Aktif";
 };
@@ -111,7 +111,7 @@ export default function Home() {
     setEditableOutput("");
     setPreviewGenerated(false);
     setScanState("scanning");
-    setMessage("Menganalisis struktur dokumen...");
+    setMessage("Membuka fail asal...");
 
     window.setTimeout(() => {
       const result = detectDocument(nextUpload.name, nextUpload.type);
@@ -120,7 +120,7 @@ export default function Home() {
       setEditableOutput("");
       setPreviewGenerated(true);
       setScanState("done");
-      setMessage("Fail telah discan. Output A4 memaparkan fail upload sebagai rujukan asal tanpa teks tambahan.");
+      setMessage("Fail telah dibuka. Output A4 menggunakan fail asal tanpa teks tambahan.");
     }, 1350);
   }
 
@@ -140,39 +140,17 @@ export default function Home() {
         ? "JPG"
         : extension.toUpperCase();
 
-    if (extension === "png" || extension === "jpg" || extension === "jpeg") {
-      const reader = new FileReader();
-      reader.onload = () => {
-        startScan({
-          kind: "image",
-          name: file.name,
-          previewUrl: String(reader.result),
-          status: "Template Aktif",
-          type,
-        });
-      };
-      reader.readAsDataURL(file);
-      return;
-    }
-
-    if (extension === "pdf") {
-      const reader = new FileReader();
-      reader.onload = () => {
-        startScan({
-          kind: "pdf",
-          name: file.name,
-          previewUrl: String(reader.result),
-          status: "Template Aktif",
-          type,
-        });
-      };
-      reader.readAsDataURL(file);
-      return;
-    }
+    const previewUrl = URL.createObjectURL(file);
 
     startScan({
-      kind: "file",
+      kind:
+        extension === "png" || extension === "jpg" || extension === "jpeg"
+          ? "image"
+          : extension === "pdf"
+            ? "pdf"
+            : "office",
       name: file.name,
+      previewUrl,
       status: "Template Aktif",
       type,
     });
@@ -230,7 +208,7 @@ export default function Home() {
 
   function generatePreview() {
     setPreviewGenerated(true);
-    setMessage("Output A4 memaparkan fail upload asal.");
+    setMessage("Output A4 memaparkan fail upload asal tanpa sebarang teks tambahan.");
   }
 
   async function copyText() {
@@ -329,14 +307,14 @@ export default function Home() {
                 {scanState === "done" && upload ? (
                   <div className="mt-5 rounded-2xl border border-[#b9caff]/20 bg-white/[0.045] p-4">
                     <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#8d98ad]">
-                      Detected Document Type
+                      Fail Asal Aktif
                     </p>
                     <p className="mt-2 text-2xl font-semibold text-white">
-                      {detectedType}
+                      {upload.type}
                     </p>
                     <p className="mt-2 text-sm leading-6 text-[#aeb7c8]">
-                      Output A4 memaparkan fail upload sebagai rujukan asal.
-                      Tiada teks tambahan dijana di atas dokumen.
+                      Output A4 cuba memaparkan fail upload yang sama tanpa
+                      menambah atau mengubah teks dokumen asal.
                     </p>
                   </div>
                 ) : null}
@@ -584,10 +562,19 @@ function TemplatePreview({ upload }: { upload: UploadState }) {
           className="mt-5 max-h-80 w-full rounded-2xl object-contain"
           src={upload.previewUrl}
         />
+      ) : upload.kind === "pdf" && upload.previewUrl ? (
+        <div className="mt-5 overflow-hidden rounded-2xl border border-white/10 bg-white">
+          <object
+            className="h-80 w-full"
+            data={upload.previewUrl}
+            title="Preview PDF asal"
+            type="application/pdf"
+          />
+        </div>
       ) : (
         <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.045] p-5 text-sm text-[#c8d0df]">
-          Fail template telah dimuat naik sebagai rujukan format. Kandungan
-          sebenar akan diproses dalam fasa seterusnya.
+          Fail asal telah dimuat naik. Jika browser menyokong format ini,
+          kandungan akan dibuka terus dalam output A4 tanpa teks tambahan.
         </div>
       )}
     </div>
@@ -598,7 +585,7 @@ function ScanCard() {
   return (
     <div className="mt-5 flex items-center gap-4 rounded-[1.25rem] border border-[#b9caff]/20 bg-[#7da1ff]/10 p-4 text-[#d7e3ff]">
       <span className="scan-dot h-3 w-3 rounded-full bg-[#d7e3ff]" />
-      <span className="text-sm font-medium">Menganalisis struktur dokumen...</span>
+      <span className="text-sm font-medium">Membuka dan menyediakan fail asal...</span>
     </div>
   );
 }
@@ -642,13 +629,36 @@ function DocumentPreview({
           />
         ) : null}
 
-        {upload?.kind === "file" ? (
+        {upload?.kind === "office" && upload.previewUrl ? (
+          <object
+            className="h-full w-full"
+            data={upload.previewUrl}
+            title={`Output A4 ${upload.type}`}
+            type={
+              upload.type === "DOCX"
+                ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                : "application/msword"
+            }
+          >
+            <div className="flex h-full items-center justify-center p-10 text-center text-[#171513]">
+              <div>
+                <p className="text-2xl font-semibold">{upload.name}</p>
+                <p className="mt-3 text-sm text-[#655f58]">
+                  Browser ini tidak boleh render {upload.type} secara langsung.
+                  Fail asal tetap digunakan, tetapi paparan 100% memerlukan
+                  converter dokumen pada sistem.
+                </p>
+              </div>
+            </div>
+          </object>
+        ) : null}
+
+        {upload && !upload.previewUrl ? (
           <div className="flex h-full items-center justify-center p-10 text-center text-[#171513]">
             <div>
               <p className="text-2xl font-semibold">{upload.name}</p>
               <p className="mt-3 text-sm text-[#655f58]">
-                Fail {upload.type} telah dimuat naik. Preview kandungan sebenar
-                DOC/DOCX memerlukan converter pada fasa seterusnya.
+                Fail asal perlu diupload semula untuk dibuka dalam preview A4.
               </p>
             </div>
           </div>
