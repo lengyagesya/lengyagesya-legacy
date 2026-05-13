@@ -166,12 +166,14 @@ export default function Home() {
     window.setTimeout(() => {
       const scannedFields = scanFields(
         `${file.name} ${extractedText}`,
-        selectedProfile,
-        outputFormat,
       );
       setFields(scannedFields);
       setScanState("done");
-      setMessage("Scan siap. Isi kolum yang diperlukan di bawah.");
+      setMessage(
+        scannedFields.length
+          ? "Scan siap. Kolum yang muncul hanya berdasarkan format file yang diupload."
+          : "Scan siap, tetapi tiada kolum jelas dikesan dalam format ini.",
+      );
     }, 900);
   }
 
@@ -287,6 +289,14 @@ export default function Home() {
                         />
                       ))}
                     </div>
+                  </Panel>
+                ) : scanState === "done" ? (
+                  <Panel title="4. Kolum Untuk Diisi">
+                    <p className="text-sm leading-6 text-[#aeb7c8]">
+                      Tiada kolum dikesan daripada format file ini. Kolum hanya
+                      akan muncul jika label medan memang wujud dalam file yang
+                      diupload.
+                    </p>
                   </Panel>
                 ) : null}
               </div>
@@ -646,13 +656,9 @@ async function extractDocxText(file: File) {
   }
 }
 
-function scanFields(
-  sourceText: string,
-  selectedProfile: UserProfile,
-  outputFormat: OutputFormat,
-) {
+function scanFields(sourceText: string) {
   const lowerText = sourceText.toLowerCase();
-  const detected = [...profileFields(selectedProfile), ...formatFields(outputFormat)];
+  const detected: string[] = [];
   const candidates: Array<[string, string[]]> = [
     ["Nama Organisasi", ["nama organisasi", "nama sekolah", "nama taska", "nama tadika", "organisasi"]],
     ["Nama Guru / Petugas", ["nama guru", "nama petugas", "nama pendidik", "disediakan oleh"]],
@@ -672,6 +678,20 @@ function scanFields(
     ["Standard Kandungan", ["standard kandungan"]],
     ["Standard Pembelajaran", ["standard pembelajaran"]],
     ["Tandatangan", ["tandatangan", "pengesahan"]],
+    ["Ringkasan Aktiviti", ["ringkasan aktiviti", "ringkasan"]],
+    ["Rumusan", ["rumusan"]],
+    ["Matlamat", ["matlamat"]],
+    ["Objektif Jangka Pendek", ["objektif jangka pendek"]],
+    ["Intervensi", ["intervensi"]],
+    ["Penilaian", ["penilaian"]],
+    ["Agenda", ["agenda"]],
+    ["Kehadiran", ["kehadiran"]],
+    ["Keputusan", ["keputusan"]],
+    ["Tindakan", ["tindakan"]],
+    ["Daripada", ["daripada"]],
+    ["Kepada", ["kepada"]],
+    ["Perkara", ["perkara"]],
+    ["Isi Memo", ["isi memo"]],
   ];
 
   candidates.forEach(([field, keywords]) => {
@@ -681,93 +701,6 @@ function scanFields(
   });
 
   return Array.from(new Set(detected)).slice(0, 18);
-}
-
-function profileFields(selectedProfile: UserProfile) {
-  if (selectedProfile === "Guru Sekolah" || selectedProfile === "Guru Pendidikan Khas") {
-    return ["Nama Sekolah", "Nama Guru", "Mata Pelajaran", "Kelas"];
-  }
-
-  if (selectedProfile === "Pendidik Taska" || selectedProfile === "Guru Tadika") {
-    return ["Nama Organisasi", "Nama Pendidik", "Nama Kanak-kanak"];
-  }
-
-  if (selectedProfile === "Terapis") {
-    return ["Nama Pusat Terapi", "Nama Terapis", "Nama Klien"];
-  }
-
-  if (selectedProfile === "Penyelaras Program") {
-    return ["Nama Organisasi", "Nama Penyelaras", "Nama Program"];
-  }
-
-  if (selectedProfile === "Admin Organisasi") {
-    return ["Nama Organisasi", "Nama Admin", "Jawatan"];
-  }
-
-  return ["Nama Organisasi", "Nama Petugas", "Nama Pelatih"];
-}
-
-function formatFields(outputFormat: OutputFormat) {
-  if (outputFormat === "RPH") {
-    return [
-      "Tarikh",
-      "Masa",
-      "Tajuk Aktiviti",
-      "Standard Kandungan",
-      "Standard Pembelajaran",
-      "Objektif",
-      "Aktiviti PdP",
-      "Refleksi",
-    ];
-  }
-
-  if (outputFormat === "RPI") {
-    return [
-      "Nama Murid / Pelatih",
-      "Matlamat",
-      "Objektif Jangka Pendek",
-      "Intervensi",
-      "Penilaian",
-      "Catatan",
-    ];
-  }
-
-  if (outputFormat.includes("Laporan")) {
-    return [
-      "Nama Organisasi",
-      "Tarikh",
-      "Masa",
-      "Tempat",
-      "Tajuk Aktiviti",
-      "Ringkasan Aktiviti",
-      "Pemerhatian",
-      "Rumusan",
-    ];
-  }
-
-  if (outputFormat === "Minit Mesyuarat") {
-    return ["Tarikh", "Masa", "Tempat", "Agenda", "Kehadiran", "Keputusan", "Tindakan"];
-  }
-
-  if (outputFormat === "Memo") {
-    return ["Daripada", "Kepada", "Tarikh", "Perkara", "Isi Memo", "Tindakan"];
-  }
-
-  if (outputFormat === "Custom") {
-    return ["Nama Dokumen", "Nama Organisasi", "Tarikh", "Tajuk", "Maklumat Utama", "Catatan"];
-  }
-
-  return [
-    "Tarikh",
-    "Masa",
-    "Tempat",
-    "Tajuk Aktiviti",
-    "Objektif",
-    "Bahan / Alat",
-    "Langkah Pelaksanaan",
-    "Pemerhatian",
-    "Refleksi",
-  ];
 }
 
 function inputTypeForField(field: string) {
