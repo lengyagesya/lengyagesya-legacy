@@ -14,6 +14,16 @@ type LayoutStyle = "Format Ringkas" | "Format Jadual";
 type PageCount = "1 Page" | "2 Pages";
 type ScanState = "idle" | "scanning" | "done";
 type DetectedType = "RPA" | "RPH" | "RPI" | "General Template";
+type UserProfile =
+  | "Petugas PPDK"
+  | "Guru Sekolah"
+  | "Guru Pendidikan Khas"
+  | "Pendidik Taska"
+  | "Guru Tadika"
+  | "Terapis"
+  | "Penyelaras Program"
+  | "Admin Organisasi"
+  | "Custom";
 
 type SavedState = {
   detectedType: DetectedType;
@@ -21,12 +31,24 @@ type SavedState = {
   fields: string[];
   pageCount: PageCount;
   layoutStyle: LayoutStyle;
+  selectedProfile: UserProfile;
   upload: UploadState | null;
   values: Record<string, string>;
 };
 
 const storageKey = "ly-docs-upload-first-state";
 const allowedExtensions = ["png", "jpg", "jpeg", "pdf", "doc", "docx"];
+const profiles: UserProfile[] = [
+  "Petugas PPDK",
+  "Guru Sekolah",
+  "Guru Pendidikan Khas",
+  "Pendidik Taska",
+  "Guru Tadika",
+  "Terapis",
+  "Penyelaras Program",
+  "Admin Organisasi",
+  "Custom",
+];
 const defaultDetectedFields = [
   "Nama Organisasi",
   "Nama Guru / Petugas",
@@ -38,6 +60,7 @@ const defaultDetectedFields = [
   "Langkah Pelaksanaan",
   "Pemerhatian",
   "Refleksi",
+  "Catatan",
   "Standard Kandungan",
   "Standard Pembelajaran",
   "Tandatangan",
@@ -50,6 +73,8 @@ const longFieldHints = [
   "Pemerhatian",
   "Refleksi",
   "Standard",
+  "Catatan",
+  "Rumusan",
 ];
 
 export default function Home() {
@@ -65,6 +90,7 @@ export default function Home() {
   const [editableOutput, setEditableOutput] = useState("");
   const [hydrated, setHydrated] = useState(false);
   const [officeFile, setOfficeFile] = useState<File | null>(null);
+  const [selectedProfile, setSelectedProfile] = useState<UserProfile>("Petugas PPDK");
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -79,6 +105,7 @@ export default function Home() {
           setValues(parsed.values || {});
           setLayoutStyle(parsed.layoutStyle || "Format Ringkas");
           setPageCount(parsed.pageCount || "1 Page");
+          setSelectedProfile(parsed.selectedProfile || "Petugas PPDK");
           setScanState(parsed.fields?.length ? "done" : "idle");
         } catch {
           window.localStorage.removeItem(storageKey);
@@ -98,13 +125,14 @@ export default function Home() {
       fields,
       layoutStyle,
       pageCount,
+      selectedProfile,
       upload,
       values,
     };
     window.localStorage.setItem(storageKey, JSON.stringify(state));
-  }, [detectedType, editableOutput, fields, hydrated, layoutStyle, pageCount, upload, values]);
+  }, [detectedType, editableOutput, fields, hydrated, layoutStyle, pageCount, selectedProfile, upload, values]);
 
-  function startScan(nextUpload: UploadState) {
+  function startScan(nextUpload: UploadState, extractedText = "") {
     setUpload(nextUpload);
     setDetectedType("General Template");
     setFields([]);
@@ -115,17 +143,22 @@ export default function Home() {
     setMessage("Membuka fail asal...");
 
     window.setTimeout(() => {
-      const result = detectDocument(nextUpload.name, nextUpload.type);
+      const result = detectDocument(
+        nextUpload.name,
+        nextUpload.type,
+        extractedText,
+        selectedProfile,
+      );
       setDetectedType(result.type);
       setFields(result.fields);
       setEditableOutput("");
       setPreviewGenerated(true);
       setScanState("done");
-      setMessage("Fail telah dibuka. Output A4 menggunakan fail asal tanpa teks tambahan.");
+      setMessage("Fail telah dibuka. Medan penting telah dikesan untuk diisi oleh user.");
     }, 1350);
   }
 
-  function handleUpload(event: ChangeEvent<HTMLInputElement>) {
+  async function handleUpload(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -143,6 +176,7 @@ export default function Home() {
 
     const previewUrl = URL.createObjectURL(file);
     setOfficeFile(extension === "doc" || extension === "docx" ? file : null);
+    const extractedText = extension === "docx" ? await extractDocxText(file) : "";
 
     startScan({
       kind:
@@ -155,7 +189,7 @@ export default function Home() {
       previewUrl,
       status: "Template Aktif",
       type,
-    });
+    }, extractedText);
   }
 
   function updateFieldName(index: number, nextName: string) {
@@ -210,13 +244,15 @@ export default function Home() {
 
   function generatePreview() {
     setPreviewGenerated(true);
-    setMessage("Output A4 memaparkan fail upload asal tanpa sebarang teks tambahan.");
+    setMessage("Maklumat telah dihantar ke output dan disusun ikut medan yang dikesan.");
   }
 
   async function copyText() {
     try {
-      await navigator.clipboard.writeText(upload ? upload.name : "");
-      setMessage("Nama fail telah disalin.");
+      await navigator.clipboard.writeText(
+        buildFilledText(selectedProfile, detectedType, fields, values),
+      );
+      setMessage("Maklumat output telah disalin.");
     } catch {
       setMessage("Teks tidak dapat disalin pada pelayar ini.");
     }
@@ -234,6 +270,7 @@ export default function Home() {
     setValues({});
     setEditableOutput("");
     setOfficeFile(null);
+    setSelectedProfile("Petugas PPDK");
     setLayoutStyle("Format Ringkas");
     setPageCount("1 Page");
     setPreviewGenerated(false);
@@ -277,6 +314,23 @@ export default function Home() {
         <section className="px-5 pb-20 sm:px-8 lg:px-12">
           <div className="mx-auto grid max-w-7xl gap-6 xl:grid-cols-[0.86fr_1.14fr]">
             <div className="space-y-6">
+              <Panel title="Pilih Profil User">
+                <p className="mb-4 text-sm leading-6 text-[#aeb7c8]">
+                  Pilih siapa yang akan guna format ini supaya medan yang dikesan
+                  lebih sesuai dengan kerja sebenar.
+                </p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {profiles.map((profile) => (
+                    <Choice
+                      active={selectedProfile === profile}
+                      key={profile}
+                      label={profile}
+                      onClick={() => setSelectedProfile(profile)}
+                    />
+                  ))}
+                </div>
+              </Panel>
+
               <Panel title="Upload Template">
                 <label className="group flex min-h-80 cursor-pointer flex-col items-center justify-center rounded-[2rem] border border-dashed border-[#b9caff]/35 bg-[#7da1ff]/8 px-6 py-10 text-center shadow-[0_28px_120px_rgba(71,102,180,0.14)] transition duration-500 hover:border-[#d7e3ff]/80 hover:bg-[#7da1ff]/12">
                   <span className="grid h-20 w-20 place-items-center rounded-[1.5rem] border border-white/10 bg-white/[0.07] text-4xl text-[#d7e3ff] transition group-hover:scale-105">
@@ -316,14 +370,14 @@ export default function Home() {
                       {upload.type}
                     </p>
                     <p className="mt-2 text-sm leading-6 text-[#aeb7c8]">
-                      Output A4 cuba memaparkan fail upload yang sama tanpa
-                      menambah atau mengubah teks dokumen asal.
+                      Profil: {selectedProfile}. Sistem memilih medan yang
+                      perlu diisi berdasarkan format dan jenis user.
                     </p>
                   </div>
                 ) : null}
               </Panel>
 
-              {false && fields.length > 0 ? (
+              {fields.length > 0 ? (
                 <Panel title="Medan yang dikesan">
                   <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <p className="text-sm text-[#aeb7c8]">
@@ -381,7 +435,7 @@ export default function Home() {
                 </Panel>
               ) : null}
 
-              {false && fields.length > 0 ? (
+              {fields.length > 0 ? (
                 <Panel title="Isi Maklumat">
                   <div className="grid gap-4">
                     {fields.map((field) => (
@@ -436,7 +490,7 @@ export default function Home() {
               <Panel title="Preview & Export">
                 <div className="mb-5 flex flex-wrap gap-3">
                   <button className="btn-primary" onClick={generatePreview}>
-                    Jana Preview
+                    Hantar Ke Output
                   </button>
                   <button className="btn-secondary" onClick={copyText}>
                     Copy Text
@@ -457,6 +511,17 @@ export default function Home() {
                   previewGenerated={previewGenerated}
                   upload={upload}
                 />
+
+                {previewGenerated && fields.length > 0 ? (
+                  <FilledOutputSheet
+                    detectedType={detectedType}
+                    fields={fields}
+                    layoutStyle={layoutStyle}
+                    pageCount={pageCount}
+                    selectedProfile={selectedProfile}
+                    values={values}
+                  />
+                ) : null}
               </Panel>
             </div>
           </div>
@@ -654,6 +719,112 @@ function DocumentPreview({
   );
 }
 
+function FilledOutputSheet({
+  detectedType,
+  fields,
+  layoutStyle,
+  pageCount,
+  selectedProfile,
+  values,
+}: {
+  detectedType: DetectedType;
+  fields: string[];
+  layoutStyle: LayoutStyle;
+  pageCount: PageCount;
+  selectedProfile: UserProfile;
+  values: Record<string, string>;
+}) {
+  const visibleFields =
+    pageCount === "2 Pages" ? splitForPage(fields, 0) : fields;
+  const secondFields = pageCount === "2 Pages" ? splitForPage(fields, 1) : [];
+
+  return (
+    <div className="mt-6 space-y-5">
+      <OutputPage
+        detectedType={detectedType}
+        fields={visibleFields}
+        layoutStyle={layoutStyle}
+        pageLabel={pageCount === "2 Pages" ? "Halaman 1" : "Output Maklumat"}
+        selectedProfile={selectedProfile}
+        values={values}
+      />
+      {secondFields.length > 0 ? (
+        <OutputPage
+          detectedType={detectedType}
+          fields={secondFields}
+          layoutStyle={layoutStyle}
+          pageLabel="Halaman 2"
+          selectedProfile={selectedProfile}
+          values={values}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function OutputPage({
+  detectedType,
+  fields,
+  layoutStyle,
+  pageLabel,
+  selectedProfile,
+  values,
+}: {
+  detectedType: DetectedType;
+  fields: string[];
+  layoutStyle: LayoutStyle;
+  pageLabel: string;
+  selectedProfile: UserProfile;
+  values: Record<string, string>;
+}) {
+  return (
+    <article className="rounded-[1.5rem] border border-[#ded8ce] bg-[#f8f4ed] p-6 text-[#171513] shadow-[0_28px_100px_rgba(0,0,0,0.32)] sm:p-8">
+      <div className="border-b border-[#ded8ce] pb-5">
+        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#6f7f9f]">
+          {pageLabel}
+        </p>
+        <h3 className="mt-3 text-2xl font-semibold tracking-tight">
+          Maklumat Diisi
+        </h3>
+        <p className="mt-2 text-sm text-[#655f58]">
+          Profil: {selectedProfile} · Jenis dikesan: {detectedType}
+        </p>
+      </div>
+
+      {layoutStyle === "Format Jadual" ? (
+        <div className="mt-6 overflow-hidden rounded-2xl border border-[#cfc6b8]">
+          {fields.map((field) => (
+            <div
+              className="grid border-b border-[#cfc6b8] last:border-b-0 sm:grid-cols-[0.35fr_0.65fr]"
+              key={field}
+            >
+              <div className="bg-[#e8dfd1] p-4 text-sm font-semibold text-[#27231f]">
+                {field}
+              </div>
+              <div className="min-h-14 bg-[#fbf7f0] p-4 text-sm leading-6 text-[#332f2a]">
+                {fieldValue(values, field)}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="mt-6 space-y-5">
+          {fields.map((field) => (
+            <section key={field}>
+              <h4 className="text-sm font-semibold uppercase tracking-[0.16em] text-[#6f7f9f]">
+                {field}
+              </h4>
+              <p className="mt-2 whitespace-pre-wrap text-sm leading-7 text-[#332f2a]">
+                {fieldValue(values, field)}
+              </p>
+            </section>
+          ))}
+        </div>
+      )}
+    </article>
+  );
+}
+
 function OfficeDocumentPreview({
   file,
   upload,
@@ -723,11 +894,38 @@ function OfficeDocumentPreview({
   return <div className="ly-docx-output h-full w-full overflow-auto" ref={containerRef} />;
 }
 
-function detectDocument(fileName: string, fileType: string) {
+async function extractDocxText(file: File) {
+  try {
+    const [{ default: JSZip }, buffer] = await Promise.all([
+      import("jszip"),
+      file.arrayBuffer(),
+    ]);
+    const zip = await JSZip.loadAsync(buffer);
+    const xml = await zip.file("word/document.xml")?.async("string");
+    if (!xml) return "";
+
+    const documentXml = new DOMParser().parseFromString(xml, "application/xml");
+    return Array.from(documentXml.getElementsByTagName("w:t"))
+      .map((node) => node.textContent || "")
+      .join(" ");
+  } catch {
+    return "";
+  }
+}
+
+function detectDocument(
+  fileName: string,
+  fileType: string,
+  extractedText = "",
+  selectedProfile: UserProfile = "Petugas PPDK",
+) {
   const lowerName = fileName.toLowerCase();
+  const lowerText = `${lowerName} ${extractedText.toLowerCase()}`;
+  const scannedFields = detectFieldsFromText(lowerText, selectedProfile);
+
   if (lowerName.includes("rpa")) {
     return {
-      fields: [
+      fields: mergeFields([
         "Nama Organisasi",
         "Nama Guru / Petugas",
         "Nama Murid / Pelatih",
@@ -739,14 +937,14 @@ function detectDocument(fileName: string, fileType: string) {
         "Pemerhatian",
         "Refleksi",
         "Tandatangan",
-      ],
+      ], scannedFields),
       type: "RPA" as DetectedType,
     };
   }
 
-  if (lowerName.includes("rph") || lowerName.includes("lesson")) {
+  if (lowerText.includes("rph") || lowerText.includes("lesson") || lowerText.includes("pengajaran")) {
     return {
-      fields: [
+      fields: mergeFields([
         "Nama Organisasi",
         "Nama Guru / Petugas",
         "Mata Pelajaran",
@@ -759,14 +957,14 @@ function detectDocument(fileName: string, fileType: string) {
         "Aktiviti PdP",
         "Refleksi",
         "Tandatangan",
-      ],
+      ], scannedFields),
       type: "RPH" as DetectedType,
     };
   }
 
-  if (lowerName.includes("rpi") || lowerName.includes("individu")) {
+  if (lowerText.includes("rpi") || lowerText.includes("individu")) {
     return {
-      fields: [
+      fields: mergeFields([
         "Nama Organisasi",
         "Nama Murid / Pelatih",
         "Kategori / Keperluan",
@@ -776,14 +974,14 @@ function detectDocument(fileName: string, fileType: string) {
         "Penilaian",
         "Catatan",
         "Tandatangan",
-      ],
+      ], scannedFields),
       type: "RPI" as DetectedType,
     };
   }
 
-  if (lowerName.includes("laporan") || lowerName.includes("report")) {
+  if (lowerText.includes("laporan") || lowerText.includes("report")) {
     return {
-      fields: [
+      fields: mergeFields([
         "Nama Organisasi",
         "Nama Guru / Petugas",
         "Tarikh",
@@ -793,26 +991,115 @@ function detectDocument(fileName: string, fileType: string) {
         "Pemerhatian",
         "Refleksi",
         "Tandatangan",
-      ],
+      ], scannedFields),
       type: "General Template" as DetectedType,
     };
   }
 
   if (fileType === "DOC" || fileType === "DOCX") {
     return {
-      fields: defaultDetectedFields,
+      fields: scannedFields.length
+        ? scannedFields
+        : mergeFields(profileFields(selectedProfile), defaultDetectedFields),
       type: "General Template" as DetectedType,
     };
   }
 
   return {
-    fields: defaultDetectedFields.slice(0, 11),
+    fields: scannedFields.length
+      ? scannedFields
+      : mergeFields(profileFields(selectedProfile), defaultDetectedFields.slice(0, 11)),
     type: "General Template" as DetectedType,
   };
 }
 
 function inputTypeForField(field: string) {
-  if (field.toLowerCase().includes("tarikh")) return "date";
+  const lower = field.toLowerCase();
+  if (lower.includes("tarikh")) return "date";
+  if (lower.includes("masa")) return "time";
   if (longFieldHints.some((hint) => field.includes(hint))) return "textarea";
   return "text";
+}
+
+function detectFieldsFromText(text: string, selectedProfile: UserProfile) {
+  const detected = profileFields(selectedProfile);
+  const candidates: Array<[string, string[]]> = [
+    ["Nama Organisasi", ["nama organisasi", "nama sekolah", "nama taska", "nama tadika", "organisasi"]],
+    ["Nama Guru / Petugas", ["nama guru", "nama petugas", "nama pendidik", "disediakan oleh"]],
+    ["Nama Murid / Pelatih", ["nama murid", "nama pelatih", "nama kanak", "nama klien"]],
+    ["Tarikh", ["tarikh"]],
+    ["Masa", ["masa"]],
+    ["Tempat", ["tempat", "lokasi"]],
+    ["Mata Pelajaran", ["mata pelajaran", "subjek"]],
+    ["Kelas", ["kelas", "tahun"]],
+    ["Tajuk Aktiviti", ["tajuk", "aktiviti", "tema"]],
+    ["Objektif", ["objektif", "hasil pembelajaran"]],
+    ["Bahan / Alat", ["bahan", "alat", "bbm", "bantu mengajar"]],
+    ["Langkah Pelaksanaan", ["langkah", "pelaksanaan", "aktiviti pdp", "prosedur"]],
+    ["Pemerhatian", ["pemerhatian", "observasi"]],
+    ["Refleksi", ["refleksi", "rumusan"]],
+    ["Catatan", ["catatan", "nota"]],
+    ["Standard Kandungan", ["standard kandungan"]],
+    ["Standard Pembelajaran", ["standard pembelajaran"]],
+    ["Tandatangan", ["tandatangan", "pengesahan"]],
+  ];
+
+  candidates.forEach(([field, keywords]) => {
+    if (keywords.some((keyword) => text.includes(keyword))) {
+      detected.push(field);
+    }
+  });
+
+  return mergeFields(detected, []);
+}
+
+function profileFields(selectedProfile: UserProfile) {
+  if (selectedProfile === "Guru Sekolah" || selectedProfile === "Guru Pendidikan Khas") {
+    return ["Nama Sekolah", "Nama Guru", "Mata Pelajaran", "Kelas"];
+  }
+
+  if (selectedProfile === "Pendidik Taska" || selectedProfile === "Guru Tadika") {
+    return ["Nama Organisasi", "Nama Pendidik", "Nama Kanak-kanak"];
+  }
+
+  if (selectedProfile === "Terapis") {
+    return ["Nama Pusat Terapi", "Nama Terapis", "Nama Klien"];
+  }
+
+  if (selectedProfile === "Penyelaras Program") {
+    return ["Nama Organisasi", "Nama Penyelaras", "Nama Program"];
+  }
+
+  if (selectedProfile === "Admin Organisasi") {
+    return ["Nama Organisasi", "Nama Admin", "Jawatan"];
+  }
+
+  return ["Nama Organisasi", "Nama Petugas", "Nama Pelatih"];
+}
+
+function mergeFields(primary: string[], secondary: string[]) {
+  return Array.from(new Set([...primary, ...secondary])).slice(0, 18);
+}
+
+function fieldValue(values: Record<string, string>, field: string) {
+  return values[field]?.trim() || "Belum diisi";
+}
+
+function splitForPage(fields: string[], index: 0 | 1) {
+  const midpoint = Math.ceil(fields.length / 2);
+  return index === 0 ? fields.slice(0, midpoint) : fields.slice(midpoint);
+}
+
+function buildFilledText(
+  selectedProfile: UserProfile,
+  detectedType: DetectedType,
+  fields: string[],
+  values: Record<string, string>,
+) {
+  return [
+    `Profil: ${selectedProfile}`,
+    `Jenis dikesan: ${detectedType}`,
+    "",
+    ...fields.map((field) => `${field}: ${fieldValue(values, field)}`),
+  ].join("\n");
 }
