@@ -17,6 +17,7 @@ type DetectedType = "RPA" | "RPH" | "RPI" | "General Template";
 
 type SavedState = {
   detectedType: DetectedType;
+  editableOutput: string;
   fields: string[];
   pageCount: PageCount;
   layoutStyle: LayoutStyle;
@@ -61,10 +62,11 @@ export default function Home() {
   const [pageCount, setPageCount] = useState<PageCount>("1 Page");
   const [message, setMessage] = useState("");
   const [previewGenerated, setPreviewGenerated] = useState(false);
+  const [editableOutput, setEditableOutput] = useState("");
   const [hydrated, setHydrated] = useState(false);
 
   const previewText = useMemo(
-    () => buildPreview(detectedType, fields, values, layoutStyle, pageCount, Boolean(upload)),
+    () => buildPreview(detectedType, fields, values, layoutStyle, pageCount, Boolean(upload), upload),
     [detectedType, fields, layoutStyle, pageCount, upload, values],
   );
 
@@ -76,6 +78,7 @@ export default function Home() {
           const parsed = JSON.parse(saved) as SavedState;
           setUpload(parsed.upload);
           setDetectedType(parsed.detectedType || "General Template");
+          setEditableOutput(parsed.editableOutput || "");
           setFields(parsed.fields || []);
           setValues(parsed.values || {});
           setLayoutStyle(parsed.layoutStyle || "Format Ringkas");
@@ -95,6 +98,7 @@ export default function Home() {
     if (!hydrated) return;
     const state: SavedState = {
       detectedType,
+      editableOutput,
       fields,
       layoutStyle,
       pageCount,
@@ -102,23 +106,35 @@ export default function Home() {
       values,
     };
     window.localStorage.setItem(storageKey, JSON.stringify(state));
-  }, [detectedType, fields, hydrated, layoutStyle, pageCount, upload, values]);
+  }, [detectedType, editableOutput, fields, hydrated, layoutStyle, pageCount, upload, values]);
 
   function startScan(nextUpload: UploadState) {
     setUpload(nextUpload);
     setDetectedType("General Template");
     setFields([]);
     setValues({});
+    setEditableOutput("");
     setPreviewGenerated(false);
     setScanState("scanning");
     setMessage("Menganalisis struktur dokumen...");
 
     window.setTimeout(() => {
       const result = detectDocument(nextUpload.name, nextUpload.type);
+      const nextOutput = buildPreview(
+        result.type,
+        result.fields,
+        {},
+        layoutStyle,
+        pageCount,
+        true,
+        nextUpload,
+      );
       setDetectedType(result.type);
       setFields(result.fields);
+      setEditableOutput(nextOutput);
+      setPreviewGenerated(true);
       setScanState("done");
-      setMessage(`Jenis dokumen dikesan: ${result.type}. Template digunakan sebagai rujukan sahaja.`);
+      setMessage(`Jenis dokumen dikesan: ${result.type}. Output awal telah dijana dan boleh diedit.`);
     }, 1350);
   }
 
@@ -212,13 +228,14 @@ export default function Home() {
   }
 
   function generatePreview() {
+    setEditableOutput(previewText);
     setPreviewGenerated(true);
     setMessage("Preview dokumen telah dijana.");
   }
 
   async function copyText() {
     try {
-      await navigator.clipboard.writeText(previewText);
+      await navigator.clipboard.writeText(editableOutput || previewText);
       setMessage("Teks preview telah disalin.");
     } catch {
       setMessage("Teks tidak dapat disalin pada pelayar ini.");
@@ -235,6 +252,7 @@ export default function Home() {
     setDetectedType("General Template");
     setFields([]);
     setValues({});
+    setEditableOutput("");
     setLayoutStyle("Format Ringkas");
     setPageCount("1 Page");
     setPreviewGenerated(false);
@@ -457,9 +475,12 @@ export default function Home() {
                   detectedType={detectedType}
                   fields={fields}
                   hasTemplate={Boolean(upload)}
+                  editableOutput={editableOutput}
                   layoutStyle={layoutStyle}
                   pageCount={pageCount}
                   previewGenerated={previewGenerated}
+                  setEditableOutput={setEditableOutput}
+                  upload={upload}
                   values={values}
                 />
               </Panel>
@@ -592,19 +613,25 @@ function ScanCard() {
 
 function DocumentPreview({
   detectedType,
+  editableOutput,
   fields,
   hasTemplate,
   layoutStyle,
   pageCount,
   previewGenerated,
+  setEditableOutput,
+  upload,
   values,
 }: {
   detectedType: DetectedType;
+  editableOutput: string;
   fields: string[];
   hasTemplate: boolean;
   layoutStyle: LayoutStyle;
   pageCount: PageCount;
   previewGenerated: boolean;
+  setEditableOutput: (value: string) => void;
+  upload: UploadState | null;
   values: Record<string, string>;
 }) {
   if (!previewGenerated) {
@@ -618,9 +645,12 @@ function DocumentPreview({
     );
   }
 
-  const pages = buildPreviewPages(detectedType, fields, values, hasTemplate);
+  const outputText =
+    editableOutput ||
+    buildPreview(detectedType, fields, values, layoutStyle, pageCount, hasTemplate, upload);
+  const pages = pageCount === "2 Pages" ? splitEditableOutput(outputText) : [outputText];
   const visiblePages =
-    pageCount === "2 Pages" ? pages : [pages.join("\n\n")];
+    pageCount === "2 Pages" ? pages : [outputText];
 
   return (
     <div className="space-y-6">
@@ -649,17 +679,40 @@ function DocumentPreview({
           </div>
 
           {layoutStyle === "Format Jadual" ? (
-            <DocumentTable
-              detectedType={detectedType}
-              fields={fields}
-              pageIndex={index}
-              pageCount={pageCount}
-              values={values}
-            />
+            <>
+              <DocumentTable
+                detectedType={detectedType}
+                fields={fields}
+                pageIndex={index}
+                pageCount={pageCount}
+                values={values}
+              />
+              <label className="mt-7 grid gap-3 text-sm font-semibold text-[#2c2925]">
+                Edit Output
+                <textarea
+                  className="min-h-56 resize-y rounded-2xl border border-[#cfc6b8] bg-[#fffdf8] p-4 font-sans text-sm font-normal leading-7 text-[#2c2925] outline-none focus:border-[#6f7f9f]"
+                  onChange={(event) => setEditableOutput(event.target.value)}
+                  value={outputText}
+                />
+              </label>
+            </>
           ) : (
-            <pre className="mt-7 whitespace-pre-wrap font-sans text-sm leading-7 text-[#2c2925] sm:text-[15px]">
-              {page}
-            </pre>
+            <label className="mt-7 grid gap-3 text-sm font-semibold text-[#2c2925]">
+              Edit Output
+              <textarea
+                className="min-h-[32rem] resize-y rounded-2xl border border-[#cfc6b8] bg-[#fffdf8] p-4 font-sans text-sm font-normal leading-7 text-[#2c2925] outline-none focus:border-[#6f7f9f] sm:text-[15px]"
+                onChange={(event) => {
+                  if (pageCount === "2 Pages") {
+                    const nextPages = [...visiblePages];
+                    nextPages[index] = event.target.value;
+                    setEditableOutput(nextPages.join("\n\n--- HALAMAN SETERUSNYA ---\n\n"));
+                    return;
+                  }
+                  setEditableOutput(event.target.value);
+                }}
+                value={page}
+              />
+            </label>
           )}
 
           <div className="mt-10 grid gap-2 text-sm text-[#2c2925]">
@@ -810,6 +863,19 @@ function value(values: Record<string, string>, key: string, fallback: string) {
   return values[key]?.trim() || fallback;
 }
 
+function splitEditableOutput(text: string) {
+  if (text.includes("--- HALAMAN SETERUSNYA ---")) {
+    return text.split(/\n\n--- HALAMAN SETERUSNYA ---\n\n|\n\n--- HALAMAN 2 ---\n\n/);
+  }
+
+  const blocks = text.split("\n\n");
+  const midpoint = Math.ceil(blocks.length / 2);
+  return [
+    blocks.slice(0, midpoint).join("\n\n"),
+    blocks.slice(midpoint).join("\n\n"),
+  ];
+}
+
 function buildPreview(
   detectedType: DetectedType,
   fields: string[],
@@ -817,8 +883,9 @@ function buildPreview(
   layoutStyle: LayoutStyle,
   pageCount: PageCount,
   hasTemplate: boolean,
+  upload: UploadState | null,
 ) {
-  return buildPreviewPages(detectedType, fields, values, hasTemplate)
+  return buildPreviewPages(detectedType, fields, values, hasTemplate, upload)
     .join(pageCount === "2 Pages" ? "\n\n--- HALAMAN 2 ---\n\n" : "\n\n")
     .concat(`\n\nFormat: ${layoutStyle}`);
 }
@@ -828,15 +895,17 @@ function buildPreviewPages(
   fields: string[],
   values: Record<string, string>,
   hasTemplate: boolean,
+  upload: UploadState | null,
 ) {
-  if (detectedType === "RPA") return rpaPages(values, hasTemplate);
-  if (detectedType === "RPH") return rphPages(values, hasTemplate);
-  if (detectedType === "RPI") return rpiPages(values, hasTemplate);
+  if (detectedType === "RPA") return rpaPages(values, hasTemplate, upload);
+  if (detectedType === "RPH") return rphPages(values, hasTemplate, upload);
+  if (detectedType === "RPI") return rpiPages(values, hasTemplate, upload);
 
   const title = value(values, "Tajuk Aktiviti", "Dokumen Berdasarkan Template");
   const header = `${title.toUpperCase()}
 
 Status Template: ${hasTemplate ? "Template Aktif" : "Tiada template"}
+Fail Rujukan: ${upload ? `${upload.name} (${upload.type})` : "Tiada"}
 Nota: Template digunakan sebagai rujukan format sahaja.`;
 
   const body = fields
@@ -935,11 +1004,16 @@ function row(
   };
 }
 
-function rpaPages(values: Record<string, string>, hasTemplate: boolean) {
+function rpaPages(
+  values: Record<string, string>,
+  hasTemplate: boolean,
+  upload: UploadState | null,
+) {
   return [
     `RANCANGAN PELAKSANAAN AKTIVITI (RPA)
 
 Status Template: ${hasTemplate ? "Template Aktif" : "Tiada template"}
+Fail Rujukan: ${upload ? `${upload.name} (${upload.type})` : "Tiada"}
 Nota: Template digunakan sebagai rujukan format sahaja.
 
 Maklumat Aktiviti
@@ -968,11 +1042,16 @@ ${value(values, "Tandatangan", "Tandatangan")}`,
   ];
 }
 
-function rphPages(values: Record<string, string>, hasTemplate: boolean) {
+function rphPages(
+  values: Record<string, string>,
+  hasTemplate: boolean,
+  upload: UploadState | null,
+) {
   return [
     `RANCANGAN PENGAJARAN HARIAN (RPH)
 
 Status Template: ${hasTemplate ? "Template Aktif" : "Tiada template"}
+Fail Rujukan: ${upload ? `${upload.name} (${upload.type})` : "Tiada"}
 Nota: Template digunakan sebagai rujukan format sahaja.
 
 Mata Pelajaran: ${value(values, "Mata Pelajaran", "Mata Pelajaran")}
@@ -999,11 +1078,16 @@ ${value(values, "Tandatangan", "Tandatangan")}`,
   ];
 }
 
-function rpiPages(values: Record<string, string>, hasTemplate: boolean) {
+function rpiPages(
+  values: Record<string, string>,
+  hasTemplate: boolean,
+  upload: UploadState | null,
+) {
   return [
     `RANCANGAN PENDIDIKAN INDIVIDU (RPI)
 
 Status Template: ${hasTemplate ? "Template Aktif" : "Tiada template"}
+Fail Rujukan: ${upload ? `${upload.name} (${upload.type})` : "Tiada"}
 Nota: Template digunakan sebagai rujukan format sahaja.
 
 Maklumat Murid/Klien
