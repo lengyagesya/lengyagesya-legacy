@@ -191,17 +191,6 @@ export default function Home() {
     window.localStorage.removeItem(storageKey);
   }
 
-  async function copyOutput() {
-    try {
-      await navigator.clipboard.writeText(
-        buildOutputText(selectedProfile, outputFormat, fields, values),
-      );
-      setMessage("Output telah disalin.");
-    } catch {
-      setMessage("Output tidak dapat disalin pada pelayar ini.");
-    }
-  }
-
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#050507] text-white">
       <Background />
@@ -305,24 +294,19 @@ export default function Home() {
               <div className="space-y-6">
                 <Panel title="Output">
                   <div className="mb-5 flex flex-wrap gap-3">
-                    <button className="btn-secondary" onClick={copyOutput}>
-                      Copy Output
-                    </button>
                     <button className="btn-quiet" onClick={resetAll}>
                       Reset
                     </button>
                   </div>
 
-                  <DocumentPreview officeFile={officeFile} upload={upload} />
-
-                  {fields.length > 0 ? (
-                    <OutputColumns
-                      fields={fields}
-                      outputFormat={outputFormat}
-                      selectedProfile={selectedProfile}
-                      values={values}
-                    />
-                  ) : null}
+                  <DocumentPreview
+                    fields={fields}
+                    officeFile={officeFile}
+                    outputFormat={outputFormat}
+                    selectedProfile={selectedProfile}
+                    upload={upload}
+                    values={values}
+                  />
                 </Panel>
               </div>
             </div>
@@ -367,60 +351,27 @@ function FieldInput({
   );
 }
 
-function OutputColumns({
+function DocumentPreview({
   fields,
+  officeFile,
   outputFormat,
   selectedProfile,
+  upload,
   values,
 }: {
   fields: string[];
+  officeFile: File | null;
   outputFormat: OutputFormat;
   selectedProfile: UserProfile;
-  values: Record<string, string>;
-}) {
-  return (
-    <article className="mt-6 rounded-[1.5rem] border border-[#ded8ce] bg-[#f8f4ed] p-6 text-[#171513] shadow-[0_28px_100px_rgba(0,0,0,0.32)] sm:p-8">
-      <div className="border-b border-[#ded8ce] pb-5">
-        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#6f7f9f]">
-          Output Kolum
-        </p>
-        <h2 className="mt-3 text-2xl font-semibold tracking-tight">
-          {outputFormat}
-        </h2>
-        <p className="mt-2 text-sm text-[#655f58]">User: {selectedProfile}</p>
-      </div>
-
-      <div className="mt-6 overflow-hidden rounded-2xl border border-[#cfc6b8]">
-        {fields.map((field) => (
-          <div
-            className="grid border-b border-[#cfc6b8] last:border-b-0 sm:grid-cols-[0.35fr_0.65fr]"
-            key={field}
-          >
-            <div className="bg-[#e8dfd1] p-4 text-sm font-semibold text-[#27231f]">
-              {field}
-            </div>
-            <div className="min-h-14 whitespace-pre-wrap bg-[#fbf7f0] p-4 text-sm leading-6 text-[#332f2a]">
-              {values[field]?.trim() || "Belum diisi"}
-            </div>
-          </div>
-        ))}
-      </div>
-    </article>
-  );
-}
-
-function DocumentPreview({
-  officeFile,
-  upload,
-}: {
-  officeFile: File | null;
   upload: UploadState | null;
+  values: Record<string, string>;
 }) {
   if (!upload) {
     return (
       <article className="rounded-[1.5rem] border border-[#ded8ce] bg-[#f8f4ed] p-6 text-[#171513] shadow-[0_28px_100px_rgba(0,0,0,0.32)] sm:p-8">
         <p className="text-sm leading-7 text-[#655f58]">
-          Upload format file untuk lihat preview asal dan output kolum.
+          Upload format file untuk lihat preview asal. Kolum yang diisi akan
+          masuk terus dalam preview ini.
         </p>
       </article>
     );
@@ -428,7 +379,7 @@ function DocumentPreview({
 
   return (
     <article className="rounded-[1.5rem] border border-white/10 bg-black/25 p-4 shadow-[0_28px_100px_rgba(0,0,0,0.32)] sm:p-6">
-      <div className="mx-auto aspect-[210/297] w-full max-w-[794px] overflow-hidden rounded-sm bg-white shadow-[0_20px_80px_rgba(0,0,0,0.45)]">
+      <div className="relative mx-auto aspect-[210/297] w-full max-w-[794px] overflow-hidden rounded-sm bg-white shadow-[0_20px_80px_rgba(0,0,0,0.45)]">
         {upload.kind === "image" ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -450,8 +401,68 @@ function DocumentPreview({
         {upload.kind === "office" ? (
           <OfficeDocumentPreview file={officeFile} upload={upload} />
         ) : null}
+
+        {fields.length > 0 ? (
+          <FilledPreviewLayer
+            fields={fields}
+            outputFormat={outputFormat}
+            selectedProfile={selectedProfile}
+            values={values}
+          />
+        ) : null}
       </div>
     </article>
+  );
+}
+
+function FilledPreviewLayer({
+  fields,
+  outputFormat,
+  selectedProfile,
+  values,
+}: {
+  fields: string[];
+  outputFormat: OutputFormat;
+  selectedProfile: UserProfile;
+  values: Record<string, string>;
+}) {
+  const visibleFields = fields.filter((field) => values[field]?.trim()).slice(0, 10);
+
+  if (visibleFields.length === 0) {
+    return (
+      <div className="absolute bottom-5 left-5 right-5 rounded-xl border border-[#cfc6b8] bg-[#fffdf8]/95 p-4 text-[#171513] shadow-[0_18px_60px_rgba(0,0,0,0.22)]">
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#6f7f9f]">
+          {outputFormat}
+        </p>
+        <p className="mt-2 text-sm text-[#655f58]">
+          Isi kolum di sebelah kiri. Maklumat akan muncul terus dalam preview ini.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="absolute bottom-5 left-5 right-5 max-h-[45%] overflow-auto rounded-xl border border-[#cfc6b8] bg-[#fffdf8]/95 p-4 text-[#171513] shadow-[0_18px_60px_rgba(0,0,0,0.22)]">
+      <div className="mb-3 border-b border-[#ded8ce] pb-3">
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#6f7f9f]">
+          {outputFormat}
+        </p>
+        <p className="mt-1 text-xs text-[#655f58]">User: {selectedProfile}</p>
+      </div>
+      <div className="grid gap-2">
+        {visibleFields.map((field) => (
+          <div
+            className="grid gap-1 border-b border-[#ebe2d6] pb-2 last:border-b-0 sm:grid-cols-[0.36fr_0.64fr]"
+            key={field}
+          >
+            <span className="text-xs font-semibold text-[#27231f]">{field}</span>
+            <span className="whitespace-pre-wrap text-xs leading-5 text-[#332f2a]">
+              {values[field]}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -765,18 +776,4 @@ function inputTypeForField(field: string) {
   if (lower.includes("masa")) return "time";
   if (longFieldHints.some((hint) => field.includes(hint))) return "textarea";
   return "text";
-}
-
-function buildOutputText(
-  selectedProfile: UserProfile,
-  outputFormat: OutputFormat,
-  fields: string[],
-  values: Record<string, string>,
-) {
-  return [
-    `User: ${selectedProfile}`,
-    `Format Output: ${outputFormat}`,
-    "",
-    ...fields.map((field) => `${field}: ${values[field]?.trim() || "Belum diisi"}`),
-  ].join("\n");
 }
