@@ -27,12 +27,93 @@ body {
   color: #ffffff;
 }
 
+.input-field {
+  min-height: 3.25rem;
+  width: 100%;
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.28);
+  padding: 0.85rem 1rem;
+  color: #ffffff;
+  outline: none;
+  transition:
+    border-color 220ms ease,
+    background 220ms ease,
+    box-shadow 220ms ease;
+}
+
+.input-field::placeholder {
+  color: rgba(174, 183, 200, 0.62);
+}
+
+.input-field:focus {
+  border-color: rgba(185, 202, 255, 0.66);
+  background: rgba(0, 0, 0, 0.38);
+  box-shadow: 0 0 0 4px rgba(125, 161, 255, 0.08);
+}
+
+.btn-primary,
+.btn-secondary,
+.btn-quiet {
+  display: inline-flex;
+  min-height: 3.25rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 0.9rem 1.35rem;
+  text-align: center;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  transition:
+    transform 260ms ease,
+    border-color 260ms ease,
+    background 260ms ease,
+    color 260ms ease,
+    box-shadow 260ms ease;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #ffffff, #d7e3ff 48%, #8faeff);
+  color: #050507;
+  box-shadow: 0 18px 70px rgba(125, 161, 255, 0.2);
+}
+
+.btn-secondary {
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.055);
+  color: #ffffff;
+  backdrop-filter: blur(22px);
+}
+
+.btn-quiet {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.22);
+  color: #aeb7c8;
+}
+
+.btn-primary:hover,
+.btn-secondary:hover,
+.btn-quiet:hover {
+  transform: translateY(-2px);
+}
+
+.btn-secondary:hover,
+.btn-quiet:hover {
+  border-color: rgba(185, 202, 255, 0.45);
+}
+
 .intro-grid {
   background-image:
     linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
     linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
   background-size: 82px 82px;
   mask-image: radial-gradient(circle at center, black 0%, transparent 72%);
+}
+
+.intro-overlay {
+  animation: intro-overlay-out 800ms cubic-bezier(0.22, 1, 0.36, 1) 1900ms both;
 }
 
 .intro-glow {
@@ -55,6 +136,36 @@ body {
 
 .intro-kicker {
   animation: subtitle-enter 1200ms ease-out 360ms both;
+}
+
+.main-reveal {
+  animation: main-reveal 900ms cubic-bezier(0.22, 1, 0.36, 1) 2200ms both;
+}
+
+@keyframes intro-overlay-out {
+  from {
+    opacity: 1;
+    transform: scale(1);
+    visibility: visible;
+  }
+
+  to {
+    opacity: 0;
+    transform: scale(1.018);
+    visibility: hidden;
+  }
+}
+
+@keyframes main-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.992);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 @keyframes intro-enter {
