@@ -13,8 +13,10 @@ type UploadState = {
 type LayoutStyle = "Format Ringkas" | "Format Jadual";
 type PageCount = "1 Page" | "2 Pages";
 type ScanState = "idle" | "scanning" | "done";
+type DetectedType = "RPA" | "RPH" | "RPI" | "General Template";
 
 type SavedState = {
+  detectedType: DetectedType;
   fields: string[];
   pageCount: PageCount;
   layoutStyle: LayoutStyle;
@@ -52,6 +54,7 @@ const longFieldHints = [
 export default function Home() {
   const [upload, setUpload] = useState<UploadState | null>(null);
   const [scanState, setScanState] = useState<ScanState>("idle");
+  const [detectedType, setDetectedType] = useState<DetectedType>("General Template");
   const [fields, setFields] = useState<string[]>([]);
   const [values, setValues] = useState<Record<string, string>>({});
   const [layoutStyle, setLayoutStyle] = useState<LayoutStyle>("Format Ringkas");
@@ -61,8 +64,8 @@ export default function Home() {
   const [hydrated, setHydrated] = useState(false);
 
   const previewText = useMemo(
-    () => buildPreview(fields, values, layoutStyle, pageCount, Boolean(upload)),
-    [fields, layoutStyle, pageCount, upload, values],
+    () => buildPreview(detectedType, fields, values, layoutStyle, pageCount, Boolean(upload)),
+    [detectedType, fields, layoutStyle, pageCount, upload, values],
   );
 
   useEffect(() => {
@@ -72,6 +75,7 @@ export default function Home() {
         try {
           const parsed = JSON.parse(saved) as SavedState;
           setUpload(parsed.upload);
+          setDetectedType(parsed.detectedType || "General Template");
           setFields(parsed.fields || []);
           setValues(parsed.values || {});
           setLayoutStyle(parsed.layoutStyle || "Format Ringkas");
@@ -90,6 +94,7 @@ export default function Home() {
   useEffect(() => {
     if (!hydrated) return;
     const state: SavedState = {
+      detectedType,
       fields,
       layoutStyle,
       pageCount,
@@ -97,10 +102,11 @@ export default function Home() {
       values,
     };
     window.localStorage.setItem(storageKey, JSON.stringify(state));
-  }, [fields, hydrated, layoutStyle, pageCount, upload, values]);
+  }, [detectedType, fields, hydrated, layoutStyle, pageCount, upload, values]);
 
   function startScan(nextUpload: UploadState) {
     setUpload(nextUpload);
+    setDetectedType("General Template");
     setFields([]);
     setValues({});
     setPreviewGenerated(false);
@@ -108,10 +114,11 @@ export default function Home() {
     setMessage("Menganalisis struktur dokumen...");
 
     window.setTimeout(() => {
-      const detected = detectFields(nextUpload.name, nextUpload.type);
-      setFields(detected);
+      const result = detectDocument(nextUpload.name, nextUpload.type);
+      setDetectedType(result.type);
+      setFields(result.fields);
       setScanState("done");
-      setMessage("Medan utama berjaya dikesan secara automatik.");
+      setMessage(`Jenis dokumen dikesan: ${result.type}. Template digunakan sebagai rujukan sahaja.`);
     }, 1350);
   }
 
@@ -225,6 +232,7 @@ export default function Home() {
   function resetAll() {
     setUpload(null);
     setScanState("idle");
+    setDetectedType("General Template");
     setFields([]);
     setValues({});
     setLayoutStyle("Format Ringkas");
@@ -273,7 +281,7 @@ export default function Home() {
               <Panel title="Upload Template">
                 <label className="group flex min-h-80 cursor-pointer flex-col items-center justify-center rounded-[2rem] border border-dashed border-[#b9caff]/35 bg-[#7da1ff]/8 px-6 py-10 text-center shadow-[0_28px_120px_rgba(71,102,180,0.14)] transition duration-500 hover:border-[#d7e3ff]/80 hover:bg-[#7da1ff]/12">
                   <span className="grid h-20 w-20 place-items-center rounded-[1.5rem] border border-white/10 bg-white/[0.07] text-4xl text-[#d7e3ff] transition group-hover:scale-105">
-                    ↑
+                    &uarr;
                   </span>
                   <span className="mt-7 text-3xl font-semibold tracking-[-0.02em] text-white">
                     Upload format dokumen anda
@@ -299,6 +307,20 @@ export default function Home() {
                   <p className="mt-5 rounded-2xl border border-[#b9caff]/20 bg-[#7da1ff]/10 px-4 py-3 text-sm text-[#d7e3ff]">
                     {message}
                   </p>
+                ) : null}
+                {scanState === "done" && upload ? (
+                  <div className="mt-5 rounded-2xl border border-[#b9caff]/20 bg-white/[0.045] p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#8d98ad]">
+                      Detected Document Type
+                    </p>
+                    <p className="mt-2 text-2xl font-semibold text-white">
+                      {detectedType}
+                    </p>
+                    <p className="mt-2 text-sm leading-6 text-[#aeb7c8]">
+                      Template yang dimuat naik digunakan sebagai rujukan format
+                      sahaja. Struktur preview dijana melalui simulasi frontend.
+                    </p>
+                  </div>
                 ) : null}
               </Panel>
 
@@ -432,12 +454,12 @@ export default function Home() {
                 </div>
 
                 <DocumentPreview
+                  detectedType={detectedType}
                   fields={fields}
                   hasTemplate={Boolean(upload)}
                   layoutStyle={layoutStyle}
                   pageCount={pageCount}
                   previewGenerated={previewGenerated}
-                  previewText={previewText}
                   values={values}
                 />
               </Panel>
@@ -569,20 +591,20 @@ function ScanCard() {
 }
 
 function DocumentPreview({
+  detectedType,
   fields,
   hasTemplate,
   layoutStyle,
   pageCount,
   previewGenerated,
-  previewText,
   values,
 }: {
+  detectedType: DetectedType;
   fields: string[];
   hasTemplate: boolean;
   layoutStyle: LayoutStyle;
   pageCount: PageCount;
   previewGenerated: boolean;
-  previewText: string;
   values: Record<string, string>;
 }) {
   if (!previewGenerated) {
@@ -596,12 +618,13 @@ function DocumentPreview({
     );
   }
 
-  const pages =
-    pageCount === "2 Pages" ? splitPreview(previewText) : [previewText];
+  const pages = buildPreviewPages(detectedType, fields, values, hasTemplate);
+  const visiblePages =
+    pageCount === "2 Pages" ? pages : [pages.join("\n\n")];
 
   return (
     <div className="space-y-6">
-      {pages.map((page, index) => (
+      {visiblePages.map((page, index) => (
         <article
           className="rounded-[1.5rem] border border-[#ded8ce] bg-[#f8f4ed] p-6 text-[#171513] shadow-[0_28px_100px_rgba(0,0,0,0.32)] sm:p-8"
           key={`${pageCount}-${index}`}
@@ -612,8 +635,11 @@ function DocumentPreview({
                 {pageCount === "2 Pages" ? `Halaman ${index + 1}` : "Preview"}
               </p>
               <h1 className="mt-3 text-3xl font-semibold tracking-tight">
-                {value(values, "Tajuk Aktiviti", "Dokumen Profesional")}
+                {previewTitle(detectedType, values)}
               </h1>
+              <p className="mt-2 text-sm text-[#655f58]">
+                Jenis dikesan: {detectedType}
+              </p>
             </div>
             {hasTemplate ? (
               <span className="rounded-full bg-[#dce7ff] px-4 py-2 text-xs font-semibold text-[#28447d]">
@@ -623,21 +649,13 @@ function DocumentPreview({
           </div>
 
           {layoutStyle === "Format Jadual" ? (
-            <div className="mt-7 overflow-hidden rounded-2xl border border-[#ded8ce]">
-              {fields.map((field) => (
-                <div
-                  className="grid border-b border-[#ded8ce] last:border-b-0 sm:grid-cols-[0.38fr_0.62fr]"
-                  key={field}
-                >
-                  <div className="bg-[#ece4d7] p-3 text-sm font-semibold">
-                    {field}
-                  </div>
-                  <div className="p-3 text-sm leading-6">
-                    {value(values, field, `Placeholder ${field.toLowerCase()}`)}
-                  </div>
-                </div>
-              ))}
-            </div>
+            <DocumentTable
+              detectedType={detectedType}
+              fields={fields}
+              pageIndex={index}
+              pageCount={pageCount}
+              values={values}
+            />
           ) : (
             <pre className="mt-7 whitespace-pre-wrap font-sans text-sm leading-7 text-[#2c2925] sm:text-[15px]">
               {page}
@@ -656,43 +674,130 @@ function DocumentPreview({
   );
 }
 
-function detectFields(fileName: string, fileType: string) {
+function DocumentTable({
+  detectedType,
+  fields,
+  pageCount,
+  pageIndex,
+  values,
+}: {
+  detectedType: DetectedType;
+  fields: string[];
+  pageCount: PageCount;
+  pageIndex: number;
+  values: Record<string, string>;
+}) {
+  const rows = tableRowsForType(detectedType, fields, values);
+  const visibleRows =
+    pageCount === "2 Pages"
+      ? rows.filter((row) => row.page === pageIndex + 1)
+      : rows;
+
+  return (
+    <div className="mt-7 overflow-hidden rounded-2xl border border-[#cfc6b8]">
+      {visibleRows.map((row) => (
+        <div
+          className="grid border-b border-[#cfc6b8] last:border-b-0 sm:grid-cols-[0.34fr_0.66fr]"
+          key={`${row.label}-${row.page}`}
+        >
+          <div className="bg-[#e8dfd1] p-4 text-sm font-semibold text-[#27231f]">
+            {row.label}
+          </div>
+          <div className="min-h-14 bg-[#fbf7f0] p-4 text-sm leading-6 text-[#332f2a]">
+            {row.content}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function detectDocument(fileName: string, fileType: string) {
   const lowerName = fileName.toLowerCase();
+  if (lowerName.includes("rpa")) {
+    return {
+      fields: [
+        "Nama Organisasi",
+        "Nama Guru / Petugas",
+        "Nama Murid / Pelatih",
+        "Tarikh",
+        "Tajuk Aktiviti",
+        "Objektif",
+        "Bahan / Alat",
+        "Langkah Pelaksanaan",
+        "Pemerhatian",
+        "Refleksi",
+        "Tandatangan",
+      ],
+      type: "RPA" as DetectedType,
+    };
+  }
+
   if (lowerName.includes("rph") || lowerName.includes("lesson")) {
-    return [
-      "Nama Organisasi",
-      "Nama Guru / Petugas",
-      "Tarikh",
-      "Tajuk Aktiviti",
-      "Standard Kandungan",
-      "Standard Pembelajaran",
-      "Objektif",
-      "Bahan / Alat",
-      "Langkah Pelaksanaan",
-      "Refleksi",
-      "Tandatangan",
-    ];
+    return {
+      fields: [
+        "Nama Organisasi",
+        "Nama Guru / Petugas",
+        "Mata Pelajaran",
+        "Kelas",
+        "Tarikh",
+        "Tajuk Aktiviti",
+        "Standard Kandungan",
+        "Standard Pembelajaran",
+        "Objektif",
+        "Aktiviti PdP",
+        "Refleksi",
+        "Tandatangan",
+      ],
+      type: "RPH" as DetectedType,
+    };
+  }
+
+  if (lowerName.includes("rpi") || lowerName.includes("individu")) {
+    return {
+      fields: [
+        "Nama Organisasi",
+        "Nama Murid / Pelatih",
+        "Kategori / Keperluan",
+        "Matlamat",
+        "Objektif Jangka Pendek",
+        "Intervensi",
+        "Penilaian",
+        "Catatan",
+        "Tandatangan",
+      ],
+      type: "RPI" as DetectedType,
+    };
   }
 
   if (lowerName.includes("laporan") || lowerName.includes("report")) {
-    return [
-      "Nama Organisasi",
-      "Nama Guru / Petugas",
-      "Tarikh",
-      "Tajuk Aktiviti",
-      "Objektif",
-      "Langkah Pelaksanaan",
-      "Pemerhatian",
-      "Refleksi",
-      "Tandatangan",
-    ];
+    return {
+      fields: [
+        "Nama Organisasi",
+        "Nama Guru / Petugas",
+        "Tarikh",
+        "Tajuk Aktiviti",
+        "Objektif",
+        "Langkah Pelaksanaan",
+        "Pemerhatian",
+        "Refleksi",
+        "Tandatangan",
+      ],
+      type: "General Template" as DetectedType,
+    };
   }
 
   if (fileType === "DOC" || fileType === "DOCX") {
-    return defaultDetectedFields;
+    return {
+      fields: defaultDetectedFields,
+      type: "General Template" as DetectedType,
+    };
   }
 
-  return defaultDetectedFields.slice(0, 11);
+  return {
+    fields: defaultDetectedFields.slice(0, 11),
+    type: "General Template" as DetectedType,
+  };
 }
 
 function inputTypeForField(field: string) {
@@ -706,18 +811,33 @@ function value(values: Record<string, string>, key: string, fallback: string) {
 }
 
 function buildPreview(
+  detectedType: DetectedType,
   fields: string[],
   values: Record<string, string>,
   layoutStyle: LayoutStyle,
   pageCount: PageCount,
   hasTemplate: boolean,
 ) {
+  return buildPreviewPages(detectedType, fields, values, hasTemplate)
+    .join(pageCount === "2 Pages" ? "\n\n--- HALAMAN 2 ---\n\n" : "\n\n")
+    .concat(`\n\nFormat: ${layoutStyle}`);
+}
+
+function buildPreviewPages(
+  detectedType: DetectedType,
+  fields: string[],
+  values: Record<string, string>,
+  hasTemplate: boolean,
+) {
+  if (detectedType === "RPA") return rpaPages(values, hasTemplate);
+  if (detectedType === "RPH") return rphPages(values, hasTemplate);
+  if (detectedType === "RPI") return rpiPages(values, hasTemplate);
+
   const title = value(values, "Tajuk Aktiviti", "Dokumen Berdasarkan Template");
   const header = `${title.toUpperCase()}
 
 Status Template: ${hasTemplate ? "Template Aktif" : "Tiada template"}
-Format: ${layoutStyle}
-Susunan: ${pageCount}`;
+Nota: Template digunakan sebagai rujukan format sahaja.`;
 
   const body = fields
     .map((field, index) => {
@@ -727,13 +847,185 @@ ${content}`;
     })
     .join("\n\n");
 
-  return `${header}
+  const full = `${header}
 
 ${body}`;
+
+  const midpoint = Math.ceil(fields.length / 2);
+  const first = `${header}
+
+${fields
+  .slice(0, midpoint)
+  .map((field, index) => `${index + 1}. ${field}\n${value(values, field, `Placeholder ${field.toLowerCase()}`)}`)
+  .join("\n\n")}`;
+  const second = fields
+    .slice(midpoint)
+    .map((field, index) => `${midpoint + index + 1}. ${field}\n${value(values, field, `Placeholder ${field.toLowerCase()}`)}`)
+    .join("\n\n");
+
+  return [first, second || full];
 }
 
-function splitPreview(text: string) {
-  const blocks = text.split("\n\n");
-  const midpoint = Math.ceil(blocks.length / 2);
-  return [blocks.slice(0, midpoint).join("\n\n"), blocks.slice(midpoint).join("\n\n")];
+function previewTitle(type: DetectedType, values: Record<string, string>) {
+  if (type === "RPI") return value(values, "Nama Murid / Pelatih", "Rancangan Individu");
+  return value(values, "Tajuk Aktiviti", type === "General Template" ? "Dokumen Profesional" : type);
+}
+
+function tableRowsForType(
+  type: DetectedType,
+  fields: string[],
+  values: Record<string, string>,
+) {
+  if (type === "RPA") {
+    return [
+      row("Nama Organisasi", "Nama Organisasi", values, 1),
+      row("Nama Guru / Petugas", "Nama Guru / Petugas", values, 1),
+      row("Nama Murid / Pelatih", "Nama Murid / Pelatih", values, 1),
+      row("Tarikh", "Tarikh", values, 1),
+      row("Tajuk Aktiviti", "Tajuk Aktiviti", values, 1),
+      row("Objektif", "Objektif", values, 1),
+      row("Bahan / Alat", "Bahan / Alat", values, 1),
+      row("Langkah Pelaksanaan", "Langkah Pelaksanaan", values, 1),
+      row("Pemerhatian", "Pemerhatian", values, 2),
+      row("Refleksi", "Refleksi", values, 2),
+      row("Tandatangan", "Tandatangan", values, 2),
+    ];
+  }
+
+  if (type === "RPH") {
+    return [
+      row("Mata Pelajaran", "Mata Pelajaran", values, 1),
+      row("Kelas", "Kelas", values, 1),
+      row("Tarikh", "Tarikh", values, 1),
+      row("Standard Kandungan", "Standard Kandungan", values, 1),
+      row("Standard Pembelajaran", "Standard Pembelajaran", values, 1),
+      row("Objektif", "Objektif", values, 1),
+      row("Aktiviti PdP", "Aktiviti PdP", values, 1),
+      row("Refleksi", "Refleksi", values, 2),
+      row("Tandatangan", "Tandatangan", values, 2),
+    ];
+  }
+
+  if (type === "RPI") {
+    return [
+      row("Maklumat Murid/Klien", "Nama Murid / Pelatih", values, 1),
+      row("Kategori / Keperluan", "Kategori / Keperluan", values, 1),
+      row("Matlamat", "Matlamat", values, 1),
+      row("Objektif Jangka Pendek", "Objektif Jangka Pendek", values, 1),
+      row("Intervensi", "Intervensi", values, 1),
+      row("Penilaian", "Penilaian", values, 2),
+      row("Catatan", "Catatan", values, 2),
+      row("Tandatangan", "Tandatangan", values, 2),
+    ];
+  }
+
+  return fields.map((field, index) => row(field, field, values, index < Math.ceil(fields.length / 2) ? 1 : 2));
+}
+
+function row(
+  label: string,
+  field: string,
+  values: Record<string, string>,
+  page: 1 | 2,
+) {
+  return {
+    content: value(values, field, `Placeholder ${label.toLowerCase()}`),
+    label,
+    page,
+  };
+}
+
+function rpaPages(values: Record<string, string>, hasTemplate: boolean) {
+  return [
+    `RANCANGAN PELAKSANAAN AKTIVITI (RPA)
+
+Status Template: ${hasTemplate ? "Template Aktif" : "Tiada template"}
+Nota: Template digunakan sebagai rujukan format sahaja.
+
+Maklumat Aktiviti
+Nama Organisasi: ${value(values, "Nama Organisasi", "Nama Organisasi")}
+Nama Guru / Petugas: ${value(values, "Nama Guru / Petugas", "Nama Guru / Petugas")}
+Nama Murid / Pelatih: ${value(values, "Nama Murid / Pelatih", "Nama Murid / Pelatih")}
+Tarikh: ${value(values, "Tarikh", "Tarikh")}
+Tajuk Aktiviti: ${value(values, "Tajuk Aktiviti", "Tajuk Aktiviti")}
+
+Objektif
+${value(values, "Objektif", "Objektif aktiviti dinyatakan dengan jelas.")}
+
+Bahan / Alat
+${value(values, "Bahan / Alat", "Senarai bahan dan alat yang digunakan.")}`,
+    `Langkah Pelaksanaan
+${value(values, "Langkah Pelaksanaan", "Langkah aktiviti disusun mengikut urutan pelaksanaan.")}
+
+Pemerhatian
+${value(values, "Pemerhatian", "Pemerhatian terhadap respons dan penglibatan murid/pelatih.")}
+
+Refleksi
+${value(values, "Refleksi", "Refleksi ringkas untuk penambahbaikan aktiviti.")}
+
+Tandatangan
+${value(values, "Tandatangan", "Tandatangan")}`,
+  ];
+}
+
+function rphPages(values: Record<string, string>, hasTemplate: boolean) {
+  return [
+    `RANCANGAN PENGAJARAN HARIAN (RPH)
+
+Status Template: ${hasTemplate ? "Template Aktif" : "Tiada template"}
+Nota: Template digunakan sebagai rujukan format sahaja.
+
+Mata Pelajaran: ${value(values, "Mata Pelajaran", "Mata Pelajaran")}
+Kelas: ${value(values, "Kelas", "Kelas")}
+Tarikh: ${value(values, "Tarikh", "Tarikh")}
+Tajuk: ${value(values, "Tajuk Aktiviti", "Tajuk pengajaran")}
+
+Standard Kandungan
+${value(values, "Standard Kandungan", "Standard kandungan dinyatakan di sini.")}
+
+Standard Pembelajaran
+${value(values, "Standard Pembelajaran", "Standard pembelajaran dinyatakan di sini.")}`,
+    `Objektif
+${value(values, "Objektif", "Objektif pembelajaran yang boleh dicapai dan diukur.")}
+
+Aktiviti PdP
+${value(values, "Aktiviti PdP", value(values, "Langkah Pelaksanaan", "Aktiviti pengajaran dan pembelajaran disusun mengikut fasa."))}
+
+Refleksi
+${value(values, "Refleksi", "Refleksi pengajaran dan tindakan susulan.")}
+
+Tandatangan
+${value(values, "Tandatangan", "Tandatangan")}`,
+  ];
+}
+
+function rpiPages(values: Record<string, string>, hasTemplate: boolean) {
+  return [
+    `RANCANGAN PENDIDIKAN INDIVIDU (RPI)
+
+Status Template: ${hasTemplate ? "Template Aktif" : "Tiada template"}
+Nota: Template digunakan sebagai rujukan format sahaja.
+
+Maklumat Murid/Klien
+Nama: ${value(values, "Nama Murid / Pelatih", "Nama Murid / Klien")}
+Organisasi: ${value(values, "Nama Organisasi", "Nama Organisasi")}
+Kategori / Keperluan: ${value(values, "Kategori / Keperluan", "Kategori / Keperluan")}
+
+Matlamat
+${value(values, "Matlamat", "Matlamat perkembangan jangka panjang.")}
+
+Objektif Jangka Pendek
+${value(values, "Objektif Jangka Pendek", "Objektif kecil yang boleh diukur.")}`,
+    `Intervensi
+${value(values, "Intervensi", "Strategi intervensi dilaksanakan mengikut keperluan individu.")}
+
+Penilaian
+${value(values, "Penilaian", "Penilaian berdasarkan pemerhatian dan rekod perkembangan.")}
+
+Catatan
+${value(values, "Catatan", "Catatan tambahan dan tindakan susulan.")}
+
+Tandatangan
+${value(values, "Tandatangan", "Tandatangan")}`,
+  ];
 }
