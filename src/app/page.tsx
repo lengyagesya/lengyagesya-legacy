@@ -175,6 +175,37 @@ export default function Home() {
     window.localStorage.removeItem(storageKey);
   }
 
+  function insertAiSuggestion() {
+    const editor = document.querySelector<HTMLElement>(".ly-docx-output");
+    if (!editor || upload?.type !== "DOCX") {
+      setMessage("Upload DOCX dahulu untuk guna cadangan AI.");
+      return;
+    }
+
+    const suggestion = buildAiSuggestion(selectedProfile, outputFormat);
+    const selection = window.getSelection();
+    const range =
+      selection && selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
+    const isInsideEditor =
+      range && editor.contains(range.commonAncestorContainer);
+
+    if (range && isInsideEditor) {
+      range.deleteContents();
+      range.insertNode(document.createTextNode(suggestion));
+      range.collapse(false);
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+    } else {
+      const paragraph = document.createElement("p");
+      paragraph.textContent = suggestion;
+      paragraph.style.marginTop = "12px";
+      editor.appendChild(paragraph);
+      paragraph.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+
+    setMessage("Cadangan AI telah dimasukkan dalam output DOCX.");
+  }
+
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#050507] text-white">
       <Background />
@@ -272,6 +303,11 @@ export default function Home() {
               <div className="space-y-6">
                 <Panel title="Output">
                   <div className="mb-5 flex flex-wrap gap-3">
+                    {upload?.type === "DOCX" ? (
+                      <button className="btn-secondary" onClick={insertAiSuggestion}>
+                        AI Cadangkan Ayat
+                      </button>
+                    ) : null}
                     <button className="btn-quiet" onClick={resetAll}>
                       Reset
                     </button>
@@ -592,4 +628,35 @@ function scanFields(sourceText: string) {
   });
 
   return Array.from(new Set(detected)).slice(0, 18);
+}
+
+function buildAiSuggestion(
+  selectedProfile: UserProfile,
+  outputFormat: OutputFormat,
+) {
+  if (outputFormat === "RPA") {
+    return "Pelatih dapat mengikuti aktiviti dengan bimbingan dan galakan daripada petugas. Pelatih menunjukkan minat, memberi respons terhadap arahan mudah serta melaksanakan tugasan mengikut tahap keupayaan masing-masing.";
+  }
+
+  if (outputFormat === "RPH") {
+    return "Murid dapat mengikuti sesi pembelajaran dengan baik melalui penerangan guru, aktiviti berpandu dan latihan pengukuhan. Objektif pembelajaran dicapai secara berperingkat mengikut tahap penguasaan murid.";
+  }
+
+  if (outputFormat === "RPI") {
+    return "Intervensi dilaksanakan secara berfokus berdasarkan keperluan individu. Murid/klien menunjukkan perkembangan positif dan masih memerlukan bimbingan berterusan untuk mengukuhkan kemahiran yang disasarkan.";
+  }
+
+  if (outputFormat.includes("Laporan")) {
+    return "Program telah dilaksanakan dengan lancar dan mencapai objektif yang ditetapkan. Peserta memberi kerjasama yang baik sepanjang aktiviti, manakala penambahbaikan boleh dibuat dari aspek susun atur masa, bahan dan pemantauan.";
+  }
+
+  if (outputFormat === "Minit Mesyuarat") {
+    return "Mesyuarat bersetuju supaya tindakan susulan dilaksanakan oleh pihak berkaitan mengikut tempoh yang ditetapkan. Perkembangan tindakan akan dibentangkan semula dalam mesyuarat berikutnya.";
+  }
+
+  if (outputFormat === "Memo") {
+    return "Perkara ini perlu diberi perhatian dan dilaksanakan mengikut ketetapan organisasi. Kerjasama semua pihak amat dihargai bagi memastikan urusan berjalan lancar dan teratur.";
+  }
+
+  return `${selectedProfile} boleh menggunakan cadangan ini sebagai ayat profesional: Dokumen ini disediakan berdasarkan maklumat semasa, keperluan organisasi dan tujuan pelaksanaan yang telah dikenal pasti.`;
 }
