@@ -218,7 +218,7 @@ export default function Home() {
 
     setScanState("scanning");
     setShowOutputFile(false);
-    setMessage("Menyemak soalan dalam format...");
+    setMessage("Menyemak ruangan dalam format...");
 
     window.setTimeout(() => {
       const scannedFields = scanFields(sourceText || upload.name);
@@ -239,8 +239,8 @@ export default function Home() {
       setScanState("done");
       setMessage(
         scannedFields.length
-          ? "Format disimpan. Isi soalan/medan yang dikesan, kemudian jana output."
-          : "Format disimpan, tetapi tiada soalan jelas dikesan dalam file.",
+          ? "Format disimpan. Isi ruangan yang dikesan, kemudian masukkan ke dokumen."
+          : "Format disimpan, tetapi tiada ruangan jelas dikesan dalam file.",
       );
     }, 900);
   }
@@ -326,7 +326,7 @@ export default function Home() {
               lY Docs
             </a>
             <span className="hidden text-sm text-[#aeb7c8] sm:inline">
-              Upload file, preview sama, edit terus.
+              Upload format, isi maklumat, jana terus ke dokumen.
             </span>
           </div>
         </header>
@@ -338,13 +338,29 @@ export default function Home() {
                 lY Docs
               </p>
               <h1 className="mt-4 text-4xl font-semibold tracking-[-0.03em] text-white sm:text-6xl">
-                Upload file, edit dalam output.
+                Siapkan RPH, RPA dan laporan dengan lebih mudah.
               </h1>
+              <p className="mt-5 max-w-3xl text-base leading-8 text-[#aeb7c8] sm:text-lg">
+                Pilih peranan, pilih dokumen, upload format sendiri, kemudian isi
+                maklumat yang dikesan. lY Docs akan masukkan jawapan ke dalam
+                format asal.
+              </p>
             </div>
+
+            <WorkflowSteps
+              hasFields={scanState === "done" && fields.length > 0}
+              hasUpload={Boolean(upload)}
+              isConfirmed={isConfirmed}
+              showOutputFile={showOutputFile}
+            />
 
             <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
               <div className="space-y-6">
-                <Panel title="1. Pilih User">
+                <Panel title="1. Saya Sebagai">
+                  <p className="mb-4 text-sm leading-6 text-[#aeb7c8]">
+                    Pilih peranan supaya cadangan ayat lebih sesuai dengan kerja
+                    harian anda.
+                  </p>
                   <div className="grid gap-3 sm:grid-cols-2">
                     {profiles.map((profile) => (
                       <Choice
@@ -357,7 +373,10 @@ export default function Home() {
                   </div>
                 </Panel>
 
-                <Panel title="2. Pilih Format Output">
+                <Panel title="2. Dokumen Yang Mahu Dibuat">
+                  <p className="mb-4 text-sm leading-6 text-[#aeb7c8]">
+                    Pilih jenis dokumen. Format sebenar tetap ikut file yang anda upload.
+                  </p>
                   <div className="grid gap-3 sm:grid-cols-2">
                     {outputFormats.map((format) => (
                       <Choice
@@ -370,7 +389,7 @@ export default function Home() {
                   </div>
                 </Panel>
 
-                <Panel title="3. Upload Format File">
+                <Panel title="3. Upload Format">
                   <label className="group flex min-h-64 cursor-pointer flex-col items-center justify-center rounded-[2rem] border border-dashed border-[#b9caff]/35 bg-[#7da1ff]/8 px-6 py-10 text-center shadow-[0_28px_120px_rgba(71,102,180,0.14)] transition duration-500 hover:border-[#d7e3ff]/80 hover:bg-[#7da1ff]/12">
                     <span className="grid h-16 w-16 place-items-center rounded-[1.25rem] border border-white/10 bg-white/[0.07] text-3xl text-[#d7e3ff] transition group-hover:scale-105">
                       &uarr;
@@ -379,8 +398,8 @@ export default function Home() {
                       Upload format dokumen
                     </span>
                     <span className="mt-3 max-w-lg text-sm leading-6 text-[#aeb7c8]">
-                      Output akan memaparkan file asal. Untuk DOCX, klik teks
-                      dalam preview untuk edit terus.
+                      Gunakan format sekolah, taska, PPDK atau organisasi sendiri.
+                      Untuk edit terus dalam output, upload DOCX.
                     </span>
                     <span className="mt-5 rounded-full border border-white/10 bg-black/25 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#b9caff]">
                       PNG / JPG / PDF / DOC / DOCX
@@ -396,12 +415,16 @@ export default function Home() {
                   {upload ? <FileCard upload={upload} /> : null}
                   {upload && !isConfirmed ? (
                     <div className="mt-5 rounded-2xl border border-[#b9caff]/20 bg-white/[0.045] p-4">
-                      <p className="text-sm leading-6 text-[#aeb7c8]">
-                        Adakah ini file format yang betul?
+                      <p className="text-base font-semibold text-white">
+                        Ini format yang betul?
+                      </p>
+                      <p className="mt-2 text-sm leading-6 text-[#aeb7c8]">
+                        Jika ya, lY Docs akan simpan format ini dan cari ruangan
+                        yang perlu diisi.
                       </p>
                       <div className="mt-4 flex flex-wrap gap-3">
                         <button className="btn-primary" onClick={confirmFile}>
-                          Ya, Ini File Betul
+                          Ya, Teruskan
                         </button>
                         <label className="btn-secondary cursor-pointer">
                           Upload Semula
@@ -429,7 +452,7 @@ export default function Home() {
                         >
                           <p className="font-semibold text-white">{item.name}</p>
                           <p className="mt-1 text-xs text-[#aeb7c8]">
-                            {item.fileName} · {item.fields.length} soalan dikesan
+                            {item.fileName} - {item.fields.length} ruangan dikesan
                           </p>
                         </div>
                       ))}
@@ -438,33 +461,39 @@ export default function Home() {
                 ) : null}
 
                 {scanState === "done" && fields.length > 0 ? (
-                  <Panel title="4. Isi Soalan Format">
+                  <Panel title="4. Isi Maklumat">
+                    <p className="mb-4 text-sm leading-6 text-[#aeb7c8]">
+                      Isi ruangan di bawah. Untuk ayat seperti objektif, refleksi
+                      atau rumusan, guna butang cadangan jika mahu cepat.
+                    </p>
                     <div className="grid gap-4">
                       {fields.map((field) => (
                         <AnswerControl
                           field={field}
                           key={field}
                           onChange={updateValue}
+                          outputFormat={outputFormat}
+                          selectedProfile={selectedProfile}
                           value={values[field] || ""}
                         />
                       ))}
                     </div>
                     <button className="btn-primary mt-5" onClick={generateOutputFromAnswers}>
-                      Jana Output Ke File
+                      Masukkan Ke Dokumen
                     </button>
                   </Panel>
                 ) : scanState === "done" ? (
-                  <Panel title="4. Isi Soalan Format">
+                  <Panel title="4. Isi Maklumat">
                     <p className="text-sm leading-6 text-[#aeb7c8]">
-                      Tiada soalan jelas dikesan. File masih boleh diedit terus
-                      pada output jika formatnya DOCX.
+                      Tiada ruangan jelas dikesan. Jika file DOCX, buka output
+                      dan klik terus pada dokumen untuk menaip.
                     </p>
                   </Panel>
                 ) : null}
               </div>
 
               <div className="space-y-6">
-                <Panel title="Output">
+                <Panel title="Dokumen Output">
                   <div className="mb-5 flex flex-wrap gap-3">
                     {upload?.type === "DOCX" && showOutputFile ? (
                       <button className="btn-secondary" onClick={insertAiSuggestion}>
@@ -477,8 +506,8 @@ export default function Home() {
                   </div>
                   {upload?.type === "DOCX" && showOutputFile ? (
                     <div className="mb-5 rounded-2xl border border-[#b9caff]/25 bg-[#7da1ff]/10 px-4 py-3 text-sm leading-6 text-[#d7e3ff]">
-                      Tempat tulis: klik terus pada teks dalam kertas putih di
-                      bawah, kemudian taip seperti editor dokumen.
+                      Boleh edit manual: klik pada teks dalam dokumen putih,
+                      kemudian taip seperti editor dokumen.
                     </div>
                   ) : null}
 
@@ -561,6 +590,70 @@ function DocumentPreview({
   );
 }
 
+function WorkflowSteps({
+  hasFields,
+  hasUpload,
+  isConfirmed,
+  showOutputFile,
+}: {
+  hasFields: boolean;
+  hasUpload: boolean;
+  isConfirmed: boolean;
+  showOutputFile: boolean;
+}) {
+  const steps = [
+    {
+      done: true,
+      label: "Pilih peranan",
+      note: "Guru, petugas, taska atau organisasi",
+    },
+    {
+      done: hasUpload,
+      label: "Upload format",
+      note: "Guna format sebenar anda",
+    },
+    {
+      done: hasFields,
+      label: "Isi maklumat",
+      note: "Kolum ikut format yang dikesan",
+    },
+    {
+      done: showOutputFile && isConfirmed,
+      label: "Jana dokumen",
+      note: "Masuk terus ke format asal",
+    },
+  ];
+
+  return (
+    <div className="mb-8 grid gap-3 md:grid-cols-4">
+      {steps.map((step, index) => (
+        <div
+          className={`rounded-2xl border p-4 transition duration-300 ${
+            step.done
+              ? "border-[#b9caff]/45 bg-[#7da1ff]/12"
+              : "border-white/10 bg-white/[0.045]"
+          }`}
+          key={step.label}
+        >
+          <div className="flex items-center gap-3">
+            <span
+              className={`grid h-8 w-8 shrink-0 place-items-center rounded-full text-sm font-bold ${
+                step.done
+                  ? "bg-[#d7e3ff] text-[#050507]"
+                  : "bg-white/[0.08] text-[#aeb7c8]"
+              }`}
+            >
+              {index + 1}
+            </span>
+            <p className="font-semibold text-white">{step.label}</p>
+          </div>
+          <p className="mt-3 text-xs leading-5 text-[#aeb7c8]">{step.note}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function HiddenOutputCard({ upload }: { upload: UploadState | null }) {
   return (
     <article className="rounded-[1.5rem] border border-[#b9caff]/20 bg-[#7da1ff]/8 p-6 text-center shadow-[0_28px_100px_rgba(0,0,0,0.24)] sm:p-8">
@@ -568,11 +661,11 @@ function HiddenOutputCard({ upload }: { upload: UploadState | null }) {
         OK
       </div>
       <h3 className="mt-5 text-2xl font-semibold tracking-[-0.02em] text-white">
-        {upload ? "Sedia untuk isi maklumat" : "Belum ada file"}
+        {upload ? "Terus isi maklumat" : "Belum ada file"}
       </h3>
       <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-[#aeb7c8]">
         {upload
-          ? "Isi kolum yang muncul di sebelah kiri. Output akan dibuka semula selepas klik Jana Output Ke File."
+          ? "Isi kolum yang muncul di sebelah kiri. Dokumen akan dibuka semula selepas klik Masukkan Ke Dokumen."
           : "Upload file dahulu. Selepas upload, file akan dipaparkan untuk disahkan."}
       </p>
     </article>
@@ -582,10 +675,14 @@ function HiddenOutputCard({ upload }: { upload: UploadState | null }) {
 function AnswerControl({
   field,
   onChange,
+  outputFormat,
+  selectedProfile,
   value,
 }: {
   field: string;
   onChange: (field: string, value: string) => void;
+  outputFormat: OutputFormat;
+  selectedProfile: UserProfile;
   value: string;
 }) {
   const lower = field.toLowerCase();
@@ -628,7 +725,20 @@ function AnswerControl({
 
   return (
     <label className="grid gap-2 text-sm font-medium text-[#d8deea]">
-      {field}
+      <span className="flex items-center justify-between gap-3">
+        <span>{field}</span>
+        {isLong ? (
+          <button
+            className="mini-button min-h-0 rounded-full px-3 py-1.5 text-[0.65rem]"
+            onClick={() =>
+              onChange(field, buildFieldSuggestion(field, selectedProfile, outputFormat))
+            }
+            type="button"
+          >
+            Cadang Ayat
+          </button>
+        ) : null}
+      </span>
       {isLong ? (
         <textarea
           className="input-field min-h-28 resize-none"
@@ -1023,4 +1133,42 @@ function buildAiSuggestion(
   }
 
   return `${selectedProfile} boleh menggunakan cadangan ini sebagai ayat profesional: Dokumen ini disediakan berdasarkan maklumat semasa, keperluan organisasi dan tujuan pelaksanaan yang telah dikenal pasti.`;
+}
+
+function buildFieldSuggestion(
+  field: string,
+  selectedProfile: UserProfile,
+  outputFormat: OutputFormat,
+) {
+  const lower = field.toLowerCase();
+
+  if (lower.includes("objektif")) {
+    if (outputFormat === "RPH") {
+      return "Murid dapat memahami isi pembelajaran, melibatkan diri dalam aktiviti PdP, dan menyelesaikan tugasan mengikut tahap penguasaan masing-masing.";
+    }
+
+    if (outputFormat === "RPA") {
+      return "Peserta dapat mengikuti aktiviti yang dirancang, memberi respons terhadap arahan mudah, dan menunjukkan perkembangan mengikut tahap keupayaan masing-masing.";
+    }
+
+    return "Dokumen ini disediakan bagi memastikan aktiviti, tindakan dan hasil kerja dapat dilaksanakan secara tersusun, jelas dan profesional.";
+  }
+
+  if (lower.includes("langkah") || lower.includes("ringkasan")) {
+    return "Aktiviti dimulakan dengan penerangan ringkas, diikuti pelaksanaan secara berpandu, pemerhatian terhadap respons peserta, dan penutup melalui rumusan serta maklum balas.";
+  }
+
+  if (lower.includes("pemerhatian")) {
+    return "Peserta menunjukkan minat dan kerjasama yang baik sepanjang aktiviti. Bimbingan diberikan mengikut keperluan bagi memastikan penglibatan yang lebih menyeluruh.";
+  }
+
+  if (lower.includes("refleksi") || lower.includes("rumusan")) {
+    return "Secara keseluruhan, aktiviti berjalan lancar dan mencapai tujuan yang dirancang. Penambahbaikan boleh dibuat dari aspek masa, bahan dan bimbingan individu pada sesi seterusnya.";
+  }
+
+  if (lower.includes("catatan")) {
+    return "Perkara ini direkodkan untuk tindakan susulan dan rujukan pihak berkaitan.";
+  }
+
+  return buildAiSuggestion(selectedProfile, outputFormat);
 }
