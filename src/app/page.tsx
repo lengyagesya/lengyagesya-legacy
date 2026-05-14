@@ -310,12 +310,8 @@ export default function Home() {
                   </div>
 
                   <DocumentPreview
-                    fields={fields}
                     officeFile={officeFile}
-                    outputFormat={outputFormat}
-                    selectedProfile={selectedProfile}
                     upload={upload}
-                    values={values}
                   />
                 </Panel>
               </div>
@@ -362,44 +358,25 @@ function FieldInput({
 }
 
 function DocumentPreview({
-  fields,
   officeFile,
-  outputFormat,
-  selectedProfile,
   upload,
-  values,
 }: {
-  fields: string[];
   officeFile: File | null;
-  outputFormat: OutputFormat;
-  selectedProfile: UserProfile;
   upload: UploadState | null;
-  values: Record<string, string>;
 }) {
   if (!upload) {
     return (
       <article className="rounded-[1.5rem] border border-[#ded8ce] bg-[#f8f4ed] p-6 text-[#171513] shadow-[0_28px_100px_rgba(0,0,0,0.32)] sm:p-8">
         <p className="text-sm leading-7 text-[#655f58]">
-          Upload format file untuk lihat preview asal. Kolum yang diisi akan
-          masuk terus dalam preview ini.
+          Upload format file untuk lihat preview asal yang sama dengan file itu.
         </p>
       </article>
     );
   }
 
-  if (outputFormat === "RPA" && fields.length > 0) {
-    return (
-      <RpaPreview
-        selectedProfile={selectedProfile}
-        upload={upload}
-        values={values}
-      />
-    );
-  }
-
   return (
     <article className="rounded-[1.5rem] border border-white/10 bg-black/25 p-4 shadow-[0_28px_100px_rgba(0,0,0,0.32)] sm:p-6">
-      <div className="relative mx-auto aspect-[210/297] w-full max-w-[794px] overflow-hidden rounded-sm bg-white shadow-[0_20px_80px_rgba(0,0,0,0.45)]">
+      <div className="mx-auto aspect-[210/297] w-full max-w-[794px] overflow-hidden rounded-sm bg-white shadow-[0_20px_80px_rgba(0,0,0,0.45)]">
         {upload.kind === "image" ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -421,194 +398,8 @@ function DocumentPreview({
         {upload.kind === "office" ? (
           <OfficeDocumentPreview file={officeFile} upload={upload} />
         ) : null}
-
-        {fields.length > 0 ? (
-          <FilledPreviewLayer
-            fields={fields}
-            outputFormat={outputFormat}
-            selectedProfile={selectedProfile}
-            values={values}
-          />
-        ) : null}
       </div>
     </article>
-  );
-}
-
-function RpaPreview({
-  selectedProfile,
-  upload,
-  values,
-}: {
-  selectedProfile: UserProfile;
-  upload: UploadState;
-  values: Record<string, string>;
-}) {
-  const get = (labels: string[], fallback = "") => {
-    const match = labels.find((label) => values[label]?.trim());
-    return match ? values[match].trim() : fallback;
-  };
-
-  const namaPetugas = get(["Nama Petugas", "Nama Guru / Petugas", "Nama Guru", "Nama Pendidik"]);
-  const tarikh = get(["Tarikh"]);
-  const hari = get(["Hari"]);
-  const masa = get(["Masa", "Masa:"]);
-  const umur = get(["Umur", "Umur:\na)  Hayat\nb)  Akal", "Umur Hayat / Akal"]);
-  const bil = get(["Bil. Kanak-kanak", "Bil Kanak-kanak", "Nama Murid / Pelatih", "Nama Pelatih"]);
-  const bidang = get(["BIDANG", "Bidang", "Bidang / Fokus"], "Bidang pembelajaran fokus");
-  const tajuk = get(["Tajuk", "Tajuk Aktiviti"], "Aktiviti");
-  const fokus = get(["Bidang Pembelajaran Fokus", "Fokus"], "Tumpuan, kefahaman arahan dan pelaksanaan aktiviti mengikut tahap keupayaan.");
-  const sediaAda = get(["Pengetahuan Sedia Ada"], "Pelatih pernah mengikuti aktiviti asas di pusat dengan bimbingan petugas.");
-  const objektif = get(["Objektif"], "1. Pelatih dapat memberi tumpuan semasa aktiviti dijalankan.\n2. Pelatih dapat mengikuti arahan mudah petugas.\n3. Pelatih dapat melaksanakan aktiviti mengikut tahap keupayaan.");
-  const bahan = get(["Senarai Bahan/Alat", "Bahan / Alat"], "Lembaran aktiviti, alat bantu mengajar, meja dan kerusi.");
-  const tempat = get(["Tempat / Ruang Aktiviti", "Tempat", "Ruang Aktiviti"], "Ruang aktiviti PPDK");
-  const langkah = get(["Langkah-langkah Pelaksanaan", "Langkah Pelaksanaan"], "1. Petugas menyediakan ruang dan bahan aktiviti.\n2. Petugas memberi penerangan ringkas dan tunjuk cara.\n3. Pelatih melaksanakan tugasan dengan bimbingan.\n4. Petugas memantau dan memberi galakan.\n5. Petugas menyemak hasil dan mengemas bahan.");
-  const pemerhatian = get(["Pemerhatian"], "Kesihatan: Petugas perlu memastikan pelatih sihat sebelum, semasa dan selepas aktiviti.\n\nKeselamatan: Petugas perlu memastikan kawasan aktiviti, ABM dan BBM yang digunakan oleh pelatih selamat dan berfungsi dengan baik.\n\nKebersihan: Petugas perlu memastikan kawasan aktiviti bersih. Petugas juga perlu memastikan pelatih-pelatih menjaga kebersihan diri dan persekitaran mereka.");
-  const refleksi = get(["Refleksi"], "Pelatih dapat mengikuti aktiviti dengan bimbingan petugas. Pelatih menunjukkan minat, memberi kerjasama dan melaksanakan tugasan mengikut tahap keupayaan.");
-
-  return (
-    <div className="space-y-6">
-      <article className="mx-auto w-full max-w-[794px] rounded-sm bg-white px-10 py-8 text-black shadow-[0_20px_80px_rgba(0,0,0,0.45)]">
-        <div className="h-10" />
-        <h2 className="text-center text-lg font-extrabold">
-          RANCANGAN PELAKSANAAN AKTIVITI (RPA)
-        </h2>
-        <div className="my-5 ml-4 text-[15px] font-bold">
-          <MetaRow label="NAMA PPDK" value={get(["NAMA PPDK", "Nama PPDK", "Nama Organisasi"], "PPDK")} />
-          <MetaRow label="BIDANG" value={bidang} />
-        </div>
-        <table className="w-full table-fixed border-collapse text-[13px] leading-tight">
-          <tbody>
-            <RpaRow label="Nama Petugas" value={namaPetugas} />
-            <RpaRow label="Kad Pengenalan" value={get(["Kad Pengenalan"], "Tidak dinyatakan")} />
-            <RpaRow label="Tarikh" value={tarikh} />
-            <RpaRow label="Hari" value={hari} />
-            <RpaRow label="Masa:" value={masa} />
-            <RpaRow label={"Umur:\na)  Hayat\nb)  Akal"} value={umur} />
-            <RpaRow label="Bil. Kanak-kanak" value={bil} />
-            <RpaRow label="Tema:" value={get(["Tema"], bidang.includes("Kreativiti") ? "Warna dan Kreativiti" : "Perkembangan dan Pemulihan Diri")} />
-            <RpaRow label="Tajuk" value={tajuk} />
-            <RpaRow label="Bidang Pembelajaran Fokus" value={fokus} />
-            <RpaRow label="Pengetahuan Sedia Ada:" value={sediaAda} />
-            <RpaRow label="Objektif" value={objektif} />
-            <RpaRow label="Senarai Bahan/Alat" value={bahan} />
-            <RpaRow label={"Tempat /\nRuang Aktiviti"} value={tempat} />
-            <RpaRow label={"Langkah-langkah\nPelaksanaan"} value={langkah} tall />
-          </tbody>
-        </table>
-        <p className="mt-4 text-[10px] text-neutral-500">
-          Template: {upload.name} · User: {selectedProfile}
-        </p>
-      </article>
-
-      <article className="mx-auto w-full max-w-[794px] rounded-sm bg-white px-10 py-8 text-black shadow-[0_20px_80px_rgba(0,0,0,0.45)]">
-        <table className="h-[900px] w-full table-fixed border-collapse text-[13px] leading-tight">
-          <tbody>
-            <tr className="h-[365px]">
-              <td className="w-1/4 border border-black p-3 align-top font-bold">Pemerhatian</td>
-              <td className="border border-black p-3 align-top">
-                <div className="mb-3 text-base font-black">Perhatian</div>
-                <p className="whitespace-pre-wrap">{pemerhatian}</p>
-              </td>
-            </tr>
-            <tr className="h-[365px]">
-              <td className="border border-black p-3 align-top font-bold">Refleksi</td>
-              <td className="border border-black p-3 align-top">
-                <p className="whitespace-pre-wrap">{refleksi}</p>
-              </td>
-            </tr>
-            <tr className="h-[170px]">
-              <td className="border border-black p-3 align-top" colSpan={2}>
-                Nama Petugas{namaPetugas ? ` : ${namaPetugas}` : ""}<br />
-                Tandatangan&nbsp;&nbsp;: ..................................................
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </article>
-    </div>
-  );
-}
-
-function MetaRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="grid grid-cols-[190px_20px_1fr]">
-      <div>{label}</div>
-      <div>:</div>
-      <div className="underline">{value || "Belum diisi"}</div>
-    </div>
-  );
-}
-
-function RpaRow({
-  label,
-  tall,
-  value,
-}: {
-  label: string;
-  tall?: boolean;
-  value: string;
-}) {
-  return (
-    <tr className={tall ? "min-h-48" : undefined}>
-      <td className="w-1/4 whitespace-pre-wrap border border-black p-2 align-top font-bold">
-        {label}
-      </td>
-      <td className="whitespace-pre-wrap border border-black p-2 align-top">
-        {value || "Belum diisi"}
-      </td>
-    </tr>
-  );
-}
-
-function FilledPreviewLayer({
-  fields,
-  outputFormat,
-  selectedProfile,
-  values,
-}: {
-  fields: string[];
-  outputFormat: OutputFormat;
-  selectedProfile: UserProfile;
-  values: Record<string, string>;
-}) {
-  const visibleFields = fields.filter((field) => values[field]?.trim()).slice(0, 10);
-
-  if (visibleFields.length === 0) {
-    return (
-      <div className="absolute bottom-5 left-5 right-5 rounded-xl border border-[#cfc6b8] bg-[#fffdf8]/95 p-4 text-[#171513] shadow-[0_18px_60px_rgba(0,0,0,0.22)]">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#6f7f9f]">
-          {outputFormat}
-        </p>
-        <p className="mt-2 text-sm text-[#655f58]">
-          Isi kolum di sebelah kiri. Maklumat akan muncul terus dalam preview ini.
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="absolute bottom-5 left-5 right-5 max-h-[45%] overflow-auto rounded-xl border border-[#cfc6b8] bg-[#fffdf8]/95 p-4 text-[#171513] shadow-[0_18px_60px_rgba(0,0,0,0.22)]">
-      <div className="mb-3 border-b border-[#ded8ce] pb-3">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#6f7f9f]">
-          {outputFormat}
-        </p>
-        <p className="mt-1 text-xs text-[#655f58]">User: {selectedProfile}</p>
-      </div>
-      <div className="grid gap-2">
-        {visibleFields.map((field) => (
-          <div
-            className="grid gap-1 border-b border-[#ebe2d6] pb-2 last:border-b-0 sm:grid-cols-[0.36fr_0.64fr]"
-            key={field}
-          >
-            <span className="text-xs font-semibold text-[#27231f]">{field}</span>
-            <span className="whitespace-pre-wrap text-xs leading-5 text-[#332f2a]">
-              {values[field]}
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
   );
 }
 
