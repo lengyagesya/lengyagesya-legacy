@@ -38,6 +38,7 @@ type SavedState = {
   isConfirmed: boolean;
   outputFormat: OutputFormat;
   selectedProfile: UserProfile;
+  showOutputFile: boolean;
   upload: UploadState | null;
   values: Record<string, string>;
 };
@@ -95,6 +96,8 @@ export default function Home() {
   const [isConfirmed, setIsConfirmed] = useState(false);
   const [sourceText, setSourceText] = useState("");
   const [savedFormats, setSavedFormats] = useState<SavedFormat[]>([]);
+  const [showOutputFile, setShowOutputFile] = useState(false);
+  const [pendingGeneratedText, setPendingGeneratedText] = useState("");
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -107,6 +110,11 @@ export default function Home() {
           setIsConfirmed(Boolean(parsed.isConfirmed));
           setOutputFormat(parsed.outputFormat || "RPA");
           setSelectedProfile(parsed.selectedProfile || "Petugas PPDK");
+          setShowOutputFile(
+            typeof parsed.showOutputFile === "boolean"
+              ? parsed.showOutputFile
+              : Boolean(parsed.upload && !parsed.isConfirmed),
+          );
           setUpload(parsed.upload || null);
           setValues(parsed.values || {});
           setScanState(parsed.fields?.length ? "done" : "idle");
@@ -134,11 +142,12 @@ export default function Home() {
       isConfirmed,
       outputFormat,
       selectedProfile,
+      showOutputFile,
       upload,
       values,
     };
     window.localStorage.setItem(storageKey, JSON.stringify(state));
-  }, [fields, formatName, hydrated, isConfirmed, outputFormat, selectedProfile, upload, values]);
+  }, [fields, formatName, hydrated, isConfirmed, outputFormat, selectedProfile, showOutputFile, upload, values]);
 
   async function handleUpload(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -174,6 +183,8 @@ export default function Home() {
     setFormatName(file.name.replace(/\.[^.]+$/, ""));
     setFields([]);
     setIsConfirmed(false);
+    setShowOutputFile(true);
+    setPendingGeneratedText("");
     setSourceText(`${file.name} ${extractedText}`);
     setValues({});
     setScanState("idle");
@@ -183,7 +194,9 @@ export default function Home() {
   function confirmFile() {
     if (!upload) return;
     setIsConfirmed(true);
-    setMessage("File disahkan. Tulis nama format dan simpan.");
+    setShowOutputFile(false);
+    setPendingGeneratedText("");
+    setMessage("File disahkan dan disorok sementara. Tulis nama format dan simpan untuk semak soalan.");
   }
 
   function saveFormatAndScan() {
@@ -204,6 +217,7 @@ export default function Home() {
     }
 
     setScanState("scanning");
+    setShowOutputFile(false);
     setMessage("Menyemak soalan dalam format...");
 
     window.setTimeout(() => {
@@ -237,6 +251,8 @@ export default function Home() {
     setFields([]);
     setFormatName("");
     setIsConfirmed(false);
+    setShowOutputFile(false);
+    setPendingGeneratedText("");
     setValues({});
     setScanState("idle");
     setSelectedProfile("Petugas PPDK");
@@ -253,7 +269,13 @@ export default function Home() {
   function insertAiSuggestion() {
     const editor = document.querySelector<HTMLElement>(".ly-docx-output");
     if (!editor || upload?.type !== "DOCX") {
-      setMessage("Upload DOCX dahulu untuk guna cadangan AI.");
+      setShowOutputFile(true);
+      setPendingGeneratedText(buildAiSuggestion(selectedProfile, outputFormat));
+      setMessage(
+        upload?.type === "DOCX"
+          ? "Output dibuka semula. Cadangan AI akan dimasukkan."
+          : "Upload DOCX dahulu untuk guna cadangan AI terus dalam file.",
+      );
       return;
     }
 
@@ -282,8 +304,8 @@ export default function Home() {
   }
 
   function generateOutputFromAnswers() {
-    const editor = document.querySelector<HTMLElement>(".ly-docx-output");
-    if (!editor || upload?.type !== "DOCX") {
+    if (upload?.type !== "DOCX") {
+      setShowOutputFile(true);
       setMessage("Jana output terus ke file hanya tersedia untuk DOCX.");
       return;
     }
@@ -291,14 +313,9 @@ export default function Home() {
     const filled = fields
       .map((field) => `${field}: ${values[field]?.trim() || "Belum diisi"}`)
       .join("\n");
-    const paragraph = document.createElement("pre");
-    paragraph.textContent = filled;
-    paragraph.style.whiteSpace = "pre-wrap";
-    paragraph.style.marginTop = "16px";
-    paragraph.style.fontFamily = "Arial, sans-serif";
-    editor.appendChild(paragraph);
-    paragraph.scrollIntoView({ behavior: "smooth", block: "center" });
-    setMessage("Jawapan telah dijana masuk ke output DOCX.");
+    setPendingGeneratedText(filled);
+    setShowOutputFile(true);
+    setMessage("Output dibuka semula. Jawapan akan dijana masuk ke file DOCX.");
   }
 
   return (
@@ -469,7 +486,7 @@ export default function Home() {
               <div className="space-y-6">
                 <Panel title="Output">
                   <div className="mb-5 flex flex-wrap gap-3">
-                    {upload?.type === "DOCX" ? (
+                    {upload?.type === "DOCX" && showOutputFile ? (
                       <button className="btn-secondary" onClick={insertAiSuggestion}>
                         AI Cadangkan Ayat
                       </button>
@@ -478,17 +495,22 @@ export default function Home() {
                       Reset
                     </button>
                   </div>
-                  {upload?.type === "DOCX" ? (
+                  {upload?.type === "DOCX" && showOutputFile ? (
                     <div className="mb-5 rounded-2xl border border-[#b9caff]/25 bg-[#7da1ff]/10 px-4 py-3 text-sm leading-6 text-[#d7e3ff]">
                       Tempat tulis: klik terus pada teks dalam kertas putih di
                       bawah, kemudian taip seperti editor dokumen.
                     </div>
                   ) : null}
 
-                  <DocumentPreview
-                    officeFile={officeFile}
-                    upload={upload}
-                  />
+                  {showOutputFile ? (
+                    <DocumentPreview
+                      officeFile={officeFile}
+                      pendingGeneratedText={pendingGeneratedText}
+                      upload={upload}
+                    />
+                  ) : (
+                    <HiddenOutputCard upload={upload} />
+                  )}
                 </Panel>
               </div>
             </div>
@@ -501,9 +523,11 @@ export default function Home() {
 
 function DocumentPreview({
   officeFile,
+  pendingGeneratedText,
   upload,
 }: {
   officeFile: File | null;
+  pendingGeneratedText: string;
   upload: UploadState | null;
 }) {
   if (!upload) {
@@ -538,9 +562,31 @@ function DocumentPreview({
         ) : null}
 
         {upload.kind === "office" ? (
-          <OfficeDocumentPreview file={officeFile} upload={upload} />
+          <OfficeDocumentPreview
+            file={officeFile}
+            pendingGeneratedText={pendingGeneratedText}
+            upload={upload}
+          />
         ) : null}
       </div>
+    </article>
+  );
+}
+
+function HiddenOutputCard({ upload }: { upload: UploadState | null }) {
+  return (
+    <article className="rounded-[1.5rem] border border-[#b9caff]/20 bg-[#7da1ff]/8 p-6 text-center shadow-[0_28px_100px_rgba(0,0,0,0.24)] sm:p-8">
+      <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl border border-white/10 bg-white/[0.07] text-xl text-[#d7e3ff]">
+        OK
+      </div>
+      <h3 className="mt-5 text-2xl font-semibold tracking-[-0.02em] text-white">
+        {upload ? "Format disorok sementara" : "Belum ada file"}
+      </h3>
+      <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-[#aeb7c8]">
+        {upload
+          ? "File sudah disahkan. Isi soalan yang dikesan di sebelah kiri dahulu. Output akan muncul semula selepas klik Jana Output Ke File."
+          : "Upload file dahulu. Selepas upload, file akan dipaparkan untuk disahkan."}
+      </p>
     </article>
   );
 }
@@ -617,9 +663,11 @@ function AnswerControl({
 
 function OfficeDocumentPreview({
   file,
+  pendingGeneratedText,
   upload,
 }: {
   file: File | null;
+  pendingGeneratedText: string;
   upload: UploadState;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -668,6 +716,21 @@ function OfficeDocumentPreview({
             section.spellcheck = false;
             section.setAttribute("aria-label", "Edit output DOCX");
           });
+
+        if (pendingGeneratedText.trim()) {
+          const target =
+            container.querySelector<HTMLElement>(".docx-wrapper section.docx") ||
+            container;
+          const generatedBlock = document.createElement("pre");
+          generatedBlock.textContent = pendingGeneratedText;
+          generatedBlock.style.whiteSpace = "pre-wrap";
+          generatedBlock.style.marginTop = "16px";
+          generatedBlock.style.fontFamily = "Arial, sans-serif";
+          generatedBlock.style.fontSize = "14px";
+          generatedBlock.style.lineHeight = "1.6";
+          target.appendChild(generatedBlock);
+          generatedBlock.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
       })
       .catch(() => {
         if (!cancelled) {
@@ -680,7 +743,7 @@ function OfficeDocumentPreview({
       container.contentEditable = "false";
       container.innerHTML = "";
     };
-  }, [file, immediateError, upload.name, upload.type]);
+  }, [file, immediateError, pendingGeneratedText, upload.name, upload.type]);
 
   const error = immediateError || renderError;
 
