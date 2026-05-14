@@ -34,13 +34,27 @@ type OutputFormat =
 
 type SavedState = {
   fields: string[];
+  formatName: string;
+  isConfirmed: boolean;
   outputFormat: OutputFormat;
   selectedProfile: UserProfile;
   upload: UploadState | null;
   values: Record<string, string>;
 };
 
+type SavedFormat = {
+  createdAt: string;
+  fields: string[];
+  fileName: string;
+  id: string;
+  name: string;
+  outputFormat: OutputFormat;
+  selectedProfile: UserProfile;
+  type: string;
+};
+
 const storageKey = "ly-docs-simple-scan-state";
+const savedFormatsKey = "ly-docs-saved-formats";
 const allowedExtensions = ["png", "jpg", "jpeg", "pdf", "doc", "docx"];
 
 const profiles: UserProfile[] = [
@@ -73,10 +87,14 @@ export default function Home() {
   const [upload, setUpload] = useState<UploadState | null>(null);
   const [officeFile, setOfficeFile] = useState<File | null>(null);
   const [fields, setFields] = useState<string[]>([]);
+  const [formatName, setFormatName] = useState("");
   const [values, setValues] = useState<Record<string, string>>({});
   const [scanState, setScanState] = useState<ScanState>("idle");
   const [message, setMessage] = useState("");
   const [hydrated, setHydrated] = useState(false);
+  const [isConfirmed, setIsConfirmed] = useState(false);
+  const [sourceText, setSourceText] = useState("");
+  const [savedFormats, setSavedFormats] = useState<SavedFormat[]>([]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -85,6 +103,8 @@ export default function Home() {
         try {
           const parsed = JSON.parse(saved) as SavedState;
           setFields(parsed.fields || []);
+          setFormatName(parsed.formatName || "");
+          setIsConfirmed(Boolean(parsed.isConfirmed));
           setOutputFormat(parsed.outputFormat || "RPA");
           setSelectedProfile(parsed.selectedProfile || "Petugas PPDK");
           setUpload(parsed.upload || null);
@@ -93,6 +113,11 @@ export default function Home() {
         } catch {
           window.localStorage.removeItem(storageKey);
         }
+      }
+      try {
+        setSavedFormats(JSON.parse(window.localStorage.getItem(savedFormatsKey) || "[]"));
+      } catch {
+        window.localStorage.removeItem(savedFormatsKey);
       }
       setHydrated(true);
     }, 0);
@@ -105,13 +130,15 @@ export default function Home() {
 
     const state: SavedState = {
       fields,
+      formatName,
+      isConfirmed,
       outputFormat,
       selectedProfile,
       upload,
       values,
     };
     window.localStorage.setItem(storageKey, JSON.stringify(state));
-  }, [fields, hydrated, outputFormat, selectedProfile, upload, values]);
+  }, [fields, formatName, hydrated, isConfirmed, outputFormat, selectedProfile, upload, values]);
 
   async function handleUpload(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -144,21 +171,62 @@ export default function Home() {
 
     setUpload(nextUpload);
     setOfficeFile(extension === "doc" || extension === "docx" ? file : null);
+    setFormatName(file.name.replace(/\.[^.]+$/, ""));
     setFields([]);
+    setIsConfirmed(false);
+    setSourceText(`${file.name} ${extractedText}`);
     setValues({});
+    setScanState("idle");
+    setMessage("Sahkan dahulu sama ada ini file yang betul.");
+  }
+
+  function confirmFile() {
+    if (!upload) return;
+    setIsConfirmed(true);
+    setMessage("File disahkan. Tulis nama format dan simpan.");
+  }
+
+  function saveFormatAndScan() {
+    if (!upload) {
+      setMessage("Upload file dahulu.");
+      return;
+    }
+
+    if (!isConfirmed) {
+      setMessage("Sahkan file dahulu sebelum simpan format.");
+      return;
+    }
+
+    const name = formatName.trim();
+    if (!name) {
+      setMessage("Tulis nama format dahulu.");
+      return;
+    }
+
     setScanState("scanning");
-    setMessage("Scan format sedang berjalan...");
+    setMessage("Menyemak soalan dalam format...");
 
     window.setTimeout(() => {
-      const scannedFields = scanFields(
-        `${file.name} ${extractedText}`,
-      );
+      const scannedFields = scanFields(sourceText || upload.name);
+      const nextFormat: SavedFormat = {
+        createdAt: new Date().toISOString(),
+        fields: scannedFields,
+        fileName: upload.name,
+        id: `${Date.now()}`,
+        name,
+        outputFormat,
+        selectedProfile,
+        type: upload.type,
+      };
+      const nextSaved = [nextFormat, ...savedFormats].slice(0, 12);
+      setSavedFormats(nextSaved);
+      window.localStorage.setItem(savedFormatsKey, JSON.stringify(nextSaved));
       setFields(scannedFields);
       setScanState("done");
       setMessage(
-        type === "DOCX"
-          ? "DOCX siap dipreview. Klik teks dalam output untuk edit terus."
-          : "File dipreview sama seperti asal. Edit teks terus hanya tersedia untuk DOCX.",
+        scannedFields.length
+          ? "Format disimpan. Isi soalan/medan yang dikesan, kemudian jana output."
+          : "Format disimpan, tetapi tiada soalan jelas dikesan dalam file.",
       );
     }, 900);
   }
@@ -167,12 +235,19 @@ export default function Home() {
     setUpload(null);
     setOfficeFile(null);
     setFields([]);
+    setFormatName("");
+    setIsConfirmed(false);
     setValues({});
     setScanState("idle");
     setSelectedProfile("Petugas PPDK");
     setOutputFormat("RPA");
+    setSourceText("");
     setMessage("Ruang kerja telah dikosongkan.");
     window.localStorage.removeItem(storageKey);
+  }
+
+  function updateValue(field: string, value: string) {
+    setValues((current) => ({ ...current, [field]: value }));
   }
 
   function insertAiSuggestion() {
@@ -204,6 +279,26 @@ export default function Home() {
     }
 
     setMessage("Cadangan AI telah dimasukkan dalam output DOCX.");
+  }
+
+  function generateOutputFromAnswers() {
+    const editor = document.querySelector<HTMLElement>(".ly-docx-output");
+    if (!editor || upload?.type !== "DOCX") {
+      setMessage("Jana output terus ke file hanya tersedia untuk DOCX.");
+      return;
+    }
+
+    const filled = fields
+      .map((field) => `${field}: ${values[field]?.trim() || "Belum diisi"}`)
+      .join("\n");
+    const paragraph = document.createElement("pre");
+    paragraph.textContent = filled;
+    paragraph.style.whiteSpace = "pre-wrap";
+    paragraph.style.marginTop = "16px";
+    paragraph.style.fontFamily = "Arial, sans-serif";
+    editor.appendChild(paragraph);
+    paragraph.scrollIntoView({ behavior: "smooth", block: "center" });
+    setMessage("Jawapan telah dijana masuk ke output DOCX.");
   }
 
   return (
@@ -286,15 +381,86 @@ export default function Home() {
                   </label>
 
                   {upload ? <FileCard upload={upload} /> : null}
+                  {upload && !isConfirmed ? (
+                    <div className="mt-5 rounded-2xl border border-[#b9caff]/20 bg-white/[0.045] p-4">
+                      <p className="text-sm leading-6 text-[#aeb7c8]">
+                        Adakah ini file format yang betul?
+                      </p>
+                      <div className="mt-4 flex flex-wrap gap-3">
+                        <button className="btn-primary" onClick={confirmFile}>
+                          Ya, Ini File Betul
+                        </button>
+                        <label className="btn-secondary cursor-pointer">
+                          Upload Semula
+                          <input
+                            accept=".png,.jpg,.jpeg,.pdf,.doc,.docx"
+                            className="sr-only"
+                            onChange={handleUpload}
+                            type="file"
+                          />
+                        </label>
+                      </div>
+                    </div>
+                  ) : null}
+                  {upload && isConfirmed ? (
+                    <div className="mt-5 rounded-2xl border border-[#b9caff]/20 bg-white/[0.045] p-4">
+                      <label className="grid gap-2 text-sm font-medium text-[#d8deea]">
+                        Nama Format
+                        <input
+                          className="input-field"
+                          onChange={(event) => setFormatName(event.target.value)}
+                          placeholder="Contoh: Format RPA PPDK"
+                          value={formatName}
+                        />
+                      </label>
+                      <button className="btn-primary mt-4" onClick={saveFormatAndScan}>
+                        Simpan Format & Semak Soalan
+                      </button>
+                    </div>
+                  ) : null}
                   {scanState === "scanning" ? <ScanCard /> : null}
                   {message ? <Message text={message} /> : null}
                 </Panel>
 
-                {scanState === "done" && upload?.type === "DOCX" ? (
-                  <Panel title="4. Edit Output">
+                {savedFormats.length > 0 ? (
+                  <Panel title="Format Disimpan">
+                    <div className="space-y-3">
+                      {savedFormats.slice(0, 4).map((item) => (
+                        <div
+                          className="rounded-2xl border border-white/10 bg-black/20 p-3"
+                          key={item.id}
+                        >
+                          <p className="font-semibold text-white">{item.name}</p>
+                          <p className="mt-1 text-xs text-[#aeb7c8]">
+                            {item.fileName} · {item.fields.length} soalan dikesan
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </Panel>
+                ) : null}
+
+                {scanState === "done" && fields.length > 0 ? (
+                  <Panel title="4. Isi Soalan Format">
+                    <div className="grid gap-4">
+                      {fields.map((field) => (
+                        <AnswerControl
+                          field={field}
+                          key={field}
+                          onChange={updateValue}
+                          value={values[field] || ""}
+                        />
+                      ))}
+                    </div>
+                    <button className="btn-primary mt-5" onClick={generateOutputFromAnswers}>
+                      Jana Output Ke File
+                    </button>
+                  </Panel>
+                ) : scanState === "done" ? (
+                  <Panel title="4. Isi Soalan Format">
                     <p className="text-sm leading-6 text-[#aeb7c8]">
-                      Klik mana-mana teks dalam preview DOCX di sebelah kanan
-                      untuk edit terus pada output.
+                      Tiada soalan jelas dikesan. File masih boleh diedit terus
+                      pada output jika formatnya DOCX.
                     </p>
                   </Panel>
                 ) : null}
@@ -376,6 +542,76 @@ function DocumentPreview({
         ) : null}
       </div>
     </article>
+  );
+}
+
+function AnswerControl({
+  field,
+  onChange,
+  value,
+}: {
+  field: string;
+  onChange: (field: string, value: string) => void;
+  value: string;
+}) {
+  const lower = field.toLowerCase();
+  const isSelect =
+    lower.includes("hari") ||
+    lower.includes("status") ||
+    lower.includes("kehadiran") ||
+    lower.includes("format");
+  const isLong =
+    lower.includes("objektif") ||
+    lower.includes("langkah") ||
+    lower.includes("pemerhatian") ||
+    lower.includes("refleksi") ||
+    lower.includes("catatan") ||
+    lower.includes("rumusan") ||
+    lower.includes("aktiviti");
+
+  if (isSelect) {
+    const options = lower.includes("hari")
+      ? ["Isnin", "Selasa", "Rabu", "Khamis", "Jumaat", "Sabtu", "Ahad"]
+      : ["Ya", "Tidak", "Lengkap", "Tidak Lengkap"];
+    return (
+      <label className="grid gap-2 text-sm font-medium text-[#d8deea]">
+        {field}
+        <select
+          className="input-field"
+          onChange={(event) => onChange(field, event.target.value)}
+          value={value}
+        >
+          <option value="">Pilih jawapan</option>
+          {options.map((item) => (
+            <option key={item} value={item}>
+              {item}
+            </option>
+          ))}
+        </select>
+      </label>
+    );
+  }
+
+  return (
+    <label className="grid gap-2 text-sm font-medium text-[#d8deea]">
+      {field}
+      {isLong ? (
+        <textarea
+          className="input-field min-h-28 resize-none"
+          onChange={(event) => onChange(field, event.target.value)}
+          placeholder={`Isi ${field.toLowerCase()}`}
+          value={value}
+        />
+      ) : (
+        <input
+          className="input-field"
+          onChange={(event) => onChange(field, event.target.value)}
+          placeholder={`Isi ${field.toLowerCase()}`}
+          type={lower.includes("tarikh") ? "date" : lower.includes("masa") ? "time" : "text"}
+          value={value}
+        />
+      )}
+    </label>
   );
 }
 
