@@ -276,6 +276,12 @@ export default function Home() {
                       Reset
                     </button>
                   </div>
+                  {upload?.type === "DOCX" ? (
+                    <div className="mb-5 rounded-2xl border border-[#b9caff]/25 bg-[#7da1ff]/10 px-4 py-3 text-sm leading-6 text-[#d7e3ff]">
+                      Tempat tulis: klik terus pada teks dalam kertas putih di
+                      bawah, kemudian taip seperti editor dokumen.
+                    </div>
+                  ) : null}
 
                   <DocumentPreview
                     officeFile={officeFile}
@@ -380,6 +386,9 @@ function OfficeDocumentPreview({
       )
       .then(() => {
         if (cancelled) return;
+        container.contentEditable = "true";
+        container.spellcheck = false;
+        container.setAttribute("aria-label", "Editor output DOCX");
         container
           .querySelectorAll<HTMLElement>(".docx-wrapper section.docx")
           .forEach((section) => {
@@ -396,6 +405,7 @@ function OfficeDocumentPreview({
 
     return () => {
       cancelled = true;
+      container.contentEditable = "false";
       container.innerHTML = "";
     };
   }, [file, immediateError, upload.name, upload.type]);
