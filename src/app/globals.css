@@ -167,6 +167,17 @@ body {
   margin-top: 0 !important;
 }
 
+.ly-docx-output .docx-wrapper > section.docx[contenteditable="true"] {
+  cursor: text;
+  outline: none;
+}
+
+.ly-docx-output .docx-wrapper > section.docx[contenteditable="true"]:focus {
+  box-shadow:
+    0 0 0 2px rgba(125, 161, 255, 0.35),
+    0 0 0 6px rgba(125, 161, 255, 0.12) !important;
+}
+
 .intro-grid {
   background-image:
     linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),

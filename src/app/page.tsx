@@ -66,20 +66,6 @@ const outputFormats: OutputFormat[] = [
   "Custom",
 ];
 
-const longFieldHints = [
-  "Objektif",
-  "Bahan",
-  "Langkah",
-  "Pemerhatian",
-  "Refleksi",
-  "Catatan",
-  "Rumusan",
-  "Aktiviti",
-  "Standard",
-  "Intervensi",
-  "Penilaian",
-];
-
 export default function Home() {
   const [selectedProfile, setSelectedProfile] =
     useState<UserProfile>("Petugas PPDK");
@@ -170,15 +156,11 @@ export default function Home() {
       setFields(scannedFields);
       setScanState("done");
       setMessage(
-        scannedFields.length
-          ? "Scan siap. Kolum yang muncul hanya berdasarkan format file yang diupload."
-          : "Scan siap, tetapi tiada kolum jelas dikesan dalam format ini.",
+        type === "DOCX"
+          ? "DOCX siap dipreview. Klik teks dalam output untuk edit terus."
+          : "File dipreview sama seperti asal. Edit teks terus hanya tersedia untuk DOCX.",
       );
     }, 900);
-  }
-
-  function updateValue(field: string, value: string) {
-    setValues((current) => ({ ...current, [field]: value }));
   }
 
   function resetAll() {
@@ -205,7 +187,7 @@ export default function Home() {
               lY Docs
             </a>
             <span className="hidden text-sm text-[#aeb7c8] sm:inline">
-              Scan format, isi kolum, jana output.
+              Upload file, preview sama, edit terus.
             </span>
           </div>
         </header>
@@ -217,7 +199,7 @@ export default function Home() {
                 lY Docs
               </p>
               <h1 className="mt-4 text-4xl font-semibold tracking-[-0.03em] text-white sm:text-6xl">
-                Upload format, isi kolum, lihat output.
+                Upload file, edit dalam output.
               </h1>
             </div>
 
@@ -258,8 +240,8 @@ export default function Home() {
                       Upload format dokumen
                     </span>
                     <span className="mt-3 max-w-lg text-sm leading-6 text-[#aeb7c8]">
-                      Sistem scan apa yang diperlukan dalam format ini dan
-                      keluarkan kolum untuk diisi.
+                      Output akan memaparkan file asal. Untuk DOCX, klik teks
+                      dalam preview untuk edit terus.
                     </span>
                     <span className="mt-5 rounded-full border border-white/10 bg-black/25 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#b9caff]">
                       PNG / JPG / PDF / DOC / DOCX
@@ -277,25 +259,11 @@ export default function Home() {
                   {message ? <Message text={message} /> : null}
                 </Panel>
 
-                {fields.length > 0 ? (
-                  <Panel title="4. Kolum Untuk Diisi">
-                    <div className="grid gap-4">
-                      {fields.map((field) => (
-                        <FieldInput
-                          field={field}
-                          key={field}
-                          onChange={updateValue}
-                          value={values[field] || ""}
-                        />
-                      ))}
-                    </div>
-                  </Panel>
-                ) : scanState === "done" ? (
-                  <Panel title="4. Kolum Untuk Diisi">
+                {scanState === "done" && upload?.type === "DOCX" ? (
+                  <Panel title="4. Edit Output">
                     <p className="text-sm leading-6 text-[#aeb7c8]">
-                      Tiada kolum dikesan daripada format file ini. Kolum hanya
-                      akan muncul jika label medan memang wujud dalam file yang
-                      diupload.
+                      Klik mana-mana teks dalam preview DOCX di sebelah kanan
+                      untuk edit terus pada output.
                     </p>
                   </Panel>
                 ) : null}
@@ -320,40 +288,6 @@ export default function Home() {
         </section>
       </div>
     </main>
-  );
-}
-
-function FieldInput({
-  field,
-  onChange,
-  value,
-}: {
-  field: string;
-  onChange: (field: string, value: string) => void;
-  value: string;
-}) {
-  const inputType = inputTypeForField(field);
-
-  return (
-    <label className="grid gap-2 text-sm font-medium text-[#d8deea]">
-      {field}
-      {inputType === "textarea" ? (
-        <textarea
-          className="input-field min-h-28 resize-none"
-          onChange={(event) => onChange(field, event.target.value)}
-          placeholder={`Isi ${field.toLowerCase()}`}
-          value={value}
-        />
-      ) : (
-        <input
-          className="input-field"
-          onChange={(event) => onChange(field, event.target.value)}
-          placeholder={`Isi ${field.toLowerCase()}`}
-          type={inputType}
-          value={value}
-        />
-      )}
-    </label>
   );
 }
 
@@ -444,6 +378,16 @@ function OfficeDocumentPreview({
           useBase64URL: true,
         }),
       )
+      .then(() => {
+        if (cancelled) return;
+        container
+          .querySelectorAll<HTMLElement>(".docx-wrapper section.docx")
+          .forEach((section) => {
+            section.contentEditable = "true";
+            section.spellcheck = false;
+            section.setAttribute("aria-label", "Edit output DOCX");
+          });
+      })
       .catch(() => {
         if (!cancelled) {
           setRenderError("DOCX ini tidak dapat dirender. Cuba simpan semula sebagai DOCX moden.");
@@ -638,12 +582,4 @@ function scanFields(sourceText: string) {
   });
 
   return Array.from(new Set(detected)).slice(0, 18);
-}
-
-function inputTypeForField(field: string) {
-  const lower = field.toLowerCase();
-  if (lower.includes("tarikh")) return "date";
-  if (lower.includes("masa")) return "time";
-  if (longFieldHints.some((hint) => field.includes(hint))) return "textarea";
-  return "text";
 }
