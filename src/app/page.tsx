@@ -196,16 +196,16 @@ export default function Home() {
     setIsConfirmed(true);
     setShowOutputFile(false);
     setPendingGeneratedText("");
-    setMessage("File disahkan dan disorok sementara. Tulis nama format dan simpan untuk semak soalan.");
+    saveFormatAndScan(true);
   }
 
-  function saveFormatAndScan() {
+  function saveFormatAndScan(skipConfirmCheck = false) {
     if (!upload) {
       setMessage("Upload file dahulu.");
       return;
     }
 
-    if (!isConfirmed) {
+    if (!skipConfirmCheck && !isConfirmed) {
       setMessage("Sahkan file dahulu sebelum simpan format.");
       return;
     }
@@ -419,22 +419,6 @@ export default function Home() {
                       </div>
                     </div>
                   ) : null}
-                  {upload && isConfirmed ? (
-                    <div className="mt-5 rounded-2xl border border-[#b9caff]/20 bg-white/[0.045] p-4">
-                      <label className="grid gap-2 text-sm font-medium text-[#d8deea]">
-                        Nama Format
-                        <input
-                          className="input-field"
-                          onChange={(event) => setFormatName(event.target.value)}
-                          placeholder="Contoh: Format RPA PPDK"
-                          value={formatName}
-                        />
-                      </label>
-                      <button className="btn-primary mt-4" onClick={saveFormatAndScan}>
-                        Simpan Format & Semak Soalan
-                      </button>
-                    </div>
-                  ) : null}
                   {scanState === "scanning" ? <ScanCard /> : null}
                   {message ? <Message text={message} /> : null}
                 </Panel>
@@ -580,11 +564,11 @@ function HiddenOutputCard({ upload }: { upload: UploadState | null }) {
         OK
       </div>
       <h3 className="mt-5 text-2xl font-semibold tracking-[-0.02em] text-white">
-        {upload ? "Format disorok sementara" : "Belum ada file"}
+        {upload ? "Sedia untuk isi maklumat" : "Belum ada file"}
       </h3>
       <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-[#aeb7c8]">
         {upload
-          ? "File sudah disahkan. Isi soalan yang dikesan di sebelah kiri dahulu. Output akan muncul semula selepas klik Jana Output Ke File."
+          ? "Isi kolum yang muncul di sebelah kiri. Output akan dibuka semula selepas klik Jana Output Ke File."
           : "Upload file dahulu. Selepas upload, file akan dipaparkan untuk disahkan."}
       </p>
     </article>
