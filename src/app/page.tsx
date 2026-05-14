@@ -97,7 +97,7 @@ export default function Home() {
   const [sourceText, setSourceText] = useState("");
   const [savedFormats, setSavedFormats] = useState<SavedFormat[]>([]);
   const [showOutputFile, setShowOutputFile] = useState(false);
-  const [pendingGeneratedText, setPendingGeneratedText] = useState("");
+  const [applyValuesVersion, setApplyValuesVersion] = useState(0);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -184,7 +184,7 @@ export default function Home() {
     setFields([]);
     setIsConfirmed(false);
     setShowOutputFile(true);
-    setPendingGeneratedText("");
+    setApplyValuesVersion(0);
     setSourceText(`${file.name} ${extractedText}`);
     setValues({});
     setScanState("idle");
@@ -195,7 +195,7 @@ export default function Home() {
     if (!upload) return;
     setIsConfirmed(true);
     setShowOutputFile(false);
-    setPendingGeneratedText("");
+    setApplyValuesVersion(0);
     saveFormatAndScan(true);
   }
 
@@ -252,7 +252,7 @@ export default function Home() {
     setFormatName("");
     setIsConfirmed(false);
     setShowOutputFile(false);
-    setPendingGeneratedText("");
+    setApplyValuesVersion(0);
     setValues({});
     setScanState("idle");
     setSelectedProfile("Petugas PPDK");
@@ -270,10 +270,9 @@ export default function Home() {
     const editor = document.querySelector<HTMLElement>(".ly-docx-output");
     if (!editor || upload?.type !== "DOCX") {
       setShowOutputFile(true);
-      setPendingGeneratedText(buildAiSuggestion(selectedProfile, outputFormat));
       setMessage(
         upload?.type === "DOCX"
-          ? "Output dibuka semula. Cadangan AI akan dimasukkan."
+          ? "Output dibuka semula. Klik tempat dalam file, kemudian guna AI Cadangkan Ayat."
           : "Upload DOCX dahulu untuk guna cadangan AI terus dalam file.",
       );
       return;
@@ -310,12 +309,9 @@ export default function Home() {
       return;
     }
 
-    const filled = fields
-      .map((field) => `${field}: ${values[field]?.trim() || "Belum diisi"}`)
-      .join("\n");
-    setPendingGeneratedText(filled);
+    setApplyValuesVersion((current) => current + 1);
     setShowOutputFile(true);
-    setMessage("Output dibuka semula. Jawapan akan dijana masuk ke file DOCX.");
+    setMessage("Output dibuka semula. Jawapan dimasukkan ke ruang format asal yang sepadan.");
   }
 
   return (
@@ -488,9 +484,11 @@ export default function Home() {
 
                   {showOutputFile ? (
                     <DocumentPreview
+                      applyValuesVersion={applyValuesVersion}
+                      fields={fields}
                       officeFile={officeFile}
-                      pendingGeneratedText={pendingGeneratedText}
                       upload={upload}
+                      values={values}
                     />
                   ) : (
                     <HiddenOutputCard upload={upload} />
@@ -506,13 +504,17 @@ export default function Home() {
 }
 
 function DocumentPreview({
+  applyValuesVersion,
+  fields,
   officeFile,
-  pendingGeneratedText,
   upload,
+  values,
 }: {
+  applyValuesVersion: number;
+  fields: string[];
   officeFile: File | null;
-  pendingGeneratedText: string;
   upload: UploadState | null;
+  values: Record<string, string>;
 }) {
   if (!upload) {
     return (
@@ -547,9 +549,11 @@ function DocumentPreview({
 
         {upload.kind === "office" ? (
           <OfficeDocumentPreview
+            applyValuesVersion={applyValuesVersion}
+            fields={fields}
             file={officeFile}
-            pendingGeneratedText={pendingGeneratedText}
             upload={upload}
+            values={values}
           />
         ) : null}
       </div>
@@ -646,13 +650,17 @@ function AnswerControl({
 }
 
 function OfficeDocumentPreview({
+  applyValuesVersion,
+  fields,
   file,
-  pendingGeneratedText,
   upload,
+  values,
 }: {
+  applyValuesVersion: number;
+  fields: string[];
   file: File | null;
-  pendingGeneratedText: string;
   upload: UploadState;
+  values: Record<string, string>;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [renderError, setRenderError] = useState("");
@@ -701,19 +709,8 @@ function OfficeDocumentPreview({
             section.setAttribute("aria-label", "Edit output DOCX");
           });
 
-        if (pendingGeneratedText.trim()) {
-          const target =
-            container.querySelector<HTMLElement>(".docx-wrapper section.docx") ||
-            container;
-          const generatedBlock = document.createElement("pre");
-          generatedBlock.textContent = pendingGeneratedText;
-          generatedBlock.style.whiteSpace = "pre-wrap";
-          generatedBlock.style.marginTop = "16px";
-          generatedBlock.style.fontFamily = "Arial, sans-serif";
-          generatedBlock.style.fontSize = "14px";
-          generatedBlock.style.lineHeight = "1.6";
-          target.appendChild(generatedBlock);
-          generatedBlock.scrollIntoView({ behavior: "smooth", block: "center" });
+        if (applyValuesVersion > 0) {
+          applyValuesToDocument(container, fields, values);
         }
       })
       .catch(() => {
@@ -727,7 +724,7 @@ function OfficeDocumentPreview({
       container.contentEditable = "false";
       container.innerHTML = "";
     };
-  }, [file, immediateError, pendingGeneratedText, upload.name, upload.type]);
+  }, [applyValuesVersion, fields, file, immediateError, upload.name, upload.type, values]);
 
   const error = immediateError || renderError;
 
@@ -753,6 +750,90 @@ function FileCard({ upload }: { upload: UploadState }) {
       <p className="mt-1 text-sm text-[#d7e3ff]">Status: Format aktif</p>
     </div>
   );
+}
+
+function applyValuesToDocument(
+  container: HTMLElement,
+  fields: string[],
+  values: Record<string, string>,
+) {
+  const entries = fields
+    .map((field) => [field, values[field]?.trim() || ""] as const)
+    .filter(([, value]) => value.length > 0);
+
+  entries.forEach(([field, value]) => {
+    if (fillTableField(container, field, value)) return;
+    fillInlineField(container, field, value);
+  });
+}
+
+function fillTableField(container: HTMLElement, field: string, value: string) {
+  const rows = Array.from(container.querySelectorAll("tr"));
+
+  for (const row of rows) {
+    const cells = Array.from(row.querySelectorAll<HTMLElement>("td, th"));
+    const labelIndex = cells.findIndex((cell) =>
+      textIncludesField(cell.textContent || "", field),
+    );
+
+    if (labelIndex === -1) continue;
+
+    const targetCell = cells[labelIndex + 1];
+    if (targetCell) {
+      targetCell.textContent = value;
+      targetCell.dataset.lyFilled = "true";
+      return true;
+    }
+
+    appendValueInside(cells[labelIndex], value);
+    return true;
+  }
+
+  return false;
+}
+
+function fillInlineField(container: HTMLElement, field: string, value: string) {
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+  let current = walker.nextNode();
+
+  while (current) {
+    const text = current.textContent || "";
+    const parent = current.parentElement;
+
+    if (
+      parent &&
+      textIncludesField(text, field) &&
+      !parent.closest("[data-ly-filled='true']") &&
+      !(parent.textContent || "").includes(value)
+    ) {
+      appendValueInside(parent, value);
+      return true;
+    }
+
+    current = walker.nextNode();
+  }
+
+  return false;
+}
+
+function appendValueInside(element: HTMLElement, value: string) {
+  const separator = (element.textContent || "").trim().endsWith(":") ? " " : " : ";
+  const valueNode = document.createElement("span");
+  valueNode.dataset.lyFilled = "true";
+  valueNode.textContent = `${separator}${value}`;
+  element.appendChild(valueNode);
+}
+
+function textIncludesField(text: string, field: string) {
+  return normalizeText(text).includes(normalizeText(field));
+}
+
+function normalizeText(text: string) {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9\u00c0-\u024f]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function ScanCard() {
