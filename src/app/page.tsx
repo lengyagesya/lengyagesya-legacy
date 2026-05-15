@@ -15,11 +15,66 @@ const userOptions = [
 
 const documentOptions = ["RPA", "RPH", "RPI", "Laporan Aktiviti"];
 
+const detectedFieldsByDocument: Record<string, string[]> = {
+  "Laporan Aktiviti": [
+    "Nama Organisasi",
+    "Nama Aktiviti",
+    "Tarikh",
+    "Masa",
+    "Tempat",
+    "Penyelaras",
+    "Peserta",
+    "Objektif",
+    "Ringkasan Aktiviti",
+    "Pemerhatian",
+    "Rumusan",
+  ],
+  RPA: [
+    "Nama Organisasi",
+    "Nama Guru / Petugas",
+    "Nama Murid / Pelatih",
+    "Tarikh",
+    "Masa",
+    "Tajuk Aktiviti",
+    "Objektif",
+    "Bahan / Alat",
+    "Langkah Pelaksanaan",
+    "Pemerhatian",
+    "Refleksi",
+  ],
+  RPH: [
+    "Nama Sekolah",
+    "Nama Guru",
+    "Mata Pelajaran",
+    "Kelas",
+    "Tarikh",
+    "Masa",
+    "Tajuk",
+    "Standard Kandungan",
+    "Standard Pembelajaran",
+    "Objektif",
+    "Aktiviti PdP",
+    "Refleksi",
+  ],
+  RPI: [
+    "Nama Organisasi",
+    "Nama Murid / Klien",
+    "Kategori / Keperluan",
+    "Matlamat",
+    "Objektif Jangka Pendek",
+    "Intervensi",
+    "Penilaian",
+    "Catatan",
+  ],
+};
+
 export default function Home() {
   const [fileName, setFileName] = useState("");
   const [isConfirmed, setIsConfirmed] = useState(false);
   const [selectedUser, setSelectedUser] = useState("");
   const [selectedDocument, setSelectedDocument] = useState("");
+  const [isScanning, setIsScanning] = useState(false);
+  const [detectedFields, setDetectedFields] = useState<string[]>([]);
 
   function handleUpload(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -27,6 +82,8 @@ export default function Home() {
     setIsConfirmed(false);
     setSelectedUser("");
     setSelectedDocument("");
+    setIsScanning(false);
+    setDetectedFields([]);
   }
 
   function confirmFile() {
@@ -38,10 +95,32 @@ export default function Home() {
     setIsConfirmed(false);
     setSelectedUser("");
     setSelectedDocument("");
+    setIsScanning(false);
+    setDetectedFields([]);
   }
 
   function backToUserSelection() {
     setSelectedDocument("");
+    setIsScanning(false);
+    setDetectedFields([]);
+  }
+
+  function selectDocument(documentName: string) {
+    setSelectedDocument(documentName);
+    setIsScanning(false);
+    setDetectedFields([]);
+  }
+
+  function scanFields() {
+    if (!selectedDocument) return;
+
+    setIsScanning(true);
+    setDetectedFields([]);
+
+    window.setTimeout(() => {
+      setDetectedFields(detectedFieldsByDocument[selectedDocument] || []);
+      setIsScanning(false);
+    }, 900);
   }
 
   return (
@@ -179,13 +258,49 @@ export default function Home() {
                             : "border-white/10 bg-black/25 text-[#aeb7c8] hover:border-[#b9caff]/45 hover:text-white"
                         }`}
                         key={option}
-                        onClick={() => setSelectedDocument(option)}
+                        onClick={() => selectDocument(option)}
                         type="button"
                       >
                         {option}
                       </button>
                     ))}
                   </div>
+                  {selectedDocument ? (
+                    <div className="mt-4 rounded-2xl border border-white/10 bg-black/25 p-4">
+                      <button
+                        className="btn-primary"
+                        disabled={isScanning}
+                        onClick={scanFields}
+                        type="button"
+                      >
+                        {isScanning ? "Sedang Scan..." : "Scan Ruangan Format"}
+                      </button>
+
+                      {isScanning ? (
+                        <p className="mt-4 text-sm text-[#d7e3ff]">
+                          Mengesan ruangan dalam format...
+                        </p>
+                      ) : null}
+
+                      {detectedFields.length > 0 ? (
+                        <div className="mt-4">
+                          <p className="text-sm font-semibold text-white">
+                            Ruangan dikesan
+                          </p>
+                          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                            {detectedFields.map((field) => (
+                              <div
+                                className="rounded-xl border border-white/10 bg-white/[0.055] px-3 py-2 text-sm font-medium text-[#d8deea]"
+                                key={field}
+                              >
+                                {field}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </>
               )}
             </div>
