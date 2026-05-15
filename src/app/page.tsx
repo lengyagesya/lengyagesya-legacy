@@ -70,6 +70,8 @@ const detectedFieldsByDocument: Record<string, string[]> = {
 
 export default function Home() {
   const [fileName, setFileName] = useState("");
+  const [filePreviewUrl, setFilePreviewUrl] = useState("");
+  const [fileType, setFileType] = useState("");
   const [isConfirmed, setIsConfirmed] = useState(false);
   const [selectedUser, setSelectedUser] = useState("");
   const [selectedDocument, setSelectedDocument] = useState("");
@@ -81,6 +83,8 @@ export default function Home() {
   function handleUpload(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     setFileName(file?.name || "");
+    setFilePreviewUrl(file ? URL.createObjectURL(file) : "");
+    setFileType(file?.name.split(".").pop()?.toLowerCase() || "");
     setIsConfirmed(false);
     setSelectedUser("");
     setSelectedDocument("");
@@ -191,6 +195,14 @@ export default function Home() {
               {fileName || "Belum ada file"}
             </p>
           </div>
+
+          {fileName ? (
+            <OriginalFilePreview
+              fileName={fileName}
+              filePreviewUrl={filePreviewUrl}
+              fileType={fileType}
+            />
+          ) : null}
 
           {fileName && !isConfirmed ? (
             <div className="mt-4 rounded-2xl border border-[#b9caff]/20 bg-[#7da1ff]/10 p-4 text-left">
@@ -410,6 +422,57 @@ function DocumentPreview({
           ))}
         </div>
       </article>
+    </section>
+  );
+}
+
+function OriginalFilePreview({
+  fileName,
+  filePreviewUrl,
+  fileType,
+}: {
+  fileName: string;
+  filePreviewUrl: string;
+  fileType: string;
+}) {
+  const isImage = ["jpg", "jpeg", "png"].includes(fileType);
+  const isPdf = fileType === "pdf";
+
+  return (
+    <section className="mt-4 rounded-2xl border border-white/10 bg-black/25 p-4 text-left">
+      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#7f8aa0]">
+        Preview file asal
+      </p>
+
+      <div className="mt-3 overflow-hidden rounded-xl border border-white/10 bg-white/[0.04]">
+        {isImage ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            alt={`Preview ${fileName}`}
+            className="max-h-80 w-full object-contain"
+            src={filePreviewUrl}
+          />
+        ) : null}
+
+        {isPdf ? (
+          <object
+            className="h-80 w-full bg-white"
+            data={filePreviewUrl}
+            title={`Preview ${fileName}`}
+            type="application/pdf"
+          />
+        ) : null}
+
+        {!isImage && !isPdf ? (
+          <div className="p-5">
+            <p className="text-sm font-semibold text-white">{fileName}</p>
+            <p className="mt-2 text-sm leading-6 text-[#aeb7c8]">
+              Preview visual untuk DOC/DOCX akan dibuat pada fasa seterusnya.
+              Buat masa ini file sudah diterima sebagai rujukan.
+            </p>
+          </div>
+        ) : null}
+      </div>
     </section>
   );
 }
