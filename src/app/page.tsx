@@ -211,6 +211,22 @@ export default function Home() {
     setApplyToDocxVersion((current) => current + 1);
   }
 
+  async function copyText() {
+    const text = buildPlainText({
+      detectedFields,
+      fileName,
+      formValues,
+      selectedDocument,
+      selectedUser,
+    });
+
+    await navigator.clipboard.writeText(text);
+  }
+
+  function showExportPlaceholder(type: "PDF" | "Word") {
+    window.alert(`Fungsi export ${type} akan dibuat pada fasa seterusnya.`);
+  }
+
   return (
     <main className="relative grid min-h-screen place-items-center overflow-hidden bg-[#050507] px-6 py-12 text-center text-white">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_35%,rgba(125,161,255,0.2),transparent_30%),radial-gradient(circle_at_18%_16%,rgba(230,237,255,0.08),transparent_24%),linear-gradient(135deg,#050507_0%,#11131a_48%,#050507_100%)]" />
@@ -430,6 +446,29 @@ export default function Home() {
                                 masa ini.
                               </p>
                             ) : null}
+                            <div className="grid gap-3 sm:grid-cols-3">
+                              <button
+                                className="btn-secondary"
+                                onClick={copyText}
+                                type="button"
+                              >
+                                Copy Text
+                              </button>
+                              <button
+                                className="btn-secondary"
+                                onClick={() => showExportPlaceholder("Word")}
+                                type="button"
+                              >
+                                Download Word
+                              </button>
+                              <button
+                                className="btn-secondary"
+                                onClick={() => showExportPlaceholder("PDF")}
+                                type="button"
+                              >
+                                Download PDF
+                              </button>
+                            </div>
                           </div>
                         </div>
                       ) : null}
@@ -501,6 +540,33 @@ function DocumentPreview({
       </article>
     </section>
   );
+}
+
+function buildPlainText({
+  detectedFields,
+  fileName,
+  formValues,
+  selectedDocument,
+  selectedUser,
+}: {
+  detectedFields: string[];
+  fileName: string;
+  formValues: Record<string, string>;
+  selectedDocument: string;
+  selectedUser: string;
+}) {
+  const lines = [
+    "lY Docs",
+    `File: ${fileName}`,
+    `Pengguna: ${selectedUser}`,
+    `Dokumen: ${selectedDocument}`,
+    "",
+    ...detectedFields.map(
+      (field) => `${field}: ${formValues[field]?.trim() || "Belum diisi"}`,
+    ),
+  ];
+
+  return lines.join("\n");
 }
 
 function OriginalFilePreview({
