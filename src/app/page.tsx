@@ -227,6 +227,23 @@ export default function Home() {
     window.alert(`Fungsi export ${type} akan dibuat pada fasa seterusnya.`);
   }
 
+  function downloadTxt() {
+    const text = buildPlainText({
+      detectedFields,
+      fileName,
+      formValues,
+      selectedDocument,
+      selectedUser,
+    });
+    const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${selectedDocument || "ly-docs"}.txt`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <main className="relative grid min-h-screen place-items-center overflow-hidden bg-[#050507] px-6 py-12 text-center text-white">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_35%,rgba(125,161,255,0.2),transparent_30%),radial-gradient(circle_at_18%_16%,rgba(230,237,255,0.08),transparent_24%),linear-gradient(135deg,#050507_0%,#11131a_48%,#050507_100%)]" />
@@ -446,13 +463,20 @@ export default function Home() {
                                 masa ini.
                               </p>
                             ) : null}
-                            <div className="grid gap-3 sm:grid-cols-3">
+                            <div className="grid gap-3 sm:grid-cols-2">
                               <button
                                 className="btn-secondary"
                                 onClick={copyText}
                                 type="button"
                               >
                                 Copy Text
+                              </button>
+                              <button
+                                className="btn-secondary"
+                                onClick={downloadTxt}
+                                type="button"
+                              >
+                                Download TXT
                               </button>
                               <button
                                 className="btn-secondary"
