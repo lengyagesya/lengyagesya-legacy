@@ -14,6 +14,30 @@ const userOptions = [
 ];
 
 const documentOptions = ["RPA", "RPH", "RPI", "Laporan Aktiviti"];
+const storageKey = "ly-docs-progress";
+
+type SavedProgress = {
+  detectedFields: string[];
+  fileName: string;
+  fileType: string;
+  formValues: Record<string, string>;
+  isConfirmed: boolean;
+  selectedDocument: string;
+  selectedUser: string;
+  showPreview: boolean;
+};
+
+function getSavedProgress(): SavedProgress | null {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const saved = window.localStorage.getItem(storageKey);
+    return saved ? (JSON.parse(saved) as SavedProgress) : null;
+  } catch {
+    window.localStorage.removeItem(storageKey);
+    return null;
+  }
+}
 
 const detectedFieldsByDocument: Record<string, string[]> = {
   "Laporan Aktiviti": [
@@ -104,18 +128,43 @@ const fieldKeywords: Array<[string, string[]]> = [
 ];
 
 export default function Home() {
-  const [fileName, setFileName] = useState("");
+  const [savedProgress] = useState<SavedProgress | null>(() => getSavedProgress());
+  const [fileName, setFileName] = useState(savedProgress?.fileName || "");
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [filePreviewUrl, setFilePreviewUrl] = useState("");
-  const [fileType, setFileType] = useState("");
-  const [isConfirmed, setIsConfirmed] = useState(false);
-  const [selectedUser, setSelectedUser] = useState("");
-  const [selectedDocument, setSelectedDocument] = useState("");
+  const [fileType, setFileType] = useState(savedProgress?.fileType || "");
+  const [isConfirmed, setIsConfirmed] = useState(Boolean(savedProgress?.isConfirmed));
+  const [selectedUser, setSelectedUser] = useState(savedProgress?.selectedUser || "");
+  const [selectedDocument, setSelectedDocument] = useState(savedProgress?.selectedDocument || "");
   const [isScanning, setIsScanning] = useState(false);
-  const [detectedFields, setDetectedFields] = useState<string[]>([]);
-  const [formValues, setFormValues] = useState<Record<string, string>>({});
-  const [showPreview, setShowPreview] = useState(false);
+  const [detectedFields, setDetectedFields] = useState<string[]>(savedProgress?.detectedFields || []);
+  const [formValues, setFormValues] = useState<Record<string, string>>(savedProgress?.formValues || {});
+  const [showPreview, setShowPreview] = useState(Boolean(savedProgress?.showPreview));
   const [applyToDocxVersion, setApplyToDocxVersion] = useState(0);
+
+  useEffect(() => {
+    const progress: SavedProgress = {
+      detectedFields,
+      fileName,
+      fileType,
+      formValues,
+      isConfirmed,
+      selectedDocument,
+      selectedUser,
+      showPreview,
+    };
+
+    window.localStorage.setItem(storageKey, JSON.stringify(progress));
+  }, [
+    detectedFields,
+    fileName,
+    fileType,
+    formValues,
+    isConfirmed,
+    selectedDocument,
+    selectedUser,
+    showPreview,
+  ]);
 
   function handleUpload(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -244,6 +293,22 @@ export default function Home() {
     URL.revokeObjectURL(url);
   }
 
+  function resetAll() {
+    setFileName("");
+    setUploadedFile(null);
+    setFilePreviewUrl("");
+    setFileType("");
+    setIsConfirmed(false);
+    setSelectedUser("");
+    setSelectedDocument("");
+    setIsScanning(false);
+    setDetectedFields([]);
+    setFormValues({});
+    setShowPreview(false);
+    setApplyToDocxVersion(0);
+    window.localStorage.removeItem(storageKey);
+  }
+
   return (
     <main className="relative grid min-h-screen place-items-center overflow-hidden bg-[#050507] px-6 py-12 text-center text-white">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_35%,rgba(125,161,255,0.2),transparent_30%),radial-gradient(circle_at_18%_16%,rgba(230,237,255,0.08),transparent_24%),linear-gradient(135deg,#050507_0%,#11131a_48%,#050507_100%)]" />
@@ -332,9 +397,14 @@ export default function Home() {
           {isConfirmed ? (
             <div className="mt-4 rounded-2xl border border-[#b9caff]/20 bg-[#7da1ff]/10 p-4 text-left">
               <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                <button className="btn-quiet" onClick={backToUpload} type="button">
-                  Back
-                </button>
+                <div className="flex flex-wrap gap-3">
+                  <button className="btn-quiet" onClick={backToUpload} type="button">
+                    Back
+                  </button>
+                  <button className="btn-quiet" onClick={resetAll} type="button">
+                    Reset Semua
+                  </button>
+                </div>
                 {selectedUser ? (
                   <span className="rounded-full border border-white/10 bg-black/25 px-3 py-2 text-xs font-semibold text-[#d7e3ff]">
                     {selectedUser}
