@@ -321,27 +321,27 @@ export default function Home() {
   });
 
   return (
-    <main className="relative grid min-h-screen place-items-center overflow-hidden bg-[#050507] px-6 py-12 text-center text-white">
+    <main className="relative grid min-h-screen place-items-center overflow-hidden bg-[#050507] px-4 py-8 text-center text-white sm:px-6 sm:py-12">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_35%,rgba(125,161,255,0.2),transparent_30%),radial-gradient(circle_at_18%_16%,rgba(230,237,255,0.08),transparent_24%),linear-gradient(135deg,#050507_0%,#11131a_48%,#050507_100%)]" />
       <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.035)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.035)_1px,transparent_1px)] bg-[size:86px_86px] opacity-20 [mask-image:radial-gradient(circle_at_center,black,transparent_72%)]" />
       <div className="absolute left-1/2 top-1/2 h-72 w-72 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#7da1ff]/20 blur-3xl sm:h-[34rem] sm:w-[34rem]" />
 
       <section className="relative z-10 w-full max-w-3xl animate-[fadeIn_900ms_ease-out_both]">
-        <p className="mb-5 text-xs font-semibold uppercase tracking-[0.42em] text-[#c7d7ff]/75 sm:text-sm">
+        <p className="mb-4 text-xs font-semibold uppercase tracking-[0.32em] text-[#c7d7ff]/75 sm:mb-5 sm:text-sm sm:tracking-[0.42em]">
           Professional document generation
         </p>
-        <h1 className="text-6xl font-semibold tracking-[-0.04em] text-white drop-shadow-[0_0_36px_rgba(199,215,255,0.2)] sm:text-8xl lg:text-9xl">
+        <h1 className="text-5xl font-semibold tracking-[-0.04em] text-white drop-shadow-[0_0_36px_rgba(199,215,255,0.2)] sm:text-8xl lg:text-9xl">
           lY Docs
         </h1>
-        <div className="mx-auto mt-12 max-w-xl rounded-[2rem] border border-white/10 bg-white/[0.06] p-5 shadow-[0_28px_120px_rgba(0,0,0,0.35)] backdrop-blur-2xl sm:p-6">
+        <div className="mx-auto mt-8 max-w-xl rounded-[1.5rem] border border-white/10 bg-white/[0.06] p-4 shadow-[0_28px_120px_rgba(0,0,0,0.35)] backdrop-blur-2xl sm:mt-12 sm:rounded-[2rem] sm:p-6">
           <ProgressSteps currentStep={currentStep} />
 
           {!isConfirmed ? (
-            <label className="group flex min-h-56 cursor-pointer flex-col items-center justify-center rounded-[1.5rem] border border-dashed border-[#b9caff]/35 bg-black/25 px-6 py-8 transition duration-300 hover:border-[#d7e3ff]/80 hover:bg-[#7da1ff]/10">
-              <span className="grid h-14 w-14 place-items-center rounded-2xl border border-white/10 bg-white/[0.07] text-3xl text-[#d7e3ff] transition duration-300 group-hover:scale-105">
+            <label className="group flex min-h-48 cursor-pointer flex-col items-center justify-center rounded-[1.25rem] border border-dashed border-[#b9caff]/35 bg-black/25 px-4 py-7 transition duration-300 hover:border-[#d7e3ff]/80 hover:bg-[#7da1ff]/10 sm:min-h-56 sm:rounded-[1.5rem] sm:px-6 sm:py-8">
+              <span className="grid h-12 w-12 place-items-center rounded-2xl border border-white/10 bg-white/[0.07] text-3xl text-[#d7e3ff] transition duration-300 group-hover:scale-105 sm:h-14 sm:w-14">
                 +
               </span>
-              <span className="mt-5 text-xl font-semibold tracking-[-0.02em] text-white">
+              <span className="mt-5 text-lg font-semibold tracking-[-0.02em] text-white sm:text-xl">
                 Upload format dokumen anda
               </span>
               <span className="mt-3 max-w-sm text-sm leading-6 text-[#aeb7c8]">
@@ -650,7 +650,7 @@ function ProgressSteps({ currentStep }: { currentStep: number }) {
   ];
 
   return (
-    <div className="mb-5 grid grid-cols-2 gap-2 text-left sm:grid-cols-4">
+    <div className="-mx-1 mb-5 flex gap-2 overflow-x-auto px-1 pb-1 text-left sm:mx-0 sm:grid sm:grid-cols-4 sm:overflow-visible sm:px-0 sm:pb-0">
       {steps.map((step, index) => {
         const stepNumber = index + 1;
         const isDone = currentStep > stepNumber;
@@ -658,7 +658,7 @@ function ProgressSteps({ currentStep }: { currentStep: number }) {
 
         return (
           <div
-            className={`rounded-2xl border px-3 py-2 transition duration-300 ${
+            className={`min-w-28 rounded-2xl border px-3 py-2 transition duration-300 sm:min-w-0 ${
               isActive
                 ? "border-[#b9caff]/70 bg-[#7da1ff]/20 text-white"
                 : isDone
@@ -700,7 +700,7 @@ function OriginalFilePreview({
   const isDocx = fileType === "docx";
 
   return (
-    <section className="mt-4 rounded-2xl border border-white/10 bg-black/25 p-4 text-left">
+    <section className="mt-4 rounded-2xl border border-white/10 bg-black/25 p-3 text-left sm:p-4">
       <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#7f8aa0]">
         Preview file asal
       </p>
@@ -710,14 +710,14 @@ function OriginalFilePreview({
           // eslint-disable-next-line @next/next/no-img-element
           <img
             alt={`Preview ${fileName}`}
-            className="max-h-80 w-full object-contain"
+            className="max-h-64 w-full object-contain sm:max-h-80"
             src={filePreviewUrl}
           />
         ) : null}
 
         {isPdf ? (
           <object
-            className="h-80 w-full bg-white"
+            className="h-64 w-full bg-white sm:h-80"
             data={filePreviewUrl}
             title={`Preview ${fileName}`}
             type="application/pdf"
@@ -815,7 +815,7 @@ function DocxPreview({
 
   return (
     <div
-      className="max-h-96 overflow-auto bg-white text-black"
+      className="max-h-72 overflow-auto bg-white text-black sm:max-h-96"
       ref={containerRef}
     />
   );
