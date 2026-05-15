@@ -75,6 +75,7 @@ export default function Home() {
   const [selectedDocument, setSelectedDocument] = useState("");
   const [isScanning, setIsScanning] = useState(false);
   const [detectedFields, setDetectedFields] = useState<string[]>([]);
+  const [formValues, setFormValues] = useState<Record<string, string>>({});
 
   function handleUpload(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -84,6 +85,7 @@ export default function Home() {
     setSelectedDocument("");
     setIsScanning(false);
     setDetectedFields([]);
+    setFormValues({});
   }
 
   function confirmFile() {
@@ -97,18 +99,21 @@ export default function Home() {
     setSelectedDocument("");
     setIsScanning(false);
     setDetectedFields([]);
+    setFormValues({});
   }
 
   function backToUserSelection() {
     setSelectedDocument("");
     setIsScanning(false);
     setDetectedFields([]);
+    setFormValues({});
   }
 
   function selectDocument(documentName: string) {
     setSelectedDocument(documentName);
     setIsScanning(false);
     setDetectedFields([]);
+    setFormValues({});
   }
 
   function scanFields() {
@@ -116,11 +121,19 @@ export default function Home() {
 
     setIsScanning(true);
     setDetectedFields([]);
+    setFormValues({});
 
     window.setTimeout(() => {
       setDetectedFields(detectedFieldsByDocument[selectedDocument] || []);
       setIsScanning(false);
     }, 900);
+  }
+
+  function updateField(field: string, value: string) {
+    setFormValues((current) => ({
+      ...current,
+      [field]: value,
+    }));
   }
 
   return (
@@ -297,6 +310,19 @@ export default function Home() {
                               </div>
                             ))}
                           </div>
+                          <div className="mt-5 space-y-4">
+                            <p className="text-sm font-semibold text-white">
+                              Isi maklumat
+                            </p>
+                            {detectedFields.map((field) => (
+                              <FieldInput
+                                field={field}
+                                key={field}
+                                onChange={updateField}
+                                value={formValues[field] || ""}
+                              />
+                            ))}
+                          </div>
                         </div>
                       ) : null}
                     </div>
@@ -308,5 +334,54 @@ export default function Home() {
         </div>
       </section>
     </main>
+  );
+}
+
+function FieldInput({
+  field,
+  onChange,
+  value,
+}: {
+  field: string;
+  onChange: (field: string, value: string) => void;
+  value: string;
+}) {
+  const lower = field.toLowerCase();
+  const isLong =
+    lower.includes("objektif") ||
+    lower.includes("langkah") ||
+    lower.includes("aktiviti") ||
+    lower.includes("pemerhatian") ||
+    lower.includes("refleksi") ||
+    lower.includes("rumusan") ||
+    lower.includes("catatan") ||
+    lower.includes("intervensi");
+
+  return (
+    <label className="grid gap-2 text-sm font-semibold text-[#d8deea]">
+      {field}
+      {isLong ? (
+        <textarea
+          className="input-field min-h-28 resize-none"
+          onChange={(event) => onChange(field, event.target.value)}
+          placeholder={`Isi ${field.toLowerCase()}`}
+          value={value}
+        />
+      ) : (
+        <input
+          className="input-field"
+          onChange={(event) => onChange(field, event.target.value)}
+          placeholder={`Isi ${field.toLowerCase()}`}
+          type={
+            lower.includes("tarikh")
+              ? "date"
+              : lower.includes("masa")
+                ? "time"
+                : "text"
+          }
+          value={value}
+        />
+      )}
+    </label>
   );
 }
