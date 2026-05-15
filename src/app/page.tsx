@@ -312,6 +312,14 @@ export default function Home() {
     window.localStorage.removeItem(storageKey);
   }
 
+  const currentStep = getCurrentStep({
+    detectedFields,
+    fileName,
+    isConfirmed,
+    selectedDocument,
+    selectedUser,
+  });
+
   return (
     <main className="relative grid min-h-screen place-items-center overflow-hidden bg-[#050507] px-6 py-12 text-center text-white">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_35%,rgba(125,161,255,0.2),transparent_30%),radial-gradient(circle_at_18%_16%,rgba(230,237,255,0.08),transparent_24%),linear-gradient(135deg,#050507_0%,#11131a_48%,#050507_100%)]" />
@@ -326,6 +334,8 @@ export default function Home() {
           lY Docs
         </h1>
         <div className="mx-auto mt-12 max-w-xl rounded-[2rem] border border-white/10 bg-white/[0.06] p-5 shadow-[0_28px_120px_rgba(0,0,0,0.35)] backdrop-blur-2xl sm:p-6">
+          <ProgressSteps currentStep={currentStep} />
+
           {!isConfirmed ? (
             <label className="group flex min-h-56 cursor-pointer flex-col items-center justify-center rounded-[1.5rem] border border-dashed border-[#b9caff]/35 bg-black/25 px-6 py-8 transition duration-300 hover:border-[#d7e3ff]/80 hover:bg-[#7da1ff]/10">
               <span className="grid h-14 w-14 place-items-center rounded-2xl border border-white/10 bg-white/[0.07] text-3xl text-[#d7e3ff] transition duration-300 group-hover:scale-105">
@@ -605,6 +615,67 @@ function buildPlainText({
   ];
 
   return lines.join("\n");
+}
+
+function getCurrentStep({
+  detectedFields,
+  fileName,
+  isConfirmed,
+  selectedDocument,
+  selectedUser,
+}: {
+  detectedFields: string[];
+  fileName: string;
+  isConfirmed: boolean;
+  selectedDocument: string;
+  selectedUser: string;
+}) {
+  if (detectedFields.length > 0) return 6;
+  if (selectedDocument) return 5;
+  if (selectedUser) return 4;
+  if (isConfirmed) return 3;
+  if (fileName) return 2;
+  return 1;
+}
+
+function ProgressSteps({ currentStep }: { currentStep: number }) {
+  const steps = [
+    "Upload",
+    "Sahkan",
+    "User",
+    "Dokumen",
+    "Scan",
+    "Isi",
+    "Output",
+  ];
+
+  return (
+    <div className="mb-5 grid grid-cols-2 gap-2 text-left sm:grid-cols-4">
+      {steps.map((step, index) => {
+        const stepNumber = index + 1;
+        const isDone = currentStep > stepNumber;
+        const isActive = currentStep === stepNumber;
+
+        return (
+          <div
+            className={`rounded-2xl border px-3 py-2 transition duration-300 ${
+              isActive
+                ? "border-[#b9caff]/70 bg-[#7da1ff]/20 text-white"
+                : isDone
+                  ? "border-[#b9caff]/25 bg-[#7da1ff]/10 text-[#d7e3ff]"
+                  : "border-white/10 bg-black/20 text-[#7f8aa0]"
+            }`}
+            key={step}
+          >
+            <p className="text-[0.65rem] font-bold uppercase tracking-[0.16em]">
+              {String(stepNumber).padStart(2, "0")}
+            </p>
+            <p className="mt-1 text-xs font-semibold">{step}</p>
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 function OriginalFilePreview({
