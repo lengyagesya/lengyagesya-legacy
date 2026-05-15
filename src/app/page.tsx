@@ -1,10 +1,9 @@
 export default function Home() {
   return (
-    <main className="min-h-screen bg-black text-white flex items-center justify-center">
-      <div className="text-center">
-        <h1 className="text-7xl font-bold">lY Docs</h1>
-        <p className="mt-4 text-zinc-400">Coming soon</p>
-      </div>
+    <main className="grid min-h-screen place-items-center bg-[#050507] px-6 text-white">
+      <h1 className="text-6xl font-semibold tracking-[-0.04em] sm:text-8xl">
+        lY Docs
+      </h1>
     </main>
   );
 }
