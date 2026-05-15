@@ -4,10 +4,17 @@ import { ChangeEvent, useState } from "react";
 
 export default function Home() {
   const [fileName, setFileName] = useState("");
+  const [isConfirmed, setIsConfirmed] = useState(false);
 
   function handleUpload(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     setFileName(file?.name || "");
+    setIsConfirmed(false);
+  }
+
+  function confirmFile() {
+    if (!fileName) return;
+    setIsConfirmed(true);
   }
 
   return (
@@ -51,6 +58,40 @@ export default function Home() {
               {fileName || "Belum ada file"}
             </p>
           </div>
+
+          {fileName ? (
+            <div className="mt-4 rounded-2xl border border-[#b9caff]/20 bg-[#7da1ff]/10 p-4 text-left">
+              <p className="text-base font-semibold text-white">
+                Ini file format yang betul?
+              </p>
+              <p className="mt-2 text-sm leading-6 text-[#aeb7c8]">
+                Sahkan file ini sebelum kita sambung ke langkah seterusnya.
+              </p>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <button
+                  className="btn-primary"
+                  onClick={confirmFile}
+                  type="button"
+                >
+                  Ya, Teruskan
+                </button>
+                <label className="btn-secondary cursor-pointer">
+                  Upload Semula
+                  <input
+                    accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
+                    className="sr-only"
+                    onChange={handleUpload}
+                    type="file"
+                  />
+                </label>
+              </div>
+              {isConfirmed ? (
+                <p className="mt-4 rounded-xl border border-white/10 bg-black/25 px-3 py-2 text-sm font-medium text-[#d7e3ff]">
+                  File disahkan.
+                </p>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       </section>
     </main>
