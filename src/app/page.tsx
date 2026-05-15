@@ -139,6 +139,7 @@ export default function Home() {
   const [detectedFields, setDetectedFields] = useState<string[]>(savedProgress?.detectedFields || []);
   const [formValues, setFormValues] = useState<Record<string, string>>(savedProgress?.formValues || {});
   const [applyToDocxVersion, setApplyToDocxVersion] = useState(0);
+  const [actionMessage, setActionMessage] = useState("");
 
   useEffect(() => {
     const progress: SavedProgress = {
@@ -175,6 +176,7 @@ export default function Home() {
     setDetectedFields([]);
     setFormValues({});
     setApplyToDocxVersion(0);
+    setActionMessage("");
   }
 
   function confirmFile() {
@@ -190,6 +192,7 @@ export default function Home() {
     setDetectedFields([]);
     setFormValues({});
     setApplyToDocxVersion(0);
+    setActionMessage("");
   }
 
   function backToUserSelection() {
@@ -198,6 +201,7 @@ export default function Home() {
     setDetectedFields([]);
     setFormValues({});
     setApplyToDocxVersion(0);
+    setActionMessage("");
   }
 
   function selectDocument(documentName: string) {
@@ -206,6 +210,7 @@ export default function Home() {
     setDetectedFields([]);
     setFormValues({});
     setApplyToDocxVersion(0);
+    setActionMessage("");
   }
 
   async function scanFields() {
@@ -215,6 +220,7 @@ export default function Home() {
     setDetectedFields([]);
     setFormValues({});
     setApplyToDocxVersion(0);
+    setActionMessage("");
 
     const fallbackFields = detectedFieldsByDocument[selectedDocument] || [];
 
@@ -238,11 +244,23 @@ export default function Home() {
       [field]: value,
     }));
     setApplyToDocxVersion(0);
+    setActionMessage("");
   }
 
   function applyToOriginalDocx() {
-    if (fileType !== "docx") return;
+    if (fileType !== "docx") {
+      setActionMessage("Fungsi ini hanya untuk DOCX buat masa ini.");
+      return;
+    }
+
+    const hasFilledValue = detectedFields.some((field) => formValues[field]?.trim());
+    if (!hasFilledValue) {
+      setActionMessage("Isi maklumat dahulu sebelum masukkan ke format asal.");
+      return;
+    }
+
     setApplyToDocxVersion((current) => current + 1);
+    setActionMessage("Data cuba dimasukkan ke format asal. Semak preview DOCX di atas.");
   }
 
   async function copyText() {
@@ -290,6 +308,7 @@ export default function Home() {
     setDetectedFields([]);
     setFormValues({});
     setApplyToDocxVersion(0);
+    setActionMessage("");
     window.localStorage.removeItem(storageKey);
   }
 
@@ -508,6 +527,11 @@ export default function Home() {
                               <p className="text-xs leading-5 text-[#aeb7c8]">
                                 Fungsi masuk ke format asal hanya untuk DOCX buat
                                 masa ini.
+                              </p>
+                            ) : null}
+                            {actionMessage ? (
+                              <p className="rounded-xl border border-white/10 bg-[#7da1ff]/10 px-3 py-2 text-sm leading-6 text-[#d7e3ff]">
+                                {actionMessage}
                               </p>
                             ) : null}
                             <div className="grid gap-3 sm:grid-cols-2">
