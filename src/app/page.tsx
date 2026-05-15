@@ -13,21 +13,35 @@ const userOptions = [
   "Admin Organisasi",
 ];
 
+const documentOptions = ["RPA", "RPH", "RPI", "Laporan Aktiviti"];
+
 export default function Home() {
   const [fileName, setFileName] = useState("");
   const [isConfirmed, setIsConfirmed] = useState(false);
   const [selectedUser, setSelectedUser] = useState("");
+  const [selectedDocument, setSelectedDocument] = useState("");
 
   function handleUpload(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     setFileName(file?.name || "");
     setIsConfirmed(false);
     setSelectedUser("");
+    setSelectedDocument("");
   }
 
   function confirmFile() {
     if (!fileName) return;
     setIsConfirmed(true);
+  }
+
+  function backToUpload() {
+    setIsConfirmed(false);
+    setSelectedUser("");
+    setSelectedDocument("");
+  }
+
+  function backToUserSelection() {
+    setSelectedDocument("");
   }
 
   return (
@@ -105,28 +119,75 @@ export default function Home() {
 
           {isConfirmed ? (
             <div className="mt-4 rounded-2xl border border-[#b9caff]/20 bg-[#7da1ff]/10 p-4 text-left">
-              <p className="text-base font-semibold text-white">
-                Pilih pengguna
-              </p>
-              <p className="mt-2 text-sm leading-6 text-[#aeb7c8]">
-                Pilihan ini akan bantu susun langkah seterusnya.
-              </p>
-              <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                {userOptions.map((option) => (
-                  <button
-                    className={`rounded-2xl border px-4 py-3 text-left text-sm font-semibold transition duration-300 ${
-                      selectedUser === option
-                        ? "border-[#b9caff]/70 bg-[#7da1ff]/20 text-white"
-                        : "border-white/10 bg-black/25 text-[#aeb7c8] hover:border-[#b9caff]/45 hover:text-white"
-                    }`}
-                    key={option}
-                    onClick={() => setSelectedUser(option)}
-                    type="button"
-                  >
-                    {option}
-                  </button>
-                ))}
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <button className="btn-quiet" onClick={backToUpload} type="button">
+                  Back
+                </button>
+                {selectedUser ? (
+                  <span className="rounded-full border border-white/10 bg-black/25 px-3 py-2 text-xs font-semibold text-[#d7e3ff]">
+                    {selectedUser}
+                  </span>
+                ) : null}
               </div>
+
+              {!selectedUser ? (
+                <>
+                  <p className="text-base font-semibold text-white">
+                    Pilih pengguna
+                  </p>
+                  <p className="mt-2 text-sm leading-6 text-[#aeb7c8]">
+                    Pilihan ini akan bantu susun langkah seterusnya.
+                  </p>
+                  <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                    {userOptions.map((option) => (
+                      <button
+                        className="rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-left text-sm font-semibold text-[#aeb7c8] transition duration-300 hover:border-[#b9caff]/45 hover:text-white"
+                        key={option}
+                        onClick={() => setSelectedUser(option)}
+                        type="button"
+                      >
+                        {option}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-base font-semibold text-white">
+                        Pilih jenis dokumen
+                      </p>
+                      <p className="mt-2 text-sm leading-6 text-[#aeb7c8]">
+                        Pilih dokumen yang mahu disediakan.
+                      </p>
+                    </div>
+                    <button
+                      className="btn-quiet"
+                      onClick={backToUserSelection}
+                      type="button"
+                    >
+                      Back
+                    </button>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {documentOptions.map((option) => (
+                      <button
+                        className={`rounded-2xl border px-4 py-3 text-left text-sm font-semibold transition duration-300 ${
+                          selectedDocument === option
+                            ? "border-[#b9caff]/70 bg-[#7da1ff]/20 text-white"
+                            : "border-white/10 bg-black/25 text-[#aeb7c8] hover:border-[#b9caff]/45 hover:text-white"
+                        }`}
+                        key={option}
+                        onClick={() => setSelectedDocument(option)}
+                        type="button"
+                      >
+                        {option}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           ) : null}
         </div>
