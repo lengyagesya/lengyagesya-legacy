@@ -481,6 +481,19 @@ export default function Home() {
 
             <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
               <div className="space-y-6">
+                <section className="rounded-[2rem] border border-[#b9caff]/20 bg-[#7da1ff]/8 p-5 shadow-[0_24px_90px_rgba(0,0,0,0.2)] backdrop-blur-2xl sm:p-6">
+                  <p className="text-xs font-semibold uppercase tracking-[0.32em] text-[#b9caff]">
+                    Main workspace
+                  </p>
+                  <h2 className="mt-3 text-2xl font-semibold tracking-[-0.02em] text-white">
+                    Upload format dokumen anda
+                  </h2>
+                  <p className="mt-3 text-sm leading-6 text-[#aeb7c8]">
+                    Mula dengan template siap atau upload format sendiri untuk
+                    jana dokumen kerja yang kemas.
+                  </p>
+                </section>
+
                 <Panel title="Template Siap">
                   <p className="mb-4 text-sm leading-6 text-[#aeb7c8]">
                     Pilih template asas kalau mahu mula cepat tanpa upload file.
