@@ -68,6 +68,41 @@ const detectedFieldsByDocument: Record<string, string[]> = {
   ],
 };
 
+const fieldKeywords: Array<[string, string[]]> = [
+  ["Nama Organisasi", ["nama organisasi", "nama sekolah", "nama taska", "nama tadika", "organisasi"]],
+  ["Nama Sekolah", ["nama sekolah"]],
+  ["Nama Guru", ["nama guru"]],
+  ["Nama Guru / Petugas", ["nama guru", "nama petugas", "nama pendidik", "disediakan oleh"]],
+  ["Nama Murid / Pelatih", ["nama murid", "nama pelatih", "nama kanak", "nama klien"]],
+  ["Nama Murid / Klien", ["nama murid", "nama klien"]],
+  ["Nama Aktiviti", ["nama aktiviti", "aktiviti/program"]],
+  ["Tarikh", ["tarikh"]],
+  ["Masa", ["masa"]],
+  ["Tempat", ["tempat", "lokasi"]],
+  ["Tajuk", ["tajuk"]],
+  ["Tajuk Aktiviti", ["tajuk aktiviti", "tema aktiviti"]],
+  ["Mata Pelajaran", ["mata pelajaran", "subjek"]],
+  ["Kelas", ["kelas", "tahun"]],
+  ["Standard Kandungan", ["standard kandungan"]],
+  ["Standard Pembelajaran", ["standard pembelajaran"]],
+  ["Objektif", ["objektif", "hasil pembelajaran"]],
+  ["Bahan / Alat", ["bahan", "alat", "bbm", "bantu mengajar"]],
+  ["Langkah Pelaksanaan", ["langkah", "pelaksanaan", "prosedur"]],
+  ["Aktiviti PdP", ["aktiviti pdp", "aktiviti pengajaran"]],
+  ["Pemerhatian", ["pemerhatian", "observasi"]],
+  ["Refleksi", ["refleksi"]],
+  ["Rumusan", ["rumusan"]],
+  ["Ringkasan Aktiviti", ["ringkasan aktiviti", "ringkasan"]],
+  ["Penyelaras", ["penyelaras", "petugas"]],
+  ["Peserta", ["peserta"]],
+  ["Kategori / Keperluan", ["kategori", "keperluan"]],
+  ["Matlamat", ["matlamat"]],
+  ["Objektif Jangka Pendek", ["objektif jangka pendek"]],
+  ["Intervensi", ["intervensi"]],
+  ["Penilaian", ["penilaian"]],
+  ["Catatan", ["catatan", "nota"]],
+];
+
 export default function Home() {
   const [fileName, setFileName] = useState("");
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
@@ -127,7 +162,7 @@ export default function Home() {
     setShowPreview(false);
   }
 
-  function scanFields() {
+  async function scanFields() {
     if (!selectedDocument) return;
 
     setIsScanning(true);
@@ -135,8 +170,18 @@ export default function Home() {
     setFormValues({});
     setShowPreview(false);
 
+    const fallbackFields = detectedFieldsByDocument[selectedDocument] || [];
+
+    if (fileType === "docx" && uploadedFile) {
+      const docxText = await extractDocxText(uploadedFile);
+      const detectedFromDocx = detectFieldsFromText(docxText);
+      setDetectedFields(detectedFromDocx.length > 0 ? detectedFromDocx : fallbackFields);
+      setIsScanning(false);
+      return;
+    }
+
     window.setTimeout(() => {
-      setDetectedFields(detectedFieldsByDocument[selectedDocument] || []);
+      setDetectedFields(fallbackFields);
       setIsScanning(false);
     }, 900);
   }
@@ -542,6 +587,44 @@ function DocxPreview({ file }: { file: File | null }) {
       ref={containerRef}
     />
   );
+}
+
+async function extractDocxText(file: File) {
+  try {
+    const [{ default: JSZip }, buffer] = await Promise.all([
+      import("jszip"),
+      file.arrayBuffer(),
+    ]);
+    const zip = await JSZip.loadAsync(buffer);
+    const xml = await zip.file("word/document.xml")?.async("string");
+    if (!xml) return "";
+
+    const documentXml = new DOMParser().parseFromString(xml, "application/xml");
+    return Array.from(documentXml.getElementsByTagName("w:t"))
+      .map((node) => node.textContent || "")
+      .join(" ");
+  } catch {
+    return "";
+  }
+}
+
+function detectFieldsFromText(text: string) {
+  const normalizedText = normalizeText(text);
+  const detected = fieldKeywords
+    .filter(([, keywords]) =>
+      keywords.some((keyword) => normalizedText.includes(normalizeText(keyword))),
+    )
+    .map(([field]) => field);
+
+  return Array.from(new Set(detected)).slice(0, 18);
+}
+
+function normalizeText(text: string) {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9\u00c0-\u024f]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function FieldInput({
