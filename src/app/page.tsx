@@ -31,7 +31,20 @@ function getSavedProgress(): SavedProgress | null {
 
   try {
     const saved = window.localStorage.getItem(storageKey);
-    return saved ? (JSON.parse(saved) as SavedProgress) : null;
+    if (!saved) return null;
+
+    const progress = JSON.parse(saved) as SavedProgress;
+
+    return {
+      ...progress,
+      detectedFields: [],
+      fileName: "",
+      fileType: "",
+      formValues: {},
+      isConfirmed: false,
+      selectedDocument: "",
+      selectedUser: "",
+    };
   } catch {
     window.localStorage.removeItem(storageKey);
     return null;
