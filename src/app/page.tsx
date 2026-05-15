@@ -512,6 +512,7 @@ export default function Home() {
                                 field={field}
                                 key={field}
                                 onChange={updateField}
+                                selectedDocument={selectedDocument}
                                 value={formValues[field] || ""}
                               />
                             ))}
@@ -862,13 +863,57 @@ function normalizeText(text: string) {
     .trim();
 }
 
+function buildFieldSuggestion(field: string, selectedDocument: string) {
+  const lower = field.toLowerCase();
+
+  if (lower.includes("objektif")) {
+    if (selectedDocument === "RPH") {
+      return "Murid dapat memahami isi pembelajaran, melibatkan diri dalam aktiviti PdP dan menyelesaikan tugasan mengikut tahap penguasaan masing-masing.";
+    }
+
+    if (selectedDocument === "RPA") {
+      return "Peserta dapat mengikuti aktiviti yang dirancang, memberi respons terhadap arahan mudah dan menunjukkan perkembangan mengikut tahap keupayaan masing-masing.";
+    }
+
+    return "Aktiviti ini dilaksanakan bagi memastikan objektif program dicapai secara terancang, tersusun dan memberi manfaat kepada peserta.";
+  }
+
+  if (lower.includes("langkah") || lower.includes("aktiviti pdp")) {
+    return "Aktiviti dimulakan dengan penerangan ringkas, diikuti pelaksanaan secara berpandu, pemerhatian terhadap respons peserta dan penutup melalui rumusan serta maklum balas.";
+  }
+
+  if (lower.includes("pemerhatian")) {
+    return "Peserta menunjukkan minat dan kerjasama yang baik sepanjang aktiviti. Bimbingan diberikan mengikut keperluan bagi memastikan penglibatan yang lebih menyeluruh.";
+  }
+
+  if (lower.includes("refleksi")) {
+    return "Secara keseluruhan, sesi berjalan lancar dan objektif dapat dicapai secara berperingkat. Penambahbaikan boleh dibuat dari aspek masa, bahan dan bimbingan individu.";
+  }
+
+  if (lower.includes("rumusan")) {
+    return "Program telah dilaksanakan dengan baik dan mencapai tujuan yang dirancang. Cadangan penambahbaikan akan diambil kira untuk pelaksanaan seterusnya.";
+  }
+
+  if (lower.includes("catatan")) {
+    return "Perkara ini direkodkan sebagai rujukan dan tindakan susulan pihak berkaitan.";
+  }
+
+  if (lower.includes("intervensi")) {
+    return "Intervensi dilaksanakan secara berfokus mengikut keperluan individu dengan pemantauan dan bimbingan berterusan.";
+  }
+
+  return "Maklumat ini disediakan berdasarkan keperluan dokumen dan tujuan pelaksanaan yang telah dikenal pasti.";
+}
+
 function FieldInput({
   field,
   onChange,
+  selectedDocument,
   value,
 }: {
   field: string;
   onChange: (field: string, value: string) => void;
+  selectedDocument: string;
   value: string;
 }) {
   const lower = field.toLowerCase();
@@ -884,7 +929,18 @@ function FieldInput({
 
   return (
     <label className="grid gap-2 text-sm font-semibold text-[#d8deea]">
-      {field}
+      <span className="flex flex-wrap items-center justify-between gap-3">
+        <span>{field}</span>
+        {isLong ? (
+          <button
+            className="mini-button min-h-0 rounded-full px-3 py-1.5 text-[0.65rem]"
+            onClick={() => onChange(field, buildFieldSuggestion(field, selectedDocument))}
+            type="button"
+          >
+            Cadang Ayat
+          </button>
+        ) : null}
+      </span>
       {isLong ? (
         <textarea
           className="input-field min-h-28 resize-none"
