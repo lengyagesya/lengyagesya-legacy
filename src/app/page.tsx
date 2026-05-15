@@ -115,6 +115,7 @@ export default function Home() {
   const [detectedFields, setDetectedFields] = useState<string[]>([]);
   const [formValues, setFormValues] = useState<Record<string, string>>({});
   const [showPreview, setShowPreview] = useState(false);
+  const [applyToDocxVersion, setApplyToDocxVersion] = useState(0);
 
   function handleUpload(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -129,6 +130,7 @@ export default function Home() {
     setDetectedFields([]);
     setFormValues({});
     setShowPreview(false);
+    setApplyToDocxVersion(0);
   }
 
   function confirmFile() {
@@ -144,6 +146,7 @@ export default function Home() {
     setDetectedFields([]);
     setFormValues({});
     setShowPreview(false);
+    setApplyToDocxVersion(0);
   }
 
   function backToUserSelection() {
@@ -152,6 +155,7 @@ export default function Home() {
     setDetectedFields([]);
     setFormValues({});
     setShowPreview(false);
+    setApplyToDocxVersion(0);
   }
 
   function selectDocument(documentName: string) {
@@ -160,6 +164,7 @@ export default function Home() {
     setDetectedFields([]);
     setFormValues({});
     setShowPreview(false);
+    setApplyToDocxVersion(0);
   }
 
   async function scanFields() {
@@ -169,6 +174,7 @@ export default function Home() {
     setDetectedFields([]);
     setFormValues({});
     setShowPreview(false);
+    setApplyToDocxVersion(0);
 
     const fallbackFields = detectedFieldsByDocument[selectedDocument] || [];
 
@@ -192,11 +198,17 @@ export default function Home() {
       [field]: value,
     }));
     setShowPreview(false);
+    setApplyToDocxVersion(0);
   }
 
   function generatePreview() {
     if (detectedFields.length === 0) return;
     setShowPreview(true);
+  }
+
+  function applyToOriginalDocx() {
+    if (fileType !== "docx") return;
+    setApplyToDocxVersion((current) => current + 1);
   }
 
   return (
@@ -248,6 +260,9 @@ export default function Home() {
               fileName={fileName}
               filePreviewUrl={filePreviewUrl}
               fileType={fileType}
+              applyToDocxVersion={applyToDocxVersion}
+              detectedFields={detectedFields}
+              formValues={formValues}
               uploadedFile={uploadedFile}
             />
           ) : null}
@@ -401,6 +416,20 @@ export default function Home() {
                             >
                               Jana Preview
                             </button>
+                            <button
+                              className="btn-secondary"
+                              disabled={fileType !== "docx"}
+                              onClick={applyToOriginalDocx}
+                              type="button"
+                            >
+                              Masukkan Ke Format Asal
+                            </button>
+                            {fileType !== "docx" ? (
+                              <p className="text-xs leading-5 text-[#aeb7c8]">
+                                Fungsi masuk ke format asal hanya untuk DOCX buat
+                                masa ini.
+                              </p>
+                            ) : null}
                           </div>
                         </div>
                       ) : null}
@@ -475,14 +504,20 @@ function DocumentPreview({
 }
 
 function OriginalFilePreview({
+  applyToDocxVersion,
+  detectedFields,
   fileName,
   filePreviewUrl,
   fileType,
+  formValues,
   uploadedFile,
 }: {
+  applyToDocxVersion: number;
+  detectedFields: string[];
   fileName: string;
   filePreviewUrl: string;
   fileType: string;
+  formValues: Record<string, string>;
   uploadedFile: File | null;
 }) {
   const isImage = ["jpg", "jpeg", "png"].includes(fileType);
@@ -514,7 +549,14 @@ function OriginalFilePreview({
           />
         ) : null}
 
-        {isDocx ? <DocxPreview file={uploadedFile} /> : null}
+        {isDocx ? (
+          <DocxPreview
+            applyToDocxVersion={applyToDocxVersion}
+            detectedFields={detectedFields}
+            file={uploadedFile}
+            formValues={formValues}
+          />
+        ) : null}
 
         {!isImage && !isPdf && !isDocx ? (
           <div className="p-5">
@@ -530,7 +572,17 @@ function OriginalFilePreview({
   );
 }
 
-function DocxPreview({ file }: { file: File | null }) {
+function DocxPreview({
+  applyToDocxVersion,
+  detectedFields,
+  file,
+  formValues,
+}: {
+  applyToDocxVersion: number;
+  detectedFields: string[];
+  file: File | null;
+  formValues: Record<string, string>;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState("");
 
@@ -557,6 +609,11 @@ function DocxPreview({ file }: { file: File | null }) {
           useBase64URL: true,
         }),
       )
+      .then(() => {
+        if (!cancelled && applyToDocxVersion > 0) {
+          applyValuesToDocxPreview(container, detectedFields, formValues);
+        }
+      })
       .catch(() => {
         if (!cancelled) {
           setError("DOCX ini tidak dapat dipaparkan. Cuba simpan semula sebagai DOCX moden.");
@@ -567,7 +624,7 @@ function DocxPreview({ file }: { file: File | null }) {
       cancelled = true;
       container.innerHTML = "";
     };
-  }, [file]);
+  }, [applyToDocxVersion, detectedFields, file, formValues]);
 
   if (!file) {
     return (
@@ -587,6 +644,81 @@ function DocxPreview({ file }: { file: File | null }) {
       ref={containerRef}
     />
   );
+}
+
+function applyValuesToDocxPreview(
+  container: HTMLElement,
+  fields: string[],
+  values: Record<string, string>,
+) {
+  fields.forEach((field) => {
+    const value = values[field]?.trim();
+    if (!value) return;
+
+    if (fillTableField(container, field, value)) return;
+    fillInlineField(container, field, value);
+  });
+}
+
+function fillTableField(container: HTMLElement, field: string, value: string) {
+  const rows = Array.from(container.querySelectorAll("tr"));
+
+  for (const row of rows) {
+    const cells = Array.from(row.querySelectorAll<HTMLElement>("td, th"));
+    const labelIndex = cells.findIndex((cell) =>
+      textIncludesField(cell.textContent || "", field),
+    );
+
+    if (labelIndex === -1) continue;
+
+    const targetCell = cells[labelIndex + 1];
+    if (targetCell) {
+      targetCell.textContent = value;
+      targetCell.dataset.lyFilled = "true";
+      return true;
+    }
+
+    appendValueInside(cells[labelIndex], value);
+    return true;
+  }
+
+  return false;
+}
+
+function fillInlineField(container: HTMLElement, field: string, value: string) {
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+  let current = walker.nextNode();
+
+  while (current) {
+    const text = current.textContent || "";
+    const parent = current.parentElement;
+
+    if (
+      parent &&
+      textIncludesField(text, field) &&
+      !parent.closest("[data-ly-filled='true']") &&
+      !(parent.textContent || "").includes(value)
+    ) {
+      appendValueInside(parent, value);
+      return true;
+    }
+
+    current = walker.nextNode();
+  }
+
+  return false;
+}
+
+function appendValueInside(element: HTMLElement, value: string) {
+  const separator = (element.textContent || "").trim().endsWith(":") ? " " : " : ";
+  const valueNode = document.createElement("span");
+  valueNode.dataset.lyFilled = "true";
+  valueNode.textContent = `${separator}${value}`;
+  element.appendChild(valueNode);
+}
+
+function textIncludesField(text: string, field: string) {
+  return normalizeText(text).includes(normalizeText(field));
 }
 
 async function extractDocxText(file: File) {
