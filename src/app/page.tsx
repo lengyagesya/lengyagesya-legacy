@@ -76,6 +76,7 @@ export default function Home() {
   const [isScanning, setIsScanning] = useState(false);
   const [detectedFields, setDetectedFields] = useState<string[]>([]);
   const [formValues, setFormValues] = useState<Record<string, string>>({});
+  const [showPreview, setShowPreview] = useState(false);
 
   function handleUpload(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -86,6 +87,7 @@ export default function Home() {
     setIsScanning(false);
     setDetectedFields([]);
     setFormValues({});
+    setShowPreview(false);
   }
 
   function confirmFile() {
@@ -100,6 +102,7 @@ export default function Home() {
     setIsScanning(false);
     setDetectedFields([]);
     setFormValues({});
+    setShowPreview(false);
   }
 
   function backToUserSelection() {
@@ -107,6 +110,7 @@ export default function Home() {
     setIsScanning(false);
     setDetectedFields([]);
     setFormValues({});
+    setShowPreview(false);
   }
 
   function selectDocument(documentName: string) {
@@ -114,6 +118,7 @@ export default function Home() {
     setIsScanning(false);
     setDetectedFields([]);
     setFormValues({});
+    setShowPreview(false);
   }
 
   function scanFields() {
@@ -122,6 +127,7 @@ export default function Home() {
     setIsScanning(true);
     setDetectedFields([]);
     setFormValues({});
+    setShowPreview(false);
 
     window.setTimeout(() => {
       setDetectedFields(detectedFieldsByDocument[selectedDocument] || []);
@@ -134,6 +140,12 @@ export default function Home() {
       ...current,
       [field]: value,
     }));
+    setShowPreview(false);
+  }
+
+  function generatePreview() {
+    if (detectedFields.length === 0) return;
+    setShowPreview(true);
   }
 
   return (
@@ -322,6 +334,13 @@ export default function Home() {
                                 value={formValues[field] || ""}
                               />
                             ))}
+                            <button
+                              className="btn-primary"
+                              onClick={generatePreview}
+                              type="button"
+                            >
+                              Jana Preview
+                            </button>
                           </div>
                         </div>
                       ) : null}
@@ -332,8 +351,66 @@ export default function Home() {
             </div>
           ) : null}
         </div>
+        {showPreview ? (
+          <DocumentPreview
+            detectedFields={detectedFields}
+            fileName={fileName}
+            formValues={formValues}
+            selectedDocument={selectedDocument}
+            selectedUser={selectedUser}
+          />
+        ) : null}
       </section>
     </main>
+  );
+}
+
+function DocumentPreview({
+  detectedFields,
+  fileName,
+  formValues,
+  selectedDocument,
+  selectedUser,
+}: {
+  detectedFields: string[];
+  fileName: string;
+  formValues: Record<string, string>;
+  selectedDocument: string;
+  selectedUser: string;
+}) {
+  return (
+    <section className="mx-auto mt-8 max-w-xl rounded-[2rem] border border-white/10 bg-white/[0.06] p-5 text-left shadow-[0_28px_120px_rgba(0,0,0,0.35)] backdrop-blur-2xl sm:p-6">
+      <p className="mb-4 text-xs font-semibold uppercase tracking-[0.28em] text-[#b9caff]">
+        Preview Output
+      </p>
+      <article className="rounded-xl bg-[#fbfaf6] p-6 text-[#171513] shadow-[0_20px_80px_rgba(0,0,0,0.35)]">
+        <div className="border-b border-[#d9d2c7] pb-4 text-center">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#6d655c]">
+            {selectedUser}
+          </p>
+          <h2 className="mt-2 text-2xl font-bold uppercase tracking-wide">
+            {selectedDocument}
+          </h2>
+          <p className="mt-2 text-xs text-[#6d655c]">{fileName}</p>
+        </div>
+
+        <div className="mt-6 overflow-hidden rounded-lg border border-[#d9d2c7]">
+          {detectedFields.map((field) => (
+            <div
+              className="grid border-b border-[#d9d2c7] last:border-b-0 sm:grid-cols-[0.38fr_0.62fr]"
+              key={field}
+            >
+              <div className="bg-[#f0ece4] px-4 py-3 text-sm font-bold">
+                {field}
+              </div>
+              <div className="min-h-12 px-4 py-3 text-sm leading-6">
+                {formValues[field]?.trim() || "Belum diisi"}
+              </div>
+            </div>
+          ))}
+        </div>
+      </article>
+    </section>
   );
 }
 
