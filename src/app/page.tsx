@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, useState } from "react";
+import { ChangeEvent, useEffect, useRef, useState } from "react";
 
 const userOptions = [
   "Petugas PPDK",
@@ -70,6 +70,7 @@ const detectedFieldsByDocument: Record<string, string[]> = {
 
 export default function Home() {
   const [fileName, setFileName] = useState("");
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [filePreviewUrl, setFilePreviewUrl] = useState("");
   const [fileType, setFileType] = useState("");
   const [isConfirmed, setIsConfirmed] = useState(false);
@@ -83,6 +84,7 @@ export default function Home() {
   function handleUpload(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     setFileName(file?.name || "");
+    setUploadedFile(file || null);
     setFilePreviewUrl(file ? URL.createObjectURL(file) : "");
     setFileType(file?.name.split(".").pop()?.toLowerCase() || "");
     setIsConfirmed(false);
@@ -201,6 +203,7 @@ export default function Home() {
               fileName={fileName}
               filePreviewUrl={filePreviewUrl}
               fileType={fileType}
+              uploadedFile={uploadedFile}
             />
           ) : null}
 
@@ -430,13 +433,16 @@ function OriginalFilePreview({
   fileName,
   filePreviewUrl,
   fileType,
+  uploadedFile,
 }: {
   fileName: string;
   filePreviewUrl: string;
   fileType: string;
+  uploadedFile: File | null;
 }) {
   const isImage = ["jpg", "jpeg", "png"].includes(fileType);
   const isPdf = fileType === "pdf";
+  const isDocx = fileType === "docx";
 
   return (
     <section className="mt-4 rounded-2xl border border-white/10 bg-black/25 p-4 text-left">
@@ -463,17 +469,78 @@ function OriginalFilePreview({
           />
         ) : null}
 
-        {!isImage && !isPdf ? (
+        {isDocx ? <DocxPreview file={uploadedFile} /> : null}
+
+        {!isImage && !isPdf && !isDocx ? (
           <div className="p-5">
             <p className="text-sm font-semibold text-white">{fileName}</p>
             <p className="mt-2 text-sm leading-6 text-[#aeb7c8]">
-              Preview visual untuk DOC/DOCX akan dibuat pada fasa seterusnya.
+              Preview visual untuk DOC lama akan dibuat pada fasa seterusnya.
               Buat masa ini file sudah diterima sebagai rujukan.
             </p>
           </div>
         ) : null}
       </div>
     </section>
+  );
+}
+
+function DocxPreview({ file }: { file: File | null }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || !file) return;
+
+    container.innerHTML = "";
+    setError("");
+    let cancelled = false;
+
+    import("docx-preview")
+      .then(({ renderAsync }) =>
+        renderAsync(file, container, undefined, {
+          breakPages: true,
+          className: "ly-docx",
+          experimental: true,
+          ignoreFonts: false,
+          ignoreHeight: false,
+          ignoreWidth: false,
+          inWrapper: true,
+          renderFooters: true,
+          renderHeaders: true,
+          useBase64URL: true,
+        }),
+      )
+      .catch(() => {
+        if (!cancelled) {
+          setError("DOCX ini tidak dapat dipaparkan. Cuba simpan semula sebagai DOCX moden.");
+        }
+      });
+
+    return () => {
+      cancelled = true;
+      container.innerHTML = "";
+    };
+  }, [file]);
+
+  if (!file) {
+    return (
+      <div className="p-5 text-sm leading-6 text-[#aeb7c8]">
+        File DOCX belum tersedia untuk preview.
+      </div>
+    );
+  }
+
+  if (error) {
+    return <div className="p-5 text-sm leading-6 text-[#ffd2d2]">{error}</div>;
+  }
+
+  return (
+    <div
+      className="max-h-96 overflow-auto bg-white text-black"
+      ref={containerRef}
+    />
   );
 }
 
