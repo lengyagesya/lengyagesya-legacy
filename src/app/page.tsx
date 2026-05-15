@@ -54,6 +54,14 @@ type SavedFormat = {
   type: string;
 };
 
+type BuiltInTemplate = {
+  description: string;
+  fields: string[];
+  name: string;
+  outputFormat: OutputFormat;
+  recommendedProfile: UserProfile;
+};
+
 const storageKey = "ly-docs-simple-scan-state";
 const savedFormatsKey = "ly-docs-saved-formats";
 const allowedExtensions = ["png", "jpg", "jpeg", "pdf", "doc", "docx"];
@@ -79,6 +87,85 @@ const outputFormats: OutputFormat[] = [
   "Minit Mesyuarat",
   "Memo",
   "Custom",
+];
+
+const builtInTemplates: BuiltInTemplate[] = [
+  {
+    description: "Perancangan aktiviti harian untuk PPDK, taska dan tadika.",
+    fields: [
+      "Nama Organisasi",
+      "Nama Guru / Petugas",
+      "Nama Murid / Pelatih",
+      "Tarikh",
+      "Hari",
+      "Masa",
+      "Tajuk Aktiviti",
+      "Objektif",
+      "Bahan / Alat",
+      "Langkah Pelaksanaan",
+      "Pemerhatian",
+      "Refleksi",
+    ],
+    name: "RPA Aktiviti Harian",
+    outputFormat: "RPA",
+    recommendedProfile: "Petugas PPDK",
+  },
+  {
+    description: "Rancangan pengajaran harian untuk guru sekolah.",
+    fields: [
+      "Nama Organisasi",
+      "Nama Guru / Petugas",
+      "Mata Pelajaran",
+      "Kelas",
+      "Tarikh",
+      "Masa",
+      "Tajuk Aktiviti",
+      "Standard Kandungan",
+      "Standard Pembelajaran",
+      "Objektif",
+      "Bahan / Alat",
+      "Langkah Pelaksanaan",
+      "Refleksi",
+    ],
+    name: "RPH Sekolah",
+    outputFormat: "RPH",
+    recommendedProfile: "Guru Sekolah",
+  },
+  {
+    description: "Pelan individu untuk murid pendidikan khas atau klien terapi.",
+    fields: [
+      "Nama Organisasi",
+      "Nama Murid / Pelatih",
+      "Kategori / Keperluan",
+      "Matlamat",
+      "Objektif Jangka Pendek",
+      "Intervensi",
+      "Penilaian",
+      "Catatan",
+    ],
+    name: "RPI Pendidikan Khas",
+    outputFormat: "RPI",
+    recommendedProfile: "Guru Pendidikan Khas",
+  },
+  {
+    description: "Laporan selepas program, lawatan atau aktiviti organisasi.",
+    fields: [
+      "Nama Organisasi",
+      "Tajuk Aktiviti",
+      "Tarikh",
+      "Masa",
+      "Tempat",
+      "Nama Guru / Petugas",
+      "Objektif",
+      "Ringkasan Aktiviti",
+      "Pemerhatian",
+      "Rumusan",
+      "Catatan",
+    ],
+    name: "Laporan Aktiviti",
+    outputFormat: "Laporan Aktiviti",
+    recommendedProfile: "Penyelaras Program",
+  },
 ];
 
 export default function Home() {
@@ -262,6 +349,38 @@ export default function Home() {
     window.localStorage.removeItem(storageKey);
   }
 
+  function selectBuiltInTemplate(template: BuiltInTemplate) {
+    setSelectedProfile(template.recommendedProfile);
+    setOutputFormat(template.outputFormat);
+    setUpload(null);
+    setOfficeFile(null);
+    setFormatName(template.name);
+    setFields(template.fields);
+    setIsConfirmed(true);
+    setShowOutputFile(false);
+    setApplyValuesVersion(0);
+    setSourceText(template.fields.join(" "));
+    setValues({});
+    setScanState("done");
+    setMessage(`${template.name} dipilih. Isi maklumat, kemudian masukkan ke dokumen.`);
+  }
+
+  function selectSavedFormat(format: SavedFormat) {
+    setSelectedProfile(format.selectedProfile);
+    setOutputFormat(format.outputFormat);
+    setUpload(null);
+    setOfficeFile(null);
+    setFormatName(format.name);
+    setFields(format.fields);
+    setIsConfirmed(true);
+    setShowOutputFile(false);
+    setApplyValuesVersion(0);
+    setSourceText(format.fields.join(" "));
+    setValues({});
+    setScanState("done");
+    setMessage(`${format.name} dimuat. Isi maklumat, kemudian masukkan ke dokumen.`);
+  }
+
   function updateValue(field: string, value: string) {
     setValues((current) => ({ ...current, [field]: value }));
   }
@@ -303,7 +422,13 @@ export default function Home() {
   }
 
   function generateOutputFromAnswers() {
-    if (upload?.type !== "DOCX") {
+    if (!upload) {
+      setShowOutputFile(true);
+      setMessage("Dokumen dijana daripada template pilihan.");
+      return;
+    }
+
+    if (upload.type !== "DOCX") {
       setShowOutputFile(true);
       setMessage("Jana output terus ke file hanya tersedia untuk DOCX.");
       return;
@@ -345,7 +470,7 @@ export default function Home() {
                 maklumat yang dikesan. lY Docs akan masukkan jawapan ke dalam
                 format asal.
               </p>
-            </div>
+              </div>
 
             <WorkflowSteps
               hasFields={scanState === "done" && fields.length > 0}
@@ -356,6 +481,22 @@ export default function Home() {
 
             <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
               <div className="space-y-6">
+                <Panel title="Template Siap">
+                  <p className="mb-4 text-sm leading-6 text-[#aeb7c8]">
+                    Pilih template asas kalau mahu mula cepat tanpa upload file.
+                    Sesuai untuk RPH, RPA, RPI dan laporan harian.
+                  </p>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {builtInTemplates.map((template) => (
+                      <TemplateCard
+                        key={template.name}
+                        onClick={() => selectBuiltInTemplate(template)}
+                        template={template}
+                      />
+                    ))}
+                  </div>
+                </Panel>
+
                 <Panel title="1. Saya Sebagai">
                   <p className="mb-4 text-sm leading-6 text-[#aeb7c8]">
                     Pilih peranan supaya cadangan ayat lebih sesuai dengan kerja
@@ -454,6 +595,13 @@ export default function Home() {
                           <p className="mt-1 text-xs text-[#aeb7c8]">
                             {item.fileName} - {item.fields.length} ruangan dikesan
                           </p>
+                          <button
+                            className="mini-button mt-3 min-h-0 rounded-full px-3 py-1.5 text-[0.65rem]"
+                            onClick={() => selectSavedFormat(item)}
+                            type="button"
+                          >
+                            Guna Format Ini
+                          </button>
                         </div>
                       ))}
                     </div>
@@ -515,12 +663,17 @@ export default function Home() {
                     <DocumentPreview
                       applyValuesVersion={applyValuesVersion}
                       fields={fields}
+                      formatName={formatName}
                       officeFile={officeFile}
                       upload={upload}
                       values={values}
                     />
                   ) : (
-                    <HiddenOutputCard upload={upload} />
+                    <HiddenOutputCard
+                      formatName={formatName}
+                      hasFields={fields.length > 0}
+                      upload={upload}
+                    />
                   )}
                 </Panel>
               </div>
@@ -535,17 +688,29 @@ export default function Home() {
 function DocumentPreview({
   applyValuesVersion,
   fields,
+  formatName,
   officeFile,
   upload,
   values,
 }: {
   applyValuesVersion: number;
   fields: string[];
+  formatName: string;
   officeFile: File | null;
   upload: UploadState | null;
   values: Record<string, string>;
 }) {
   if (!upload) {
+    if (fields.length > 0) {
+      return (
+        <CleanDocumentPreview
+          fields={fields}
+          formatName={formatName}
+          values={values}
+        />
+      );
+    }
+
     return (
       <article className="rounded-[1.5rem] border border-[#ded8ce] bg-[#f8f4ed] p-6 text-[#171513] shadow-[0_28px_100px_rgba(0,0,0,0.32)] sm:p-8">
         <p className="text-sm leading-7 text-[#655f58]">
@@ -587,6 +752,94 @@ function DocumentPreview({
         ) : null}
       </div>
     </article>
+  );
+}
+
+function CleanDocumentPreview({
+  fields,
+  formatName,
+  values,
+}: {
+  fields: string[];
+  formatName: string;
+  values: Record<string, string>;
+}) {
+  return (
+    <article className="rounded-[1.5rem] border border-white/10 bg-black/25 p-4 shadow-[0_28px_100px_rgba(0,0,0,0.32)] sm:p-6">
+      <div className="mx-auto aspect-[210/297] w-full max-w-[794px] overflow-auto rounded-sm bg-[#fbfaf6] p-8 text-[#171513] shadow-[0_20px_80px_rgba(0,0,0,0.45)] sm:p-10">
+        <div className="border-b border-[#d9d2c7] pb-5 text-center">
+          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#6d655c]">
+            lY Docs
+          </p>
+          <h2 className="mt-3 text-2xl font-bold uppercase tracking-wide">
+            {formatName || "Dokumen"}
+          </h2>
+        </div>
+        <div className="mt-8 overflow-hidden rounded-lg border border-[#d9d2c7]">
+          {fields.map((field) => (
+            <div
+              className="grid border-b border-[#d9d2c7] last:border-b-0 sm:grid-cols-[0.36fr_0.64fr]"
+              key={field}
+            >
+              <div className="bg-[#f0ece4] px-4 py-3 text-sm font-bold">
+                {field}
+              </div>
+              <div className="min-h-12 px-4 py-3 text-sm leading-6">
+                {values[field]?.trim() || "-"}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="mt-12 grid gap-10 sm:grid-cols-2">
+          <div>
+            <div className="h-px bg-[#9d9488]" />
+            <p className="mt-2 text-xs uppercase tracking-[0.18em] text-[#6d655c]">
+              Disediakan oleh
+            </p>
+          </div>
+          <div>
+            <div className="h-px bg-[#9d9488]" />
+            <p className="mt-2 text-xs uppercase tracking-[0.18em] text-[#6d655c]">
+              Disahkan oleh
+            </p>
+          </div>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function TemplateCard({
+  onClick,
+  template,
+}: {
+  onClick: () => void;
+  template: BuiltInTemplate;
+}) {
+  return (
+    <button
+      className="rounded-2xl border border-white/10 bg-black/20 p-4 text-left transition duration-300 hover:border-[#b9caff]/55 hover:bg-[#7da1ff]/10"
+      onClick={onClick}
+      type="button"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="font-semibold text-white">{template.name}</p>
+          <p className="mt-1 text-xs text-[#b9caff]">
+            {template.outputFormat} - {template.recommendedProfile}
+          </p>
+        </div>
+        <span className="rounded-full border border-white/10 bg-white/[0.07] px-3 py-1 text-[0.65rem] font-bold uppercase tracking-[0.14em] text-[#d7e3ff]">
+          Pilih
+        </span>
+      </div>
+      <p className="mt-3 text-sm leading-6 text-[#aeb7c8]">
+        {template.description}
+      </p>
+      <p className="mt-3 text-xs text-[#7f8aa0]">
+        {template.fields.length} ruangan asas
+      </p>
+    </button>
   );
 }
 
@@ -654,19 +907,29 @@ function WorkflowSteps({
   );
 }
 
-function HiddenOutputCard({ upload }: { upload: UploadState | null }) {
+function HiddenOutputCard({
+  formatName,
+  hasFields,
+  upload,
+}: {
+  formatName: string;
+  hasFields: boolean;
+  upload: UploadState | null;
+}) {
+  const hasTemplate = Boolean(upload || hasFields);
+
   return (
     <article className="rounded-[1.5rem] border border-[#b9caff]/20 bg-[#7da1ff]/8 p-6 text-center shadow-[0_28px_100px_rgba(0,0,0,0.24)] sm:p-8">
       <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl border border-white/10 bg-white/[0.07] text-xl text-[#d7e3ff]">
         OK
       </div>
       <h3 className="mt-5 text-2xl font-semibold tracking-[-0.02em] text-white">
-        {upload ? "Terus isi maklumat" : "Belum ada file"}
+        {hasTemplate ? "Terus isi maklumat" : "Belum ada template"}
       </h3>
       <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-[#aeb7c8]">
-        {upload
-          ? "Isi kolum yang muncul di sebelah kiri. Dokumen akan dibuka semula selepas klik Masukkan Ke Dokumen."
-          : "Upload file dahulu. Selepas upload, file akan dipaparkan untuk disahkan."}
+        {hasTemplate
+          ? `${formatName || "Template"} sudah sedia. Isi kolum yang muncul di sebelah kiri, kemudian klik Masukkan Ke Dokumen.`
+          : "Pilih template siap atau upload format sendiri dahulu."}
       </p>
     </article>
   );
