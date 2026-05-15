@@ -2,14 +2,27 @@
 
 import { ChangeEvent, useState } from "react";
 
+const userOptions = [
+  "Petugas PPDK",
+  "Guru Sekolah",
+  "Guru Pendidikan Khas",
+  "Pendidik Taska",
+  "Guru Tadika",
+  "Terapis",
+  "Penyelaras Program",
+  "Admin Organisasi",
+];
+
 export default function Home() {
   const [fileName, setFileName] = useState("");
   const [isConfirmed, setIsConfirmed] = useState(false);
+  const [selectedUser, setSelectedUser] = useState("");
 
   function handleUpload(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     setFileName(file?.name || "");
     setIsConfirmed(false);
+    setSelectedUser("");
   }
 
   function confirmFile() {
@@ -31,24 +44,26 @@ export default function Home() {
           lY Docs
         </h1>
         <div className="mx-auto mt-12 max-w-xl rounded-[2rem] border border-white/10 bg-white/[0.06] p-5 shadow-[0_28px_120px_rgba(0,0,0,0.35)] backdrop-blur-2xl sm:p-6">
-          <label className="group flex min-h-56 cursor-pointer flex-col items-center justify-center rounded-[1.5rem] border border-dashed border-[#b9caff]/35 bg-black/25 px-6 py-8 transition duration-300 hover:border-[#d7e3ff]/80 hover:bg-[#7da1ff]/10">
-            <span className="grid h-14 w-14 place-items-center rounded-2xl border border-white/10 bg-white/[0.07] text-3xl text-[#d7e3ff] transition duration-300 group-hover:scale-105">
-              +
-            </span>
-            <span className="mt-5 text-xl font-semibold tracking-[-0.02em] text-white">
-              Upload format dokumen anda
-            </span>
-            <span className="mt-3 max-w-sm text-sm leading-6 text-[#aeb7c8]">
-              Pilih file PDF, DOC, DOCX, PNG atau JPG. Fasa ini hanya papar nama
-              file dahulu.
-            </span>
-            <input
-              accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
-              className="sr-only"
-              onChange={handleUpload}
-              type="file"
-            />
-          </label>
+          {!isConfirmed ? (
+            <label className="group flex min-h-56 cursor-pointer flex-col items-center justify-center rounded-[1.5rem] border border-dashed border-[#b9caff]/35 bg-black/25 px-6 py-8 transition duration-300 hover:border-[#d7e3ff]/80 hover:bg-[#7da1ff]/10">
+              <span className="grid h-14 w-14 place-items-center rounded-2xl border border-white/10 bg-white/[0.07] text-3xl text-[#d7e3ff] transition duration-300 group-hover:scale-105">
+                +
+              </span>
+              <span className="mt-5 text-xl font-semibold tracking-[-0.02em] text-white">
+                Upload format dokumen anda
+              </span>
+              <span className="mt-3 max-w-sm text-sm leading-6 text-[#aeb7c8]">
+                Pilih file PDF, DOC, DOCX, PNG atau JPG. Fasa ini hanya papar nama
+                file dahulu.
+              </span>
+              <input
+                accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
+                className="sr-only"
+                onChange={handleUpload}
+                type="file"
+              />
+            </label>
+          ) : null}
 
           <div className="mt-4 rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-left">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#7f8aa0]">
@@ -59,7 +74,7 @@ export default function Home() {
             </p>
           </div>
 
-          {fileName ? (
+          {fileName && !isConfirmed ? (
             <div className="mt-4 rounded-2xl border border-[#b9caff]/20 bg-[#7da1ff]/10 p-4 text-left">
               <p className="text-base font-semibold text-white">
                 Ini file format yang betul?
@@ -85,11 +100,33 @@ export default function Home() {
                   />
                 </label>
               </div>
-              {isConfirmed ? (
-                <p className="mt-4 rounded-xl border border-white/10 bg-black/25 px-3 py-2 text-sm font-medium text-[#d7e3ff]">
-                  File disahkan.
-                </p>
-              ) : null}
+            </div>
+          ) : null}
+
+          {isConfirmed ? (
+            <div className="mt-4 rounded-2xl border border-[#b9caff]/20 bg-[#7da1ff]/10 p-4 text-left">
+              <p className="text-base font-semibold text-white">
+                Pilih pengguna
+              </p>
+              <p className="mt-2 text-sm leading-6 text-[#aeb7c8]">
+                Pilihan ini akan bantu susun langkah seterusnya.
+              </p>
+              <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                {userOptions.map((option) => (
+                  <button
+                    className={`rounded-2xl border px-4 py-3 text-left text-sm font-semibold transition duration-300 ${
+                      selectedUser === option
+                        ? "border-[#b9caff]/70 bg-[#7da1ff]/20 text-white"
+                        : "border-white/10 bg-black/25 text-[#aeb7c8] hover:border-[#b9caff]/45 hover:text-white"
+                    }`}
+                    key={option}
+                    onClick={() => setSelectedUser(option)}
+                    type="button"
+                  >
+                    {option}
+                  </button>
+                ))}
+              </div>
             </div>
           ) : null}
         </div>
