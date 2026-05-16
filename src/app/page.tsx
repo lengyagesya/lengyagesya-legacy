@@ -186,13 +186,13 @@ function buildFieldAssistantSuggestion({
   );
 
   if (!lastWord) {
-    return createFieldPrediction(buildStarterSentence(documentNeed, fieldText), fieldText);
+    return null;
   }
 
   const finalSuggestion = partialMatch ? suggestions[documentNeed][partialMatch] : "";
 
   if (!finalSuggestion) {
-    return createFieldPrediction(buildStarterSentence(documentNeed, fieldText), fieldText);
+    return null;
   }
 
   return createFieldPrediction(
@@ -226,19 +226,6 @@ function buildInsertionText(currentInput: string, suggestion: string) {
   return ` ${suggestion}`;
 }
 
-function buildStarterSentence(documentNeed: string, input: string) {
-  const starters: Record<string, string> = {
-    laporan: "Aktiviti telah dilaksanakan mengikut perancangan dan mendapat kerjasama yang baik daripada peserta.",
-    rpa: "Peserta dapat mengikuti aktiviti dengan bimbingan serta menunjukkan respons yang positif.",
-    rph: "Murid dapat mengikuti pembelajaran melalui arahan yang jelas dan bimbingan guru.",
-    rpi: "Intervensi dilaksanakan secara berfokus berdasarkan keperluan individu.",
-    surat: "Dengan segala hormatnya, perkara ini dikemukakan untuk perhatian pihak tuan.",
-    umum: "Maklumat ini disusun dengan ringkas, jelas dan mudah difahami.",
-  };
-
-  return adaptSuggestionToInput(input, starters[documentNeed] || starters.umum, documentNeed, "");
-}
-
 function adaptSuggestionToInput(
   input: string,
   suggestion: string,
@@ -246,10 +233,17 @@ function adaptSuggestionToInput(
   fieldQuestion: string,
 ) {
   const cleanInput = normalizeFieldText(input);
-  if (!cleanInput) return suggestion;
   const fieldKind = detectFieldKind(fieldQuestion);
-  if (cleanInput.length < 4 || !cleanInput.includes(" ")) {
-    return buildFieldKindSuggestion(fieldKind, documentNeed, cleanInput) || suggestion;
+  if (!cleanInput || cleanInput.length < 3) return "";
+
+  if (!cleanInput.includes(" ") && !startsWithActionVerb(cleanInput)) {
+    if (fieldKind === "fokus" || fieldKind === "tajuk") return sentenceCase(cleanInput);
+    return "";
+  }
+
+  if (!cleanInput.includes(" ")) {
+    const fieldSuggestion = buildFieldKindSuggestion(fieldKind, documentNeed, cleanInput);
+    return fieldSuggestion || "";
   }
 
   const lowerInput = cleanInput.toLowerCase();
@@ -292,23 +286,7 @@ function buildFieldKindSuggestion(fieldKind: string, documentNeed: string, input
   const subject = getDocumentSubject(documentNeed);
 
   if (!fieldKind) return "";
-
-  if (!phrase || phrase.length < 4) {
-    const defaults: Record<string, string> = {
-      bahan: "Kad gambar, bahan maujud dan lembaran kerja digunakan sebagai sokongan aktiviti.",
-      fokus: documentNeed === "rph" ? "Bahasa dan komunikasi" : "Kemahiran motor halus",
-      langkah: "Aktiviti dimulakan dengan penerangan ringkas sebelum peserta dibimbing melaksanakan tugasan.",
-      objektif: `${subject} dapat mengikuti aktiviti yang dirancang dengan bimbingan yang sesuai.`,
-      pemerhatian: `${subject} menunjukkan minat dan memberi respons yang baik sepanjang aktiviti dijalankan.`,
-      refleksi: "Aktiviti berjalan dengan baik dan boleh ditambah baik mengikut keperluan peserta.",
-      rumusan: "Secara keseluruhan, pelaksanaan berjalan dengan baik dan mencapai tujuan yang dirancang.",
-      standardKandungan: "Standard kandungan dipilih berdasarkan keperluan pembelajaran semasa.",
-      standardPembelajaran: "Standard pembelajaran disesuaikan dengan tahap penguasaan murid.",
-      tajuk: documentNeed === "surat" ? "Permohonan dan makluman rasmi" : "Aktiviti pembelajaran harian",
-    };
-
-    return defaults[fieldKind] || "";
-  }
+  if (!phrase || phrase.length < 3) return "";
 
   const sentence = sentenceCase(phrase);
 
