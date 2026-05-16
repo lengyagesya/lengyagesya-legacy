@@ -9,8 +9,7 @@ export default function Home() {
   const [filePreviewUrl, setFilePreviewUrl] = useState("");
   const [fileType, setFileType] = useState("");
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-  const [aiDraft, setAiDraft] = useState("");
-  const [aiSuggestion, setAiSuggestion] = useState("");
+  const [shadowPrediction, setShadowPrediction] = useState("");
 
   useEffect(() => {
     window.localStorage.removeItem(storageKey);
@@ -25,17 +24,7 @@ export default function Home() {
     });
     setFileType(file?.name.split(".").pop()?.toUpperCase() || "");
     setUploadedFile(file || null);
-    setAiDraft("");
-    setAiSuggestion("");
-  }
-
-  function generateAiSuggestion() {
-    setAiSuggestion(buildShadowSuggestion(aiDraft, fileName));
-  }
-
-  async function copyAiSuggestion() {
-    if (!aiSuggestion) return;
-    await navigator.clipboard.writeText(aiSuggestion);
+    setShadowPrediction("");
   }
 
   return (
@@ -102,50 +91,9 @@ export default function Home() {
                   fileName={fileName}
                   filePreviewUrl={filePreviewUrl}
                   fileType={fileType}
+                  onPredictionChange={setShadowPrediction}
+                  shadowPrediction={shadowPrediction}
                 />
-                <div className="mt-4 rounded-2xl border border-[#d7d2c7] bg-white/75 p-4">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-bold text-[#14161d]">
-                        Shadow AI
-                      </p>
-                      <p className="mt-1 text-xs leading-5 text-[#6a7080]">
-                        Tulis ayat kasar, kemudian jana cadangan ayat yang lebih
-                        kemas.
-                      </p>
-                    </div>
-                    <button
-                      className="rounded-full border border-[#c8c2b8] bg-[#14161d] px-4 py-2 text-xs font-bold uppercase tracking-[0.14em] text-white transition duration-300 hover:bg-[#2a3140]"
-                      onClick={generateAiSuggestion}
-                      type="button"
-                    >
-                      Cadang Ayat
-                    </button>
-                  </div>
-                  <textarea
-                    className="mt-4 min-h-28 w-full resize-none rounded-xl border border-[#d7d2c7] bg-white px-4 py-3 text-sm leading-6 text-[#14161d] outline-none transition duration-300 placeholder:text-[#9a958e] focus:border-[#7da1ff]"
-                    onChange={(event) => setAiDraft(event.target.value)}
-                    placeholder="Contoh: murid buat aktiviti mewarna ikut arahan guru tapi perlu bimbingan sikit"
-                    value={aiDraft}
-                  />
-                  {aiSuggestion ? (
-                    <div className="mt-4 rounded-xl border border-[#d7d2c7] bg-[#f7f4ed] p-4">
-                      <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#6a7080]">
-                        Cadangan
-                      </p>
-                      <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-[#14161d]">
-                        {aiSuggestion}
-                      </p>
-                      <button
-                        className="mt-4 rounded-full border border-[#c8c2b8] bg-white px-4 py-2 text-xs font-bold uppercase tracking-[0.14em] text-[#14161d] transition duration-300 hover:border-[#7da1ff]"
-                        onClick={copyAiSuggestion}
-                        type="button"
-                      >
-                        Copy Jawapan
-                      </button>
-                    </div>
-                  ) : null}
-                </div>
               </div>
             </div>
           ) : null}
@@ -155,34 +103,34 @@ export default function Home() {
   );
 }
 
-function buildShadowSuggestion(text: string, fileName: string) {
-  const cleanText = normalizeSentence(text);
+function buildShadowPrediction(text: string, fileName: string) {
+  const cleanText = getLastMeaningfulSentence(text);
   const documentHint = fileName.toLowerCase();
 
   if (!cleanText) {
-    return "Sila tulis ayat kasar terlebih dahulu supaya cadangan ayat dapat disediakan dengan lebih tepat.";
+    return "";
   }
 
   if (documentHint.includes("rph")) {
-    return `Aktiviti pengajaran dan pembelajaran dilaksanakan secara terancang dengan bimbingan guru. ${cleanText} Murid diberi peluang untuk menyertai aktiviti mengikut tahap keupayaan masing-masing.`;
+    return `${cleanText} Murid diberi peluang untuk menyertai aktiviti mengikut tahap keupayaan masing-masing.`;
   }
 
   if (documentHint.includes("rpa")) {
-    return `Aktiviti dilaksanakan mengikut perancangan yang telah ditetapkan. ${cleanText} Pemerhatian dibuat bagi memastikan peserta dapat mengikuti arahan, memberi respons dan menunjukkan perkembangan secara berperingkat.`;
+    return `${cleanText} Pemerhatian dibuat bagi memastikan peserta dapat mengikuti arahan dan menunjukkan perkembangan secara berperingkat.`;
   }
 
   if (documentHint.includes("rpi")) {
-    return `Intervensi dilaksanakan secara berfokus berdasarkan keperluan individu. ${cleanText} Penilaian dibuat secara berterusan bagi mengenal pasti perkembangan, cabaran dan tindakan susulan yang sesuai.`;
+    return `${cleanText} Penilaian dibuat secara berterusan bagi mengenal pasti perkembangan dan tindakan susulan yang sesuai.`;
   }
 
   if (documentHint.includes("laporan")) {
-    return `Program telah dilaksanakan dengan teratur dan mencapai tujuan yang dirancang. ${cleanText} Secara keseluruhan, pelaksanaan berjalan lancar dengan kerjasama semua pihak yang terlibat.`;
+    return `${cleanText} Secara keseluruhan, pelaksanaan berjalan lancar dengan kerjasama semua pihak yang terlibat.`;
   }
 
-  return `Maklumat ini disusun semula dalam bentuk ayat yang lebih kemas dan profesional. ${cleanText}`;
+  return `${cleanText} Ayat ini boleh dikemaskan mengikut gaya penulisan dokumen rasmi.`;
 }
 
-function normalizeSentence(text: string) {
+function getLastMeaningfulSentence(text: string) {
   const collapsed = text
     .trim()
     .replace(/\s+/g, " ")
@@ -190,17 +138,11 @@ function normalizeSentence(text: string) {
 
   if (!collapsed) return "";
 
-  const sentences = collapsed
-    .split(/(?<=[.!?])\s+/)
-    .map((sentence) => {
-      const trimmed = sentence.trim();
-      if (!trimmed) return "";
-      const withCapital = trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
-      return /[.!?]$/.test(withCapital) ? withCapital : `${withCapital}.`;
-    })
-    .filter(Boolean);
+  const lastSentence = collapsed.split(/[.!?]\s+/).filter(Boolean).pop() || "";
+  const limited = lastSentence.split(" ").slice(-18).join(" ");
+  const withCapital = limited.charAt(0).toUpperCase() + limited.slice(1);
 
-  return sentences.join(" ");
+  return /[.!?]$/.test(withCapital) ? withCapital : `${withCapital}.`;
 }
 
 function FilePreview({
@@ -208,11 +150,15 @@ function FilePreview({
   fileName,
   filePreviewUrl,
   fileType,
+  onPredictionChange,
+  shadowPrediction,
 }: {
   file: File | null;
   fileName: string;
   filePreviewUrl: string;
   fileType: string;
+  onPredictionChange: (prediction: string) => void;
+  shadowPrediction: string;
 }) {
   const type = fileType.toLowerCase();
   const isImage = ["jpg", "jpeg", "png"].includes(type);
@@ -220,7 +166,13 @@ function FilePreview({
   const isDocx = type === "docx";
 
   return (
-    <div className="mt-4 overflow-hidden rounded-xl border border-[#d7d2c7] bg-white">
+    <div className="relative mt-4 overflow-hidden rounded-xl border border-[#d7d2c7] bg-white">
+      {shadowPrediction ? (
+        <div className="pointer-events-none absolute left-4 right-4 top-4 z-10 rounded-xl border border-black/10 bg-[#14161d]/85 px-4 py-3 text-sm font-medium leading-6 text-white/80 shadow-[0_18px_50px_rgba(0,0,0,0.22)] backdrop-blur">
+          {shadowPrediction}
+        </div>
+      ) : null}
+
       {isImage ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -239,7 +191,13 @@ function FilePreview({
         />
       ) : null}
 
-      {isDocx ? <DocxPreview file={file} /> : null}
+      {isDocx ? (
+        <DocxPreview
+          file={file}
+          fileName={fileName}
+          onPredictionChange={onPredictionChange}
+        />
+      ) : null}
 
       {!isImage && !isPdf && !isDocx ? (
         <div className="grid min-h-48 place-items-center p-6 text-center">
@@ -256,7 +214,15 @@ function FilePreview({
   );
 }
 
-function DocxPreview({ file }: { file: File | null }) {
+function DocxPreview({
+  file,
+  fileName,
+  onPredictionChange,
+}: {
+  file: File | null;
+  fileName: string;
+  onPredictionChange: (prediction: string) => void;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState("");
 
@@ -299,8 +265,9 @@ function DocxPreview({ file }: { file: File | null }) {
       cancelled = true;
       container.contentEditable = "false";
       container.innerHTML = "";
+      onPredictionChange("");
     };
-  }, [file]);
+  }, [file, onPredictionChange]);
 
   if (!file) {
     return (
@@ -317,6 +284,11 @@ function DocxPreview({ file }: { file: File | null }) {
   return (
     <div
       className="max-h-[42rem] overflow-auto bg-white text-black outline-none"
+      onInput={(event) =>
+        onPredictionChange(
+          buildShadowPrediction(event.currentTarget.textContent || "", fileName),
+        )
+      }
       ref={containerRef}
       suppressContentEditableWarning
     />
