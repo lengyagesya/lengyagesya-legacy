@@ -133,50 +133,50 @@ function buildFieldAssistantSuggestion({
 
   const suggestions: Record<string, Record<string, string>> = {
     laporan: {
-      aktiviti: "Aktiviti berjalan lancar dan peserta memberi kerjasama yang baik.",
-      cadangan: "Cadangan penambahbaikan akan digunakan untuk sesi seterusnya.",
-      objektif: "Objektif program dapat dicapai melalui pelaksanaan yang teratur.",
-      pemerhatian: "Peserta kelihatan berminat dan memberi respons sepanjang aktiviti.",
-      program: "Program berjalan mengikut perancangan dengan penglibatan semua pihak.",
-      rumusan: "Secara keseluruhan, program berjalan baik dan mencapai tujuan yang dirancang.",
+      aktiviti: "Aktiviti telah dilaksanakan mengikut perancangan dan mendapat kerjasama yang baik daripada peserta.",
+      cadangan: "Cadangan penambahbaikan akan diambil kira bagi memastikan pelaksanaan seterusnya lebih teratur.",
+      objektif: "Objektif program dapat dicapai melalui pelaksanaan aktiviti yang tersusun dan bersesuaian.",
+      pemerhatian: "Peserta kelihatan berminat, memberi respons yang baik dan melibatkan diri sepanjang aktiviti dijalankan.",
+      program: "Program berjalan mengikut perancangan dengan penglibatan yang baik daripada semua pihak.",
+      rumusan: "Secara keseluruhan, program berjalan dengan baik dan mencapai tujuan yang telah dirancang.",
     },
     rpa: {
-      aktiviti: "Aktiviti dijalankan secara berperingkat supaya peserta lebih mudah mengikuti arahan.",
-      bahan: "Bahan digunakan sebagai rangsangan supaya peserta lebih fokus semasa aktiviti.",
-      objektif: "Peserta dapat mengikuti aktiviti dengan bimbingan dan memberi respons mengikut kemampuan.",
-      pelatih: "Pelatih memberi respons yang baik walaupun masih memerlukan bimbingan.",
-      pemerhatian: "Peserta menunjukkan minat dan cuba melibatkan diri sepanjang aktiviti.",
-      refleksi: "Aktiviti sesuai diteruskan dengan sedikit penyesuaian mengikut tahap peserta.",
+      aktiviti: "Aktiviti dijalankan secara berperingkat supaya peserta dapat mengikuti arahan dengan lebih mudah.",
+      bahan: "Bahan yang digunakan membantu menarik perhatian peserta dan menyokong pelaksanaan aktiviti.",
+      objektif: "Peserta dapat mengikuti aktiviti dengan bimbingan serta memberi respons mengikut tahap keupayaan masing-masing.",
+      pelatih: "Pelatih memberi respons yang baik dan masih memerlukan bimbingan berterusan mengikut keperluan semasa.",
+      pemerhatian: "Peserta menunjukkan minat dan berusaha melibatkan diri sepanjang aktiviti dijalankan.",
+      refleksi: "Aktiviti sesuai diteruskan dengan penyesuaian kecil mengikut tahap dan keperluan peserta.",
     },
     rph: {
-      aktiviti: "Aktiviti pembelajaran dijalankan secara berpandu dan murid diberi peluang mencuba.",
-      guru: "Guru membimbing murid secara dekat mengikut tahap penguasaan masing-masing.",
-      murid: "Murid dapat mengikuti pembelajaran dengan sokongan dan arahan yang jelas.",
-      objektif: "Murid dapat mencapai objektif pembelajaran melalui aktiviti yang dirancang.",
-      refleksi: "Sebahagian murid masih memerlukan bimbingan tambahan pada sesi seterusnya.",
-      standard: "Standard pembelajaran digunakan sebagai rujukan utama semasa merancang aktiviti.",
+      aktiviti: "Aktiviti pembelajaran dijalankan secara berpandu dan murid diberi ruang untuk mencuba mengikut kemampuan.",
+      guru: "Guru membimbing murid secara dekat berdasarkan tahap penguasaan dan keperluan pembelajaran masing-masing.",
+      murid: "Murid dapat mengikuti pembelajaran dengan sokongan, arahan yang jelas dan bimbingan berterusan.",
+      objektif: "Murid dapat mencapai objektif pembelajaran melalui aktiviti yang dirancang secara berperingkat.",
+      refleksi: "Sebahagian murid masih memerlukan bimbingan tambahan bagi mengukuhkan kefahaman pada sesi seterusnya.",
+      standard: "Standard pembelajaran dijadikan rujukan utama semasa merancang dan melaksanakan aktiviti.",
     },
     rpi: {
-      intervensi: "Intervensi dijalankan secara konsisten mengikut keperluan semasa murid.",
-      klien: "Klien menunjukkan perkembangan kecil yang positif dan perlu terus dipantau.",
-      matlamat: "Matlamat dicapai secara berperingkat melalui latihan dan bimbingan berterusan.",
-      murid: "Murid masih memerlukan sokongan untuk mengukuhkan kemahiran yang disasarkan.",
-      objektif: "Objektif jangka pendek dipilih berdasarkan keupayaan semasa murid.",
-      penilaian: "Penilaian dibuat melalui pemerhatian dan respons murid semasa aktiviti.",
+      intervensi: "Intervensi dijalankan secara konsisten berdasarkan keperluan semasa dan tahap perkembangan murid.",
+      klien: "Klien menunjukkan perkembangan kecil yang positif dan perlu terus dipantau dari semasa ke semasa.",
+      matlamat: "Matlamat dicapai secara berperingkat melalui latihan, bimbingan dan pemantauan berterusan.",
+      murid: "Murid masih memerlukan sokongan bagi mengukuhkan kemahiran yang disasarkan dalam pelan ini.",
+      objektif: "Objektif jangka pendek ditetapkan berdasarkan keupayaan semasa dan keperluan utama murid.",
+      penilaian: "Penilaian dibuat melalui pemerhatian, respons murid dan pencapaian semasa aktiviti dijalankan.",
     },
     surat: {
       berhubung: "Berhubung perkara di atas, pihak kami ingin memaklumkan perkara berikut.",
-      dimaklumkan: "Dimaklumkan bahawa perkara ini memerlukan perhatian dan tindakan pihak tuan.",
+      dimaklumkan: "Dimaklumkan bahawa perkara ini memerlukan perhatian dan tindakan lanjut daripada pihak tuan.",
       kerjasama: "Kerjasama dan pertimbangan pihak tuan amat kami hargai.",
       memohon: "Memohon jasa baik pihak tuan untuk mempertimbangkan permohonan ini.",
-      perkara: "Perkara tersebut adalah dirujuk untuk tindakan dan makluman lanjut.",
+      perkara: "Perkara tersebut dirujuk untuk makluman dan tindakan lanjut pihak tuan.",
       surat: "Surat ini dikemukakan sebagai makluman dan rujukan pihak tuan.",
     },
     umum: {
-      aktiviti: "Aktiviti dijalankan dengan tersusun dan mengikut keperluan yang ditetapkan.",
+      aktiviti: "Aktiviti dijalankan secara tersusun dan mengikut keperluan yang telah ditetapkan.",
       dokumen: "Dokumen ini disediakan sebagai rujukan dan rekod pelaksanaan.",
-      maklumat: "Maklumat telah disemak dan disusun supaya lebih jelas.",
-      objektif: "Objektif dinyatakan dengan jelas supaya pelaksanaan lebih terarah.",
+      maklumat: "Maklumat disemak dan disusun semula supaya lebih jelas, kemas dan mudah difahami.",
+      objektif: "Objektif dinyatakan dengan jelas supaya pelaksanaan dapat berjalan dengan lebih terarah.",
       tujuan: "Dokumen ini disediakan untuk memudahkan rujukan pihak berkaitan.",
     },
   };
@@ -228,12 +228,12 @@ function buildInsertionText(currentInput: string, suggestion: string) {
 
 function buildStarterSentence(documentNeed: string, input: string) {
   const starters: Record<string, string> = {
-    laporan: "Aktiviti telah dilaksanakan dengan lancar dan mendapat kerjasama yang baik daripada peserta.",
-    rpa: "Peserta dapat mengikuti aktiviti dengan bimbingan dan menunjukkan respons yang positif.",
-    rph: "Murid dapat mengikuti pembelajaran dengan arahan yang jelas dan bimbingan guru.",
-    rpi: "Intervensi dilaksanakan secara berfokus mengikut keperluan individu.",
-    surat: "Dengan segala hormatnya, pihak kami ingin memaklumkan perkara berikut.",
-    umum: "Maklumat ini boleh disusun dengan ringkas, jelas dan mudah difahami.",
+    laporan: "Aktiviti telah dilaksanakan mengikut perancangan dan mendapat kerjasama yang baik daripada peserta.",
+    rpa: "Peserta dapat mengikuti aktiviti dengan bimbingan serta menunjukkan respons yang positif.",
+    rph: "Murid dapat mengikuti pembelajaran melalui arahan yang jelas dan bimbingan guru.",
+    rpi: "Intervensi dilaksanakan secara berfokus berdasarkan keperluan individu.",
+    surat: "Dengan segala hormatnya, perkara ini dikemukakan untuk perhatian pihak tuan.",
+    umum: "Maklumat ini disusun dengan ringkas, jelas dan mudah difahami.",
   };
 
   return adaptSuggestionToInput(input, starters[documentNeed] || starters.umum, documentNeed);
@@ -242,6 +242,7 @@ function buildStarterSentence(documentNeed: string, input: string) {
 function adaptSuggestionToInput(input: string, suggestion: string, documentNeed: string) {
   const cleanInput = normalizeFieldText(input);
   if (!cleanInput) return suggestion;
+  if (cleanInput.length < 4 || !cleanInput.includes(" ")) return suggestion;
 
   const lowerInput = cleanInput.toLowerCase();
   const lowerSuggestion = suggestion.toLowerCase();
@@ -262,32 +263,32 @@ function getTopicContinuation(documentNeed: string, input: string) {
   const lowerInput = input.toLowerCase();
 
   if (lowerInput.includes("murid") || lowerInput.includes("pelatih") || lowerInput.includes("peserta")) {
-    return "menunjukkan respons yang positif dan masih memerlukan bimbingan mengikut keperluan semasa.";
+    return "menunjukkan respons yang positif dan masih memerlukan bimbingan berdasarkan keperluan semasa.";
   }
 
   if (lowerInput.includes("aktiviti") || lowerInput.includes("program")) {
-    return "dijalankan secara teratur mengikut perancangan yang telah ditetapkan.";
+    return "dilaksanakan secara teratur mengikut perancangan yang telah ditetapkan.";
   }
 
   if (lowerInput.includes("objektif")) {
-    return "dinyatakan dengan jelas supaya pelaksanaan lebih terarah dan mudah dinilai.";
+    return "dinyatakan dengan jelas supaya pelaksanaan aktiviti lebih terarah dan mudah dinilai.";
   }
 
   if (lowerInput.includes("pemerhatian")) {
-    return "menunjukkan perkembangan yang boleh dijadikan rujukan untuk tindakan susulan.";
+    return "merekodkan perkembangan peserta dan boleh dijadikan rujukan untuk tindakan susulan.";
   }
 
   if (lowerInput.includes("refleksi") || lowerInput.includes("rumusan")) {
-    return "dibuat berdasarkan pelaksanaan sebenar dan keperluan penambahbaikan seterusnya.";
+    return "dibuat berdasarkan pelaksanaan sebenar serta keperluan penambahbaikan pada masa akan datang.";
   }
 
   const continuations: Record<string, string> = {
-    laporan: "direkodkan untuk makluman, rujukan dan tindakan susulan pihak berkaitan.",
-    rpa: "disusun mengikut tahap keupayaan peserta supaya aktiviti dapat dijalankan dengan lebih berkesan.",
-    rph: "disusun mengikut objektif pembelajaran supaya murid dapat mengikuti sesi dengan lebih jelas.",
-    rpi: "disesuaikan mengikut keperluan individu supaya perkembangan dapat dipantau secara berterusan.",
+    laporan: "direkodkan untuk makluman, rujukan dan tindakan susulan oleh pihak berkaitan.",
+    rpa: "disusun mengikut tahap keupayaan peserta supaya aktiviti dapat dilaksanakan dengan lebih berkesan.",
+    rph: "disusun berdasarkan objektif pembelajaran supaya murid dapat mengikuti sesi dengan lebih jelas.",
+    rpi: "disesuaikan dengan keperluan individu supaya perkembangan dapat dipantau secara berterusan.",
     surat: "dikemukakan untuk perhatian dan pertimbangan pihak tuan.",
-    umum: "disusun dengan jelas supaya mudah difahami dan digunakan sebagai rujukan.",
+    umum: "disusun dengan jelas supaya mudah difahami dan sesuai dijadikan rujukan.",
   };
 
   return continuations[documentNeed] || continuations.umum;
@@ -337,7 +338,7 @@ function buildFieldSuggestion(fieldQuestion: string, documentNeed: string, input
   if (field.includes("bidang") || field.includes("fokus")) {
     return adaptSuggestionToInput(
       input,
-      documentNeed === "rph" ? "Bahasa dan komunikasi" : "Motor halus",
+      documentNeed === "rph" ? "Bahasa dan komunikasi" : "Kemahiran motor halus",
       documentNeed,
     );
   }
@@ -347,25 +348,25 @@ function buildFieldSuggestion(fieldQuestion: string, documentNeed: string, input
   if (field.includes("nama guru")) return adaptSuggestionToInput(input, "Nama guru / pendidik", documentNeed);
   if (field.includes("nama murid") || field.includes("nama pelatih")) return adaptSuggestionToInput(input, "Nama murid / pelatih", documentNeed);
   if (field.includes("bahan") || field.includes("alat")) {
-    return adaptSuggestionToInput(input, "Kad gambar, pensel warna dan lembaran kerja", documentNeed);
+    return adaptSuggestionToInput(input, "Kad gambar, pensel warna dan lembaran kerja digunakan sebagai bahan sokongan aktiviti.", documentNeed);
   }
   if (field.includes("objektif")) {
     return adaptSuggestionToInput(
       input,
       documentNeed === "rph"
-        ? "Murid dapat mencapai objektif pembelajaran melalui aktiviti berpandu dan bimbingan guru."
+        ? "Murid dapat mencapai objektif pembelajaran melalui aktiviti berpandu dan bimbingan guru secara berperingkat."
         : "Peserta dapat mengikuti aktiviti dan memberi respons mengikut tahap keupayaan masing-masing.",
       documentNeed,
     );
   }
   if (field.includes("pemerhatian")) {
-    return adaptSuggestionToInput(input, "Peserta menunjukkan minat, memberi respons dan cuba mengikuti arahan yang diberikan.", documentNeed);
+    return adaptSuggestionToInput(input, "Peserta menunjukkan minat, memberi respons yang baik dan berusaha mengikuti arahan yang diberikan.", documentNeed);
   }
   if (field.includes("refleksi")) {
-    return adaptSuggestionToInput(input, "Aktiviti berjalan lancar, namun beberapa penyesuaian boleh dibuat mengikut keperluan peserta.", documentNeed);
+    return adaptSuggestionToInput(input, "Aktiviti berjalan dengan baik, namun beberapa penyesuaian boleh dibuat mengikut keperluan peserta.", documentNeed);
   }
   if (field.includes("rumusan")) {
-    return adaptSuggestionToInput(input, "Secara keseluruhan, pelaksanaan berjalan baik dan mencapai tujuan yang dirancang.", documentNeed);
+    return adaptSuggestionToInput(input, "Secara keseluruhan, pelaksanaan berjalan dengan baik dan mencapai tujuan yang telah dirancang.", documentNeed);
   }
   if (field.includes("tajuk")) return adaptSuggestionToInput(input, documentNeed === "surat" ? "Permohonan Rasmi" : "Aktiviti Harian", documentNeed);
   if (field.includes("perkara")) {
