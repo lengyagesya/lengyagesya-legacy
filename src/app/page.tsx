@@ -431,55 +431,112 @@ function buildSentenceFromKeyword(fieldKind: string, documentNeed: string, keywo
   if (word === "peserta") return "peserta menunjukkan minat dan memberi respons yang baik.";
   if (word === "aktiviti") return "aktiviti dijalankan secara berperingkat mengikut perancangan.";
 
-  return `${word} ditulis dengan jelas mengikut konteks dokumen.`;
+  return getContextualSentenceSuggestions(fieldKind, documentNeed)[0] || "";
 }
 
 function buildRandomPrefixFallbacks(fieldKind: string, documentNeed: string, prefix: string) {
   const cleanPrefix = normalizeFieldText(prefix);
   if (!cleanPrefix) return [];
 
-  const subject = getDocumentSubject(documentNeed).toLowerCase();
-  const sentencePrefix = sentenceCase(cleanPrefix);
   const options: Record<string, string[]> = {
     bahan: [
-      `${cleanPrefix} digunakan sebagai bahan sokongan.`,
-      `${cleanPrefix} disediakan untuk membantu aktiviti.`,
-      `${cleanPrefix} dipilih mengikut keperluan peserta.`,
+      "Bahan bantu mengajar digunakan mengikut tahap dan keperluan peserta.",
+      "Kad gambar dan lembaran kerja digunakan sebagai sokongan aktiviti.",
+      "Bahan maujud membantu peserta memahami aktiviti dengan lebih jelas.",
     ],
     fokus: [
-      `${cleanPrefix} dan komunikasi`,
-      `${cleanPrefix} motor halus`,
-      `${cleanPrefix} kognitif`,
+      "Kemahiran komunikasi dipilih sebagai fokus utama aktiviti.",
+      "Kemahiran motor halus diberi penekanan melalui aktiviti berpandu.",
+      "Kemahiran kognitif diperkukuh melalui tugasan yang sesuai.",
     ],
     langkah: [
-      `${cleanPrefix} aktiviti secara berperingkat.`,
-      `${cleanPrefix} arahan dengan jelas.`,
-      `${cleanPrefix} peserta mengikut tahap semasa.`,
+      "Aktiviti dimulakan dengan penerangan ringkas kepada peserta.",
+      "Peserta dibimbing melaksanakan tugasan secara berperingkat.",
+      "Guru memberi contoh sebelum peserta mencuba tugasan.",
     ],
     objektif: [
-      `${cleanPrefix} dengan bimbingan yang sesuai.`,
-      `${cleanPrefix} melalui aktiviti berpandu.`,
-      `${cleanPrefix} mengikut tahap keupayaan semasa.`,
+      "Murid dapat mengikuti aktiviti dengan bimbingan yang sesuai.",
+      "Murid dapat menyelesaikan tugasan mengikut arahan yang diberikan.",
+      "Murid dapat memberi respons berdasarkan bahan yang ditunjukkan.",
     ],
     pemerhatian: [
-      `${cleanPrefix} sepanjang aktiviti dijalankan.`,
-      `${cleanPrefix} dengan respons yang sesuai.`,
-      `${cleanPrefix} melalui pemerhatian semasa aktiviti.`,
+      "Peserta menunjukkan minat semasa aktiviti dijalankan.",
+      "Peserta memberi respons yang baik apabila arahan diberikan.",
+      "Peserta masih memerlukan bimbingan untuk menyiapkan tugasan.",
     ],
     refleksi: [
-      `${cleanPrefix} untuk penambahbaikan seterusnya.`,
-      `${cleanPrefix} dengan pendekatan yang lebih sesuai.`,
-      `${cleanPrefix} mengikut keperluan peserta.`,
+      "Aktiviti perlu diteruskan dengan bimbingan yang lebih berfokus.",
+      "Bahan aktiviti boleh dipelbagaikan supaya peserta lebih fokus.",
+      "Sesi seterusnya perlu disesuaikan dengan tahap peserta.",
     ],
-    umum: [
-      `${cleanPrefix} dengan jelas dan tepat.`,
-      `${cleanPrefix} mengikut keperluan yang dinyatakan.`,
-      `${sentencePrefix} berkaitan dengan maklumat yang sedang diisi.`,
-      `${subject} dapat ${cleanPrefix} dengan bimbingan yang sesuai.`,
-    ],
+    umum: getContextualSentenceSuggestions(fieldKind, documentNeed),
   };
 
   return (options[fieldKind] || options.umum).slice(0, 6);
+}
+
+function getContextualSentenceSuggestions(fieldKind: string, documentNeed: string) {
+  const byDocument: Record<string, string[]> = {
+    laporan: [
+      "Aktiviti telah dilaksanakan mengikut perancangan yang ditetapkan.",
+      "Peserta memberi kerjasama yang baik sepanjang program dijalankan.",
+      "Cadangan penambahbaikan akan diambil kira untuk pelaksanaan seterusnya.",
+      "Secara keseluruhan, program berjalan dengan baik dan mencapai tujuan yang dirancang.",
+    ],
+    rpa: [
+      "Peserta dapat mengikuti aktiviti dengan bimbingan petugas.",
+      "Aktiviti dijalankan secara berperingkat mengikut tahap keupayaan peserta.",
+      "Peserta menunjukkan minat dan memberi respons semasa aktiviti dijalankan.",
+      "Bahan aktiviti digunakan untuk membantu peserta memahami tugasan.",
+    ],
+    rph: [
+      "Murid dapat mengikuti pembelajaran melalui arahan yang jelas.",
+      "Guru membimbing murid mengikut tahap penguasaan masing-masing.",
+      "Aktiviti pembelajaran dijalankan secara berpandu dan berperingkat.",
+      "Sebahagian murid memerlukan bimbingan tambahan untuk mencapai objektif pembelajaran.",
+    ],
+    rpi: [
+      "Intervensi dilaksanakan mengikut keperluan individu.",
+      "Murid menunjukkan perkembangan kecil yang perlu dipantau secara berterusan.",
+      "Objektif jangka pendek ditetapkan berdasarkan keupayaan semasa murid.",
+      "Penilaian dibuat melalui pemerhatian dan respons murid semasa aktiviti.",
+    ],
+    surat: [
+      "Perkara ini dikemukakan untuk perhatian dan tindakan pihak tuan.",
+      "Kerjasama dan pertimbangan pihak tuan amat dihargai.",
+      "Maklumat ini disampaikan sebagai rujukan pihak berkaitan.",
+    ],
+    umum: [
+      "Maklumat ini dinyatakan dengan jelas mengikut keperluan dokumen.",
+      "Butiran yang diberikan perlu selaras dengan tujuan dokumen.",
+      "Catatan ini boleh disesuaikan mengikut maklumat yang hendak disampaikan.",
+    ],
+  };
+
+  const byField: Record<string, string[]> = {
+    bahan: [
+      "Bahan bantu mengajar digunakan sebagai sokongan aktiviti.",
+      "Kad gambar dan bahan maujud digunakan untuk menarik perhatian peserta.",
+    ],
+    langkah: [
+      "Aktiviti dimulakan dengan penerangan ringkas.",
+      "Peserta dibimbing melaksanakan tugasan secara berperingkat.",
+    ],
+    objektif: [
+      "Murid dapat mencapai objektif pembelajaran melalui aktiviti berpandu.",
+      "Peserta dapat memberi respons mengikut tahap keupayaan masing-masing.",
+    ],
+    pemerhatian: [
+      "Peserta menunjukkan minat semasa aktiviti dijalankan.",
+      "Murid memberi respons yang baik apabila arahan diberikan.",
+    ],
+    refleksi: [
+      "Aktiviti berjalan dengan baik dan perlu diteruskan dengan penambahbaikan.",
+      "Bimbingan tambahan diperlukan pada sesi seterusnya.",
+    ],
+  };
+
+  return byField[fieldKind] || byDocument[documentNeed] || byDocument.umum;
 }
 
 function pickNextPhrases(fieldKind: string, documentNeed: string, previousText: string) {
