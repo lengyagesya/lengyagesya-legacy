@@ -6,6 +6,7 @@ const storageKey = "ly-docs-progress";
 
 type ShadowPrediction = {
   text: string;
+  width?: number;
   x: number;
   y: number;
 };
@@ -109,9 +110,17 @@ export default function Home() {
   );
 }
 
-function buildShadowPrediction(textBeforeCursor: string, documentText: string, fileName: string) {
+function buildShadowPrediction(
+  textBeforeCursor: string,
+  documentText: string,
+  fileName: string,
+  fieldQuestion = "",
+) {
   const lastWord = getLastWord(textBeforeCursor);
-  const documentNeed = detectDocumentNeed(`${fileName} ${documentText}`);
+  const documentNeed = detectDocumentNeed(`${fileName} ${documentText} ${fieldQuestion}`);
+  const fieldSuggestion = buildFieldSuggestion(fieldQuestion, documentNeed);
+
+  if (fieldSuggestion) return fieldSuggestion;
 
   const suggestions: Record<string, Record<string, string>> = {
     laporan: {
@@ -211,6 +220,31 @@ function getLastWord(text: string) {
   return words.at(-1) || "";
 }
 
+function buildFieldSuggestion(fieldQuestion: string, documentNeed: string) {
+  const field = fieldQuestion.toLowerCase();
+
+  if (!field) return "";
+  if (field.includes("bilangan") || field.includes("jumlah")) return "3";
+  if (field.includes("tarikh")) return new Date().toLocaleDateString("ms-MY");
+  if (field.includes("masa")) return "9.00 pagi";
+  if (field.includes("tempat")) return "Bilik aktiviti";
+  if (field.includes("nama guru")) return "Nama guru";
+  if (field.includes("nama murid") || field.includes("nama pelatih")) return "Nama murid";
+  if (field.includes("bahan") || field.includes("alat")) return "Kad gambar, pensel warna dan lembaran kerja";
+  if (field.includes("objektif")) {
+    return documentNeed === "rph"
+      ? "Murid dapat mencapai objektif pembelajaran dengan bimbingan guru."
+      : "Peserta dapat mengikuti aktiviti dan memberi respons mengikut tahap keupayaan.";
+  }
+  if (field.includes("pemerhatian")) return "Peserta menunjukkan minat dan kerjasama yang baik.";
+  if (field.includes("refleksi")) return "Aktiviti berjalan lancar dan boleh ditambah baik pada sesi seterusnya.";
+  if (field.includes("rumusan")) return "Secara keseluruhan, pelaksanaan berjalan dengan baik.";
+  if (field.includes("tajuk")) return documentNeed === "surat" ? "Permohonan Rasmi" : "Aktiviti Harian";
+  if (field.includes("perkara")) return "Permohonan dan makluman rasmi";
+
+  return "";
+}
+
 function FilePreview({
   file,
   fileName,
@@ -243,6 +277,7 @@ function FilePreview({
           style={{
             left: shadowPrediction.x,
             top: shadowPrediction.y,
+            minWidth: shadowPrediction.width ? Math.min(shadowPrediction.width, 240) : undefined,
           }}
         >
           {shadowPrediction.text}
@@ -313,6 +348,7 @@ function DocxPreview({
       getTextBeforeCaret(container),
       container.textContent || "",
       fileName,
+      getFieldQuestionNearCaret(container),
     );
     const position = getCaretPosition(container, previewRootRef.current) || {
       x: 24,
@@ -420,9 +456,11 @@ function getCaretPosition(container: HTMLElement, previewRoot: HTMLElement | nul
 
   const markerRect = marker.getBoundingClientRect();
   const rootRect = previewRoot.getBoundingClientRect();
+  const width = markerRect.width || 220;
   const position = {
     x: Math.max(8, markerRect.left - rootRect.left + 8),
     y: Math.max(8, markerRect.top - rootRect.top - 24),
+    width,
   };
 
   marker.remove();
@@ -444,4 +482,39 @@ function getTextBeforeCaret(container: HTMLElement) {
   textRange.setEnd(range.endContainer, range.endOffset);
 
   return textRange.toString();
+}
+
+function getFieldQuestionNearCaret(container: HTMLElement) {
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0) return "";
+
+  const node = selection.getRangeAt(0).startContainer;
+  if (!container.contains(node)) return "";
+
+  const element =
+    node.nodeType === Node.TEXT_NODE ? node.parentElement : (node as HTMLElement);
+  if (!element) return "";
+
+  const cell = element.closest("td, th");
+  if (cell) {
+    const row = cell.closest("tr");
+    const cells = row ? Array.from(row.querySelectorAll("td, th")) : [];
+    const cellIndex = cells.indexOf(cell);
+    const leftCell = cellIndex > 0 ? cells[cellIndex - 1] : null;
+    const firstCell = cells[0] && cells[0] !== cell ? cells[0] : null;
+    const question = leftCell?.textContent || firstCell?.textContent || "";
+
+    if (question.trim()) return cleanFieldQuestion(question);
+  }
+
+  const paragraphText = element.closest("p, div")?.textContent || "";
+  return cleanFieldQuestion(paragraphText);
+}
+
+function cleanFieldQuestion(text: string) {
+  return text
+    .replace(/\s+/g, " ")
+    .replace(/[:：]+$/g, "")
+    .trim()
+    .slice(0, 90);
 }
