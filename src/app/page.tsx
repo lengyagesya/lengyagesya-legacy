@@ -110,45 +110,55 @@ export default function Home() {
 }
 
 function buildShadowPrediction(text: string, fileName: string) {
-  const lastWords = getLastWords(text);
+  const lastWord = getLastWord(text);
   const documentHint = fileName.toLowerCase();
 
-  if (!lastWords) {
+  if (!lastWord || lastWord.length < 2) {
     return "";
   }
 
-  if (lastWords.length < 4) {
-    return "";
-  }
+  const dictionary: Record<string, string> = {
+    aktiviti: "dilaksanakan",
+    alat: "digunakan",
+    bahan: "digunakan",
+    bimbingan: "diberikan",
+    guru: "membimbing",
+    intervensi: "dilaksanakan",
+    kanak: "kanak",
+    kemahiran: "motor",
+    laporan: "disediakan",
+    masa: "pelaksanaan",
+    murid: "dapat",
+    objektif: "pembelajaran",
+    pemerhatian: "menunjukkan",
+    penilaian: "dijalankan",
+    peserta: "mengikuti",
+    refleksi: "dicatatkan",
+    tarikh: "pelaksanaan",
+  };
 
-  if (documentHint.includes("rph")) {
-    return " untuk mengukuhkan kefahaman murid secara berperingkat.";
-  }
+  const documentFallback = documentHint.includes("rph")
+    ? "pembelajaran"
+    : documentHint.includes("rpa")
+      ? "aktiviti"
+      : documentHint.includes("rpi")
+        ? "intervensi"
+        : documentHint.includes("laporan")
+          ? "program"
+          : "dokumen";
 
-  if (documentHint.includes("rpa")) {
-    return " dengan bimbingan mengikut tahap keupayaan masing-masing.";
-  }
-
-  if (documentHint.includes("rpi")) {
-    return " melalui intervensi berfokus dan pemantauan berterusan.";
-  }
-
-  if (documentHint.includes("laporan")) {
-    return " dan berjalan lancar dengan kerjasama semua pihak yang terlibat.";
-  }
-
-  return " mengikut keperluan dokumen rasmi yang telah ditetapkan.";
+  return dictionary[lastWord] || documentFallback;
 }
 
-function getLastWords(text: string) {
-  const collapsed = text
+function getLastWord(text: string) {
+  const words = text
     .trim()
-    .replace(/\s+/g, " ")
-    .replace(/\s+([,.!?;:])/g, "$1");
+    .toLowerCase()
+    .replace(/[^a-z0-9\u00c0-\u024f\s-]/g, " ")
+    .split(/\s+/)
+    .filter(Boolean);
 
-  if (!collapsed) return "";
-
-  return collapsed.split(/[.!?]\s+/).filter(Boolean).pop() || "";
+  return words.at(-1) || "";
 }
 
 function FilePreview({
@@ -238,6 +248,12 @@ function DocxPreview({
   const containerRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState("");
 
+  function updatePrediction(container: HTMLElement) {
+    const text = buildShadowPrediction(container.textContent || "", fileName);
+    const position = getCaretPosition(container);
+    onPredictionChange(text && position ? { text, ...position } : null);
+  }
+
   useEffect(() => {
     const container = containerRef.current;
     if (!container || !file) return;
@@ -297,20 +313,10 @@ function DocxPreview({
     <div
       className="max-h-[42rem] overflow-auto bg-white text-black outline-none"
       onInput={(event) => {
-        const text = buildShadowPrediction(
-          event.currentTarget.textContent || "",
-          fileName,
-        );
-        const position = getCaretPosition(event.currentTarget);
-        onPredictionChange(text && position ? { text, ...position } : null);
+        updatePrediction(event.currentTarget);
       }}
       onKeyUp={(event) => {
-        const text = buildShadowPrediction(
-          event.currentTarget.textContent || "",
-          fileName,
-        );
-        const position = getCaretPosition(event.currentTarget);
-        onPredictionChange(text && position ? { text, ...position } : null);
+        updatePrediction(event.currentTarget);
       }}
       ref={containerRef}
       suppressContentEditableWarning
