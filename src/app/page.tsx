@@ -234,14 +234,19 @@ function adaptSuggestionToInput(
 ) {
   const cleanInput = normalizeFieldText(input);
   const fieldKind = detectFieldKind(fieldQuestion);
-  if (!cleanInput || cleanInput.length < 3) return "";
+  if (!cleanInput || cleanInput.length < 2) return "";
 
   if (!cleanInput.includes(" ") && !startsWithActionVerb(cleanInput)) {
+    const prefixSuggestion = buildPrefixSuggestion(fieldKind, cleanInput);
+    if (prefixSuggestion) return prefixSuggestion;
     if (fieldKind === "fokus" || fieldKind === "tajuk") return sentenceCase(cleanInput);
     return "";
   }
 
   if (!cleanInput.includes(" ")) {
+    const prefixSuggestion = buildPrefixSuggestion(fieldKind, cleanInput);
+    if (prefixSuggestion) return prefixSuggestion;
+
     const fieldSuggestion = buildFieldKindSuggestion(fieldKind, documentNeed, cleanInput);
     return fieldSuggestion || "";
   }
@@ -335,6 +340,85 @@ function buildFieldKindSuggestion(fieldKind: string, documentNeed: string, input
   }
 
   return "";
+}
+
+function buildPrefixSuggestion(fieldKind: string, input: string) {
+  const prefix = normalizeFieldText(input).toLowerCase();
+  if (prefix.length < 2) return "";
+
+  const phraseBank: Record<string, string[]> = {
+    bahan: [
+      "Kad gambar, lembaran kerja dan bahan maujud digunakan sebagai sokongan aktiviti.",
+      "Pensel warna, kertas aktiviti dan kad imbasan digunakan semasa sesi dijalankan.",
+      "Bahan bantu mengajar disediakan mengikut tahap dan keperluan peserta.",
+    ],
+    fokus: [
+      "Bahasa dan komunikasi",
+      "Kemahiran motor halus",
+      "Kemahiran motor kasar",
+      "Kemahiran sosial",
+      "Pengurusan diri",
+      "Kognitif",
+      "Sosioemosi",
+    ],
+    langkah: [
+      "Memberi penerangan ringkas sebelum aktiviti dimulakan.",
+      "Membimbing peserta melaksanakan tugasan secara berperingkat.",
+      "Menunjukkan contoh terlebih dahulu sebelum peserta mencuba sendiri.",
+      "Menilai respons peserta selepas aktiviti selesai dijalankan.",
+    ],
+    objektif: [
+      "Membaca ayat mudah dengan bimbingan guru.",
+      "Menulis nama sendiri dengan kemas dan betul.",
+      "Menyebut perkataan mudah berdasarkan gambar yang ditunjukkan.",
+      "Mengenal huruf dan bunyi awal perkataan.",
+      "Memahami arahan mudah yang diberikan secara lisan.",
+      "Mengira nombor dalam lingkungan yang sesuai dengan tahap murid.",
+      "Memadankan gambar dengan perkataan yang betul.",
+      "Melengkapkan tugasan mengikut arahan yang diberikan.",
+    ],
+    pemerhatian: [
+      "Memberi respons yang baik apabila arahan diberikan.",
+      "Menunjukkan minat semasa aktiviti dijalankan.",
+      "Mengikuti arahan dengan bimbingan yang minimum.",
+      "Memerlukan bimbingan tambahan untuk menyiapkan tugasan.",
+      "Memberi tumpuan dalam tempoh yang sesuai dengan keupayaan semasa.",
+    ],
+    refleksi: [
+      "Aktiviti berjalan dengan baik dan peserta dapat mengikuti arahan.",
+      "Peserta masih memerlukan bimbingan tambahan pada sesi seterusnya.",
+      "Bahan aktiviti perlu dipelbagaikan supaya peserta lebih fokus.",
+      "Masa pelaksanaan perlu disesuaikan dengan tahap keupayaan peserta.",
+    ],
+    rumusan: [
+      "Secara keseluruhan, aktiviti berjalan dengan baik.",
+      "Program mencapai tujuan yang dirancang dan sesuai diteruskan.",
+      "Cadangan penambahbaikan akan diambil kira untuk sesi seterusnya.",
+    ],
+    standardKandungan: [
+      "Kemahiran mendengar dan bertutur",
+      "Kemahiran membaca",
+      "Kemahiran menulis",
+      "Perkembangan fizikal dan estetika",
+    ],
+    standardPembelajaran: [
+      "Murid boleh mendengar dan memberi respons terhadap arahan mudah.",
+      "Murid boleh membaca perkataan mudah dengan bimbingan.",
+      "Murid boleh menulis perkataan mudah dengan betul.",
+    ],
+    tajuk: [
+      "Aktiviti pembelajaran harian",
+      "Latihan kemahiran asas",
+      "Pengukuhan kemahiran komunikasi",
+      "Permohonan dan makluman rasmi",
+    ],
+  };
+
+  return (
+    phraseBank[fieldKind]?.find((phrase) =>
+      phrase.toLowerCase().startsWith(prefix),
+    ) || ""
+  );
 }
 
 function getDocumentSubject(documentNeed: string) {
