@@ -9,7 +9,6 @@ export default function Home() {
   const [filePreviewUrl, setFilePreviewUrl] = useState("");
   const [fileType, setFileType] = useState("");
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-  const [documentText, setDocumentText] = useState("");
 
   useEffect(() => {
     window.localStorage.removeItem(storageKey);
@@ -24,7 +23,6 @@ export default function Home() {
     });
     setFileType(file?.name.split(".").pop()?.toUpperCase() || "");
     setUploadedFile(file || null);
-    setDocumentText("");
   }
 
   return (
@@ -76,27 +74,11 @@ export default function Home() {
           </div>
 
           {fileName ? (
-            <div className="mt-4 grid gap-4 text-left lg:grid-cols-[1fr_0.9fr]">
-              <div className="rounded-2xl border border-[#b9caff]/20 bg-[#7da1ff]/10 p-4">
-                <p className="text-base font-semibold text-white">
-                  Isi teks untuk file ini
-                </p>
-                <p className="mt-2 text-sm leading-6 text-[#aeb7c8]">
-                  Taip maklumat yang mahu dimasukkan ke dokumen. Kita bina asas
-                  ini dahulu sebelum tambah fungsi scan dan susun automatik.
-                </p>
-                <textarea
-                  className="mt-4 min-h-48 w-full resize-none rounded-2xl border border-white/10 bg-black/35 px-4 py-3 text-sm leading-6 text-white outline-none transition duration-300 placeholder:text-[#687386] focus:border-[#b9caff]/60 focus:bg-black/50"
-                  onChange={(event) => setDocumentText(event.target.value)}
-                  placeholder="Contoh: Nama, tarikh, objektif, aktiviti, pemerhatian atau apa-apa teks yang mahu dimasukkan..."
-                  value={documentText}
-                />
-              </div>
-
+            <div className="mt-4 text-left">
               <div className="rounded-2xl border border-white/10 bg-[#f7f4ed] p-4 text-[#14161d] shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#6a7080]">
-                    File sebenar
+                    File sebenar untuk edit
                   </p>
                   <span className="rounded-full border border-[#d7d2c7] bg-white/70 px-3 py-1 text-[0.65rem] font-bold uppercase tracking-[0.16em] text-[#6a7080]">
                     {fileType}
@@ -197,6 +179,12 @@ function DocxPreview({ file }: { file: File | null }) {
           useBase64URL: true,
         }),
       )
+      .then(() => {
+        if (!cancelled) {
+          container.contentEditable = "true";
+          container.setAttribute("spellcheck", "false");
+        }
+      })
       .catch(() => {
         if (!cancelled) {
           setError("DOCX ini tidak dapat dipaparkan.");
@@ -205,6 +193,7 @@ function DocxPreview({ file }: { file: File | null }) {
 
     return () => {
       cancelled = true;
+      container.contentEditable = "false";
       container.innerHTML = "";
     };
   }, [file]);
@@ -221,5 +210,11 @@ function DocxPreview({ file }: { file: File | null }) {
     return <div className="p-5 text-sm leading-6 text-[#8f3131]">{error}</div>;
   }
 
-  return <div className="max-h-[26rem] overflow-auto bg-white text-black" ref={containerRef} />;
+  return (
+    <div
+      className="max-h-[32rem] overflow-auto bg-white text-black outline-none"
+      ref={containerRef}
+      suppressContentEditableWarning
+    />
+  );
 }
