@@ -176,16 +176,20 @@ function FilePreview({
   onPredictionChange: (prediction: ShadowPrediction | null) => void;
   shadowPrediction: ShadowPrediction | null;
 }) {
+  const previewRef = useRef<HTMLDivElement>(null);
   const type = fileType.toLowerCase();
   const isImage = ["jpg", "jpeg", "png"].includes(type);
   const isPdf = type === "pdf";
   const isDocx = type === "docx";
 
   return (
-    <div className="relative mt-4 overflow-hidden rounded-xl border border-[#d7d2c7] bg-white">
+    <div
+      className="relative mt-4 overflow-hidden rounded-xl border border-[#d7d2c7] bg-white"
+      ref={previewRef}
+    >
       {shadowPrediction ? (
         <span
-          className="pointer-events-none absolute z-10 max-w-[22rem] text-sm font-medium leading-6 text-black/35"
+          className="pointer-events-none absolute z-20 max-w-[12rem] rounded-md bg-white/75 px-1 text-sm font-semibold leading-6 text-black/55 shadow-sm"
           style={{
             left: shadowPrediction.x,
             top: shadowPrediction.y,
@@ -218,6 +222,7 @@ function FilePreview({
           file={file}
           fileName={fileName}
           onPredictionChange={onPredictionChange}
+          previewRootRef={previewRef}
         />
       ) : null}
 
@@ -240,17 +245,19 @@ function DocxPreview({
   file,
   fileName,
   onPredictionChange,
+  previewRootRef,
 }: {
   file: File | null;
   fileName: string;
   onPredictionChange: (prediction: ShadowPrediction | null) => void;
+  previewRootRef: React.RefObject<HTMLDivElement | null>;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState("");
 
   function updatePrediction(container: HTMLElement) {
     const text = buildShadowPrediction(container.textContent || "", fileName);
-    const position = getCaretPosition(container);
+    const position = getCaretPosition(container, previewRootRef.current);
     onPredictionChange(text && position ? { text, ...position } : null);
   }
 
@@ -324,9 +331,9 @@ function DocxPreview({
   );
 }
 
-function getCaretPosition(container: HTMLElement) {
+function getCaretPosition(container: HTMLElement, previewRoot: HTMLElement | null) {
   const selection = window.getSelection();
-  if (!selection || selection.rangeCount === 0) return null;
+  if (!selection || selection.rangeCount === 0 || !previewRoot) return null;
 
   const range = selection.getRangeAt(0).cloneRange();
   if (!container.contains(range.commonAncestorContainer)) return null;
@@ -337,10 +344,10 @@ function getCaretPosition(container: HTMLElement) {
   range.insertNode(marker);
 
   const markerRect = marker.getBoundingClientRect();
-  const containerRect = container.getBoundingClientRect();
+  const rootRect = previewRoot.getBoundingClientRect();
   const position = {
-    x: markerRect.left - containerRect.left + container.scrollLeft + 6,
-    y: markerRect.top - containerRect.top + container.scrollTop,
+    x: markerRect.left - rootRect.left + 8,
+    y: markerRect.top - rootRect.top - 1,
   };
 
   marker.remove();
