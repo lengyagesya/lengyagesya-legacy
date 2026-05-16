@@ -260,13 +260,65 @@ function buildKeyboardStylePrediction({
 
 function pickWordCompletions(fieldKind: string, documentNeed: string, prefix: string) {
   const lowerPrefix = prefix.toLowerCase();
-  return getContextWords(fieldKind, documentNeed)
+  const matches = getContextWords(fieldKind, documentNeed)
     .filter((word) => {
       const lowerWord = word.toLowerCase();
       return lowerWord.startsWith(lowerPrefix) && lowerWord !== lowerPrefix;
     })
     .slice(0, 6)
     .map((word) => word.slice(prefix.length));
+
+  if (matches.length > 0) return matches;
+
+  return buildRandomPrefixFallbacks(fieldKind, documentNeed, prefix);
+}
+
+function buildRandomPrefixFallbacks(fieldKind: string, documentNeed: string, prefix: string) {
+  const cleanPrefix = normalizeFieldText(prefix);
+  if (!cleanPrefix) return [];
+
+  const subject = getDocumentSubject(documentNeed).toLowerCase();
+  const sentencePrefix = sentenceCase(cleanPrefix);
+  const options: Record<string, string[]> = {
+    bahan: [
+      `${cleanPrefix} digunakan sebagai bahan sokongan.`,
+      `${cleanPrefix} disediakan untuk membantu aktiviti.`,
+      `${cleanPrefix} dipilih mengikut keperluan peserta.`,
+    ],
+    fokus: [
+      `${cleanPrefix} dan komunikasi`,
+      `${cleanPrefix} motor halus`,
+      `${cleanPrefix} kognitif`,
+    ],
+    langkah: [
+      `${cleanPrefix} aktiviti secara berperingkat.`,
+      `${cleanPrefix} arahan dengan jelas.`,
+      `${cleanPrefix} peserta mengikut tahap semasa.`,
+    ],
+    objektif: [
+      `${cleanPrefix} dengan bimbingan yang sesuai.`,
+      `${cleanPrefix} melalui aktiviti berpandu.`,
+      `${cleanPrefix} mengikut tahap keupayaan semasa.`,
+    ],
+    pemerhatian: [
+      `${cleanPrefix} sepanjang aktiviti dijalankan.`,
+      `${cleanPrefix} dengan respons yang sesuai.`,
+      `${cleanPrefix} melalui pemerhatian semasa aktiviti.`,
+    ],
+    refleksi: [
+      `${cleanPrefix} untuk penambahbaikan seterusnya.`,
+      `${cleanPrefix} dengan pendekatan yang lebih sesuai.`,
+      `${cleanPrefix} mengikut keperluan peserta.`,
+    ],
+    umum: [
+      `${cleanPrefix} dengan jelas dan tepat.`,
+      `${cleanPrefix} mengikut keperluan yang dinyatakan.`,
+      `${sentencePrefix} berkaitan dengan maklumat yang sedang diisi.`,
+      `${subject} dapat ${cleanPrefix} dengan bimbingan yang sesuai.`,
+    ],
+  };
+
+  return (options[fieldKind] || options.umum).slice(0, 6);
 }
 
 function pickNextPhrases(fieldKind: string, documentNeed: string, previousText: string) {
