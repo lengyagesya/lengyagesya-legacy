@@ -137,17 +137,6 @@ function buildFieldAssistantSuggestion({
     };
   }
 
-  const wordOptions = buildWordOptions(lastWord, documentNeed);
-
-  if (wordOptions.length > 0) {
-    return {
-      mode: "word",
-      options: wordOptions,
-      replacement: wordOptions[0],
-      text: wordOptions[0],
-    };
-  }
-
   const suggestions: Record<string, Record<string, string>> = {
     laporan: {
       aktiviti: "Aktiviti berjalan lancar dan peserta memberi kerjasama yang baik.",
@@ -203,18 +192,72 @@ function buildFieldAssistantSuggestion({
   );
 
   if (!lastWord) {
-    return null;
+    const starterOptions = buildStarterSentences(documentNeed);
+
+    return {
+      mode: "field",
+      options: starterOptions,
+      replacement: starterOptions[0],
+      text: starterOptions[0],
+    };
   }
 
   const finalSuggestion = partialMatch ? suggestions[documentNeed][partialMatch] : "";
 
-  if (!finalSuggestion) return null;
+  if (!finalSuggestion) {
+    const starterOptions = buildStarterSentences(documentNeed);
+
+    return {
+      mode: "field",
+      options: starterOptions,
+      replacement: starterOptions[0],
+      text: starterOptions[0],
+    };
+  }
 
   return {
     mode: "field",
+    options: [finalSuggestion, ...buildStarterSentences(documentNeed)].slice(0, 3),
     replacement: finalSuggestion,
     text: finalSuggestion,
   };
+}
+
+function buildStarterSentences(documentNeed: string) {
+  const starters: Record<string, string[]> = {
+    laporan: [
+      "Aktiviti telah dilaksanakan dengan lancar dan mendapat kerjasama yang baik daripada peserta.",
+      "Secara keseluruhan, pelaksanaan program berjalan mengikut perancangan yang telah ditetapkan.",
+      "Peserta menunjukkan minat dan penglibatan yang positif sepanjang aktiviti dijalankan.",
+    ],
+    rpa: [
+      "Peserta dapat mengikuti aktiviti dengan bimbingan dan menunjukkan respons yang positif.",
+      "Aktiviti dijalankan secara berperingkat mengikut tahap keupayaan peserta.",
+      "Peserta memerlukan sokongan berterusan tetapi menunjukkan usaha untuk melibatkan diri.",
+    ],
+    rph: [
+      "Murid dapat mengikuti pembelajaran dengan arahan yang jelas dan bimbingan guru.",
+      "Aktiviti pembelajaran dijalankan secara berpandu supaya murid lebih mudah memahami isi pelajaran.",
+      "Sebahagian murid masih memerlukan bimbingan tambahan untuk mencapai objektif pembelajaran.",
+    ],
+    rpi: [
+      "Intervensi dilaksanakan secara berfokus mengikut keperluan individu.",
+      "Murid menunjukkan perkembangan kecil yang positif dan perlu terus dipantau.",
+      "Bimbingan berterusan diperlukan untuk mengukuhkan kemahiran yang disasarkan.",
+    ],
+    surat: [
+      "Dengan segala hormatnya, pihak kami ingin memaklumkan perkara berikut.",
+      "Sehubungan dengan itu, kerjasama dan pertimbangan pihak tuan amat kami hargai.",
+      "Surat ini dikemukakan sebagai makluman dan rujukan pihak tuan.",
+    ],
+    umum: [
+      "Maklumat ini boleh disusun dengan ringkas, jelas dan mudah difahami.",
+      "Dokumen ini disediakan sebagai rujukan dan rekod pelaksanaan.",
+      "Maklumat yang diisi perlu menggambarkan tujuan dokumen dengan jelas.",
+    ],
+  };
+
+  return starters[documentNeed] || starters.umum;
 }
 
 function detectDocumentNeed(text: string) {
@@ -238,151 +281,6 @@ function getLastWord(text: string) {
     .filter(Boolean);
 
   return words.at(-1) || "";
-}
-
-function buildWordOptions(prefix: string, documentNeed: string) {
-  if (!prefix) return [];
-
-  const words = [
-    "abad",
-    "acara",
-    "adab",
-    "agensi",
-    "akademik",
-    "akses",
-    "aktiviti",
-    "analisis",
-    "anjuran",
-    "alat",
-    "arahan",
-    "aspek",
-    "asas",
-    "aturan",
-    "bahan",
-    "bahasa",
-    "bahagian",
-    "baik",
-    "bantu",
-    "bimbingan",
-    "boleh",
-    "borang",
-    "cadangan",
-    "catatan",
-    "capaian",
-    "cara",
-    "data",
-    "dapat",
-    "dijalankan",
-    "dilaksanakan",
-    "dimaklumkan",
-    "disediakan",
-    "dokumen",
-    "emosi",
-    "fasa",
-    "fizikal",
-    "fokus",
-    "guru",
-    "hasil",
-    "hadir",
-    "harian",
-    "hubungan",
-    "individu",
-    "isi",
-    "intervensi",
-    "jawapan",
-    "jawatan",
-    "jadual",
-    "kanak",
-    "kelas",
-    "kemahiran",
-    "kemajuan",
-    "kehadiran",
-    "keperluan",
-    "kerjasama",
-    "keselamatan",
-    "kesimpulan",
-    "ketua",
-    "komitmen",
-    "kognitif",
-    "komunikasi",
-    "latihan",
-    "laporan",
-    "langkah",
-    "lembaran",
-    "maklumat",
-    "makluman",
-    "matlamat",
-    "masa",
-    "mesyuarat",
-    "motor",
-    "murid",
-    "nama",
-    "nota",
-    "objektif",
-    "organisasi",
-    "panduan",
-    "pegawai",
-    "pelaksanaan",
-    "pelajar",
-    "pelatih",
-    "pembelajaran",
-    "pembimbing",
-    "pemantauan",
-    "pendidikan",
-    "pendidik",
-    "pengajaran",
-    "penglibatan",
-    "perkembangan",
-    "perkara",
-    "permohonan",
-    "pemerhatian",
-    "penilaian",
-    "penambahbaikan",
-    "penyelaras",
-    "penutup",
-    "peserta",
-    "petugas",
-    "rancangan",
-    "rekod",
-    "respons",
-    "rujukan",
-    "program",
-    "refleksi",
-    "ringkasan",
-    "rumusan",
-    "sekolah",
-    "sesi",
-    "sokongan",
-    "sosial",
-    "sosioemosi",
-    "standard",
-    "strategi",
-    "susulan",
-    "tadika",
-    "tahap",
-    "tahunan",
-    "taska",
-    "tarikh",
-    "tempoh",
-    "tempat",
-    "terapi",
-    "tindakan",
-    "tujuan",
-    "urus",
-  ];
-
-  const contextWords: Record<string, string[]> = {
-    laporan: ["laporan", "program", "pemerhatian", "rumusan", "cadangan", "penambahbaikan", "pelaksanaan", "penglibatan"],
-    rpa: ["aktiviti", "motor", "kognitif", "komunikasi", "sosial", "urus", "bahan", "langkah", "pemerhatian", "refleksi"],
-    rph: ["bahasa", "kognitif", "sosioemosi", "fizikal", "kreativiti", "standard", "pembelajaran", "pengajaran", "kelas"],
-    rpi: ["intervensi", "penilaian", "objektif", "kemahiran", "bimbingan", "matlamat", "perkembangan", "pemantauan"],
-    surat: ["perkara", "permohonan", "kerjasama", "makluman", "rujukan", "dimaklumkan", "berhubung", "pertimbangan"],
-    umum: [],
-  };
-
-  return Array.from(new Set([...(contextWords[documentNeed] || []), ...words]))
-    .filter((word) => word.startsWith(prefix) && word !== prefix)
-    .slice(0, 6);
 }
 
 function buildFieldSuggestions(fieldQuestion: string, documentNeed: string) {
