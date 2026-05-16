@@ -281,7 +281,7 @@ function adaptSuggestionToInput(
 ) {
   const cleanInput = normalizeFieldText(input);
   const fieldKind = detectFieldKind(fieldQuestion);
-  if (!cleanInput || cleanInput.length < 2) return "";
+  if (!cleanInput) return "";
 
   if (!cleanInput.includes(" ") && !startsWithActionVerb(cleanInput)) {
     const prefixSuggestion = buildPrefixSuggestion(fieldKind, cleanInput);
@@ -340,7 +340,7 @@ function buildFieldKindSuggestion(fieldKind: string, documentNeed: string, input
   const subject = getDocumentSubject(documentNeed);
 
   if (!fieldKind) return "";
-  if (!phrase || phrase.length < 3) return "";
+  if (!phrase) return "";
 
   const sentence = sentenceCase(phrase);
 
@@ -397,7 +397,7 @@ function buildFieldKindSuggestion(fieldKind: string, documentNeed: string, input
 
 function buildShortInputContinuation(fieldKind: string, documentNeed: string, input: string) {
   const phrase = normalizeFieldText(input);
-  if (phrase.length < 2) return "";
+  if (!phrase) return "";
 
   const options: Record<string, string[]> = {
     bahan: [
@@ -457,7 +457,7 @@ function buildShortInputContinuation(fieldKind: string, documentNeed: string, in
 
 function buildSmartChangingSuggestion(fieldKind: string, documentNeed: string, input: string) {
   const phrase = normalizeFieldText(input);
-  if (!fieldKind || phrase.length < 3) return "";
+  if (!fieldKind || !phrase) return "";
 
   const subject = getDocumentSubject(documentNeed).toLowerCase();
   const sentence = sentenceCase(phrase);
@@ -520,7 +520,7 @@ function buildSmartChangingSuggestion(fieldKind: string, documentNeed: string, i
 
 function buildPrefixSuggestion(fieldKind: string, input: string) {
   const prefix = normalizeFieldText(input).toLowerCase();
-  if (prefix.length < 2) return "";
+  if (!prefix) return "";
 
   const phraseBank: Record<string, string[]> = {
     bahan: [
