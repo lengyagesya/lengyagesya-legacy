@@ -113,10 +113,6 @@ function buildShadowPrediction(textBeforeCursor: string, documentText: string, f
   const lastWord = getLastWord(textBeforeCursor);
   const documentNeed = detectDocumentNeed(`${fileName} ${documentText}`);
 
-  if (!lastWord) {
-    return "";
-  }
-
   const suggestions: Record<string, Record<string, string>> = {
     laporan: {
       aktiviti: "dilaksanakan dengan lancar",
@@ -172,9 +168,24 @@ function buildShadowPrediction(textBeforeCursor: string, documentText: string, f
     word.startsWith(lastWord),
   );
 
-  return partialMatch
+  const starter: Record<string, string> = {
+    laporan: "Cadangan: Aktiviti telah dilaksanakan dengan lancar dan mencapai objektif yang ditetapkan.",
+    rpa: "Cadangan: Peserta dapat mengikuti aktiviti dengan bimbingan dan menunjukkan respons yang baik.",
+    rph: "Cadangan: Murid dapat mengikuti pembelajaran secara aktif dengan bimbingan guru.",
+    rpi: "Cadangan: Intervensi dilaksanakan secara berfokus mengikut keperluan individu.",
+    surat: "Cadangan: Dengan segala hormatnya, perkara di atas adalah dirujuk.",
+    umum: "Cadangan: Maklumat ini boleh ditulis secara ringkas, jelas dan profesional.",
+  };
+
+  if (!lastWord) {
+    return starter[documentNeed];
+  }
+
+  const prediction = partialMatch
     ? suggestions[documentNeed][partialMatch]
     : suggestions[documentNeed].perkara || suggestions.umum.perkara;
+
+  return prediction || starter[documentNeed];
 }
 
 function detectDocumentNeed(text: string) {
@@ -228,7 +239,7 @@ function FilePreview({
     >
       {shadowPrediction ? (
         <span
-          className="pointer-events-none absolute z-20 max-w-[12rem] rounded-md bg-white/75 px-1 text-sm font-semibold leading-6 text-black/55 shadow-sm"
+          className="pointer-events-none absolute z-20 max-w-[28rem] rounded-md bg-[#111318]/90 px-3 py-2 text-sm font-semibold leading-6 text-white/85 shadow-[0_12px_36px_rgba(0,0,0,0.25)]"
           style={{
             left: shadowPrediction.x,
             top: shadowPrediction.y,
@@ -303,7 +314,10 @@ function DocxPreview({
       container.textContent || "",
       fileName,
     );
-    const position = getCaretPosition(container, previewRootRef.current);
+    const position = getCaretPosition(container, previewRootRef.current) || {
+      x: 24,
+      y: 56,
+    };
     onPredictionChange(text && position ? { text, ...position } : null);
   }
 
@@ -334,6 +348,8 @@ function DocxPreview({
         if (!cancelled) {
           container.contentEditable = "true";
           container.setAttribute("spellcheck", "false");
+          const text = buildShadowPrediction("", container.textContent || "", fileName);
+          onPredictionChange(text ? { text, x: 24, y: 56 } : null);
         }
       })
       .catch(() => {
@@ -348,7 +364,7 @@ function DocxPreview({
       container.innerHTML = "";
       onPredictionChange(null);
     };
-  }, [file, onPredictionChange]);
+  }, [file, fileName, onPredictionChange]);
 
   if (!file) {
     return (
