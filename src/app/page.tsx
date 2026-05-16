@@ -650,16 +650,15 @@ function DocxPreview({
         updatePrediction(event.currentTarget);
       }}
       onKeyDown={(event) => {
-        if (event.key === "Tab" && shadowPrediction?.text) {
+        const activePrediction = shadowPrediction;
+        const selectedOption = getPredictionHotkeyOption(event, activePrediction);
+
+        if (selectedOption) {
           event.preventDefault();
-          if (shadowPrediction.mode === "word") {
-            replaceLastWord(shadowPrediction.replacement || shadowPrediction.text);
+          if (activePrediction?.mode === "word") {
+            replaceLastWord(selectedOption);
           } else {
-            document.execCommand(
-              "insertText",
-              false,
-              ` ${shadowPrediction.replacement || shadowPrediction.text}`,
-            );
+            document.execCommand("insertText", false, ` ${selectedOption}`);
           }
           onPredictionChange(null);
         }
@@ -668,6 +667,23 @@ function DocxPreview({
       suppressContentEditableWarning
     />
   );
+}
+
+function getPredictionHotkeyOption(
+  event: React.KeyboardEvent<HTMLDivElement>,
+  prediction: ShadowPrediction | null,
+) {
+  if (!prediction?.text) return "";
+
+  if (event.key === "Tab") {
+    return prediction.replacement || prediction.options?.[0] || prediction.text;
+  }
+
+  if (event.altKey && /^[1-6]$/.test(event.key)) {
+    return prediction.options?.[Number(event.key) - 1] || "";
+  }
+
+  return "";
 }
 
 function getCaretPosition(container: HTMLElement, previewRoot: HTMLElement | null) {
