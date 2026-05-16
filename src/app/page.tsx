@@ -5,6 +5,7 @@ import { ChangeEvent, useEffect, useRef, useState } from "react";
 const storageKey = "ly-docs-progress";
 
 type ShadowPrediction = {
+  label?: string;
   text: string;
   width?: number;
   x: number;
@@ -110,12 +111,17 @@ export default function Home() {
   );
 }
 
-function buildShadowPrediction(
-  textBeforeCursor: string,
-  documentText: string,
-  fileName: string,
-  fieldQuestion = "",
-) {
+function buildFieldAssistantSuggestion({
+  documentText,
+  fieldQuestion,
+  fileName,
+  textBeforeCursor,
+}: {
+  documentText: string;
+  fieldQuestion: string;
+  fileName: string;
+  textBeforeCursor: string;
+}) {
   const lastWord = getLastWord(textBeforeCursor);
   const documentNeed = detectDocumentNeed(`${fileName} ${documentText} ${fieldQuestion}`);
   const fieldSuggestion = buildFieldSuggestion(fieldQuestion, documentNeed);
@@ -124,52 +130,52 @@ function buildShadowPrediction(
 
   const suggestions: Record<string, Record<string, string>> = {
     laporan: {
-      aktiviti: "dilaksanakan dengan lancar",
-      cadangan: "penambahbaikan akan diambil kira",
-      objektif: "program telah dicapai",
-      pemerhatian: "menunjukkan penglibatan yang baik",
-      program: "berjalan mengikut perancangan",
-      rumusan: "pelaksanaan berjalan dengan baik",
+      aktiviti: "Aktiviti dilaksanakan dengan lancar.",
+      cadangan: "Cadangan penambahbaikan akan diambil kira.",
+      objektif: "Objektif program telah dicapai.",
+      pemerhatian: "Peserta menunjukkan penglibatan yang baik.",
+      program: "Program berjalan mengikut perancangan.",
+      rumusan: "Pelaksanaan berjalan dengan baik.",
     },
     rpa: {
-      aktiviti: "dilaksanakan secara berperingkat",
-      bahan: "digunakan semasa aktiviti",
-      objektif: "dapat dicapai dengan bimbingan",
-      pelatih: "memberi respons yang baik",
-      pemerhatian: "menunjukkan perkembangan positif",
-      refleksi: "perlu diteruskan dengan penambahbaikan",
+      aktiviti: "Aktiviti dilaksanakan secara berperingkat.",
+      bahan: "Bahan digunakan semasa aktiviti.",
+      objektif: "Objektif dapat dicapai dengan bimbingan.",
+      pelatih: "Pelatih memberi respons yang baik.",
+      pemerhatian: "Pemerhatian menunjukkan perkembangan positif.",
+      refleksi: "Aktiviti perlu diteruskan dengan penambahbaikan.",
     },
     rph: {
-      aktiviti: "pembelajaran dijalankan secara terancang",
-      guru: "membimbing murid secara berfokus",
-      murid: "dapat mengikuti pembelajaran",
-      objektif: "pembelajaran dapat dicapai",
-      refleksi: "pengajaran perlu diperkukuh",
-      standard: "pembelajaran telah dirujuk",
+      aktiviti: "Aktiviti pembelajaran dijalankan secara terancang.",
+      guru: "Guru membimbing murid secara berfokus.",
+      murid: "Murid dapat mengikuti pembelajaran.",
+      objektif: "Objektif pembelajaran dapat dicapai.",
+      refleksi: "Pengajaran perlu diperkukuh pada sesi seterusnya.",
+      standard: "Standard pembelajaran telah dirujuk.",
     },
     rpi: {
-      intervensi: "dilaksanakan secara konsisten",
-      klien: "menunjukkan perkembangan berperingkat",
-      matlamat: "dicapai secara berperingkat",
-      murid: "memerlukan bimbingan berterusan",
-      objektif: "jangka pendek telah dikenal pasti",
-      penilaian: "dibuat secara berkala",
+      intervensi: "Intervensi dilaksanakan secara konsisten.",
+      klien: "Klien menunjukkan perkembangan berperingkat.",
+      matlamat: "Matlamat dicapai secara berperingkat.",
+      murid: "Murid memerlukan bimbingan berterusan.",
+      objektif: "Objektif jangka pendek telah dikenal pasti.",
+      penilaian: "Penilaian dibuat secara berkala.",
     },
     surat: {
-      berhubung: "perkara di atas",
-      dimaklumkan: "bahawa pihak kami",
-      kerjasama: "pihak tuan amat dihargai",
-      memohon: "pertimbangan pihak tuan",
-      perkara: "tersebut adalah dirujuk",
-      surat: "ini dikemukakan untuk perhatian",
+      berhubung: "Berhubung perkara di atas.",
+      dimaklumkan: "Dimaklumkan bahawa pihak kami.",
+      kerjasama: "Kerjasama pihak tuan amat dihargai.",
+      memohon: "Memohon pertimbangan pihak tuan.",
+      perkara: "Perkara tersebut adalah dirujuk.",
+      surat: "Surat ini dikemukakan untuk perhatian pihak tuan.",
     },
     umum: {
-      aktiviti: "dilaksanakan dengan teratur",
-      dokumen: "disediakan dengan lengkap",
-      maklumat: "telah dikemaskini",
-      objektif: "telah dikenal pasti",
-      perkara: "ini perlu diberi perhatian",
-      tujuan: "dokumen ini disediakan",
+      aktiviti: "Aktiviti dilaksanakan dengan teratur.",
+      dokumen: "Dokumen disediakan dengan lengkap.",
+      maklumat: "Maklumat telah dikemaskini.",
+      objektif: "Objektif telah dikenal pasti.",
+      perkara: "Perkara ini perlu diberi perhatian.",
+      tujuan: "Dokumen ini disediakan untuk rujukan.",
     },
   };
 
@@ -178,12 +184,12 @@ function buildShadowPrediction(
   );
 
   const starter: Record<string, string> = {
-    laporan: "Cadangan: Aktiviti telah dilaksanakan dengan lancar dan mencapai objektif yang ditetapkan.",
-    rpa: "Cadangan: Peserta dapat mengikuti aktiviti dengan bimbingan dan menunjukkan respons yang baik.",
-    rph: "Cadangan: Murid dapat mengikuti pembelajaran secara aktif dengan bimbingan guru.",
-    rpi: "Cadangan: Intervensi dilaksanakan secara berfokus mengikut keperluan individu.",
-    surat: "Cadangan: Dengan segala hormatnya, perkara di atas adalah dirujuk.",
-    umum: "Cadangan: Maklumat ini boleh ditulis secara ringkas, jelas dan profesional.",
+    laporan: "Aktiviti telah dilaksanakan dengan lancar dan mencapai objektif yang ditetapkan.",
+    rpa: "Peserta dapat mengikuti aktiviti dengan bimbingan dan menunjukkan respons yang baik.",
+    rph: "Murid dapat mengikuti pembelajaran secara aktif dengan bimbingan guru.",
+    rpi: "Intervensi dilaksanakan secara berfokus mengikut keperluan individu.",
+    surat: "Dengan segala hormatnya, perkara di atas adalah dirujuk.",
+    umum: "Maklumat ini boleh ditulis secara ringkas, jelas dan profesional.",
   };
 
   if (!lastWord) {
@@ -280,6 +286,9 @@ function FilePreview({
             minWidth: shadowPrediction.width ? Math.min(shadowPrediction.width, 240) : undefined,
           }}
         >
+          {shadowPrediction.label ? (
+            <span className="mr-2 text-white/45">{shadowPrediction.label}</span>
+          ) : null}
           {shadowPrediction.text}
         </span>
       ) : null}
@@ -344,17 +353,23 @@ function DocxPreview({
   const [error, setError] = useState("");
 
   function updatePrediction(container: HTMLElement) {
-    const text = buildShadowPrediction(
-      getTextBeforeCaret(container),
-      container.textContent || "",
+    const fieldQuestion = getFieldQuestionNearCaret(container);
+    const text = buildFieldAssistantSuggestion({
+      documentText: container.textContent || "",
+      fieldQuestion,
       fileName,
-      getFieldQuestionNearCaret(container),
-    );
-    const position = getCaretPosition(container, previewRootRef.current) || {
+      textBeforeCursor: getTextBeforeCaret(container),
+    });
+    const position = getActiveFieldPosition(container, previewRootRef.current) ||
+      getCaretPosition(container, previewRootRef.current) || {
       x: 24,
       y: 56,
     };
-    onPredictionChange(text && position ? { text, ...position } : null);
+    onPredictionChange(
+      text && position
+        ? { label: fieldQuestion || "Cadangan", text, ...position }
+        : null,
+    );
   }
 
   useEffect(() => {
@@ -384,8 +399,7 @@ function DocxPreview({
         if (!cancelled) {
           container.contentEditable = "true";
           container.setAttribute("spellcheck", "false");
-          const text = buildShadowPrediction("", container.textContent || "", fileName);
-          onPredictionChange(text ? { text, x: 24, y: 56 } : null);
+          onPredictionChange(null);
         }
       })
       .catch(() => {
@@ -468,6 +482,28 @@ function getCaretPosition(container: HTMLElement, previewRoot: HTMLElement | nul
   selection.addRange(range);
 
   return position;
+}
+
+function getActiveFieldPosition(container: HTMLElement, previewRoot: HTMLElement | null) {
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0 || !previewRoot) return null;
+
+  const node = selection.getRangeAt(0).startContainer;
+  if (!container.contains(node)) return null;
+
+  const element =
+    node.nodeType === Node.TEXT_NODE ? node.parentElement : (node as HTMLElement);
+  const cell = element?.closest("td, th");
+  if (!cell) return null;
+
+  const cellRect = cell.getBoundingClientRect();
+  const rootRect = previewRoot.getBoundingClientRect();
+
+  return {
+    width: Math.max(160, Math.min(cellRect.width - 12, 320)),
+    x: Math.max(8, cellRect.left - rootRect.left + 6),
+    y: Math.max(8, cellRect.top - rootRect.top - 30),
+  };
 }
 
 function getTextBeforeCaret(container: HTMLElement) {
