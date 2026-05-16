@@ -4,12 +4,18 @@ import { ChangeEvent, useEffect, useRef, useState } from "react";
 
 const storageKey = "ly-docs-progress";
 
+type ShadowPrediction = {
+  text: string;
+  x: number;
+  y: number;
+};
+
 export default function Home() {
   const [fileName, setFileName] = useState("");
   const [filePreviewUrl, setFilePreviewUrl] = useState("");
   const [fileType, setFileType] = useState("");
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-  const [shadowPrediction, setShadowPrediction] = useState("");
+  const [shadowPrediction, setShadowPrediction] = useState<ShadowPrediction | null>(null);
 
   useEffect(() => {
     window.localStorage.removeItem(storageKey);
@@ -24,7 +30,7 @@ export default function Home() {
     });
     setFileType(file?.name.split(".").pop()?.toUpperCase() || "");
     setUploadedFile(file || null);
-    setShadowPrediction("");
+    setShadowPrediction(null);
   }
 
   return (
@@ -104,33 +110,37 @@ export default function Home() {
 }
 
 function buildShadowPrediction(text: string, fileName: string) {
-  const cleanText = getLastMeaningfulSentence(text);
+  const lastWords = getLastWords(text);
   const documentHint = fileName.toLowerCase();
 
-  if (!cleanText) {
+  if (!lastWords) {
+    return "";
+  }
+
+  if (lastWords.length < 4) {
     return "";
   }
 
   if (documentHint.includes("rph")) {
-    return `${cleanText} Murid diberi peluang untuk menyertai aktiviti mengikut tahap keupayaan masing-masing.`;
+    return " untuk mengukuhkan kefahaman murid secara berperingkat.";
   }
 
   if (documentHint.includes("rpa")) {
-    return `${cleanText} Pemerhatian dibuat bagi memastikan peserta dapat mengikuti arahan dan menunjukkan perkembangan secara berperingkat.`;
+    return " dengan bimbingan mengikut tahap keupayaan masing-masing.";
   }
 
   if (documentHint.includes("rpi")) {
-    return `${cleanText} Penilaian dibuat secara berterusan bagi mengenal pasti perkembangan dan tindakan susulan yang sesuai.`;
+    return " melalui intervensi berfokus dan pemantauan berterusan.";
   }
 
   if (documentHint.includes("laporan")) {
-    return `${cleanText} Secara keseluruhan, pelaksanaan berjalan lancar dengan kerjasama semua pihak yang terlibat.`;
+    return " dan berjalan lancar dengan kerjasama semua pihak yang terlibat.";
   }
 
-  return `${cleanText} Ayat ini boleh dikemaskan mengikut gaya penulisan dokumen rasmi.`;
+  return " mengikut keperluan dokumen rasmi yang telah ditetapkan.";
 }
 
-function getLastMeaningfulSentence(text: string) {
+function getLastWords(text: string) {
   const collapsed = text
     .trim()
     .replace(/\s+/g, " ")
@@ -138,11 +148,7 @@ function getLastMeaningfulSentence(text: string) {
 
   if (!collapsed) return "";
 
-  const lastSentence = collapsed.split(/[.!?]\s+/).filter(Boolean).pop() || "";
-  const limited = lastSentence.split(" ").slice(-18).join(" ");
-  const withCapital = limited.charAt(0).toUpperCase() + limited.slice(1);
-
-  return /[.!?]$/.test(withCapital) ? withCapital : `${withCapital}.`;
+  return collapsed.split(/[.!?]\s+/).filter(Boolean).pop() || "";
 }
 
 function FilePreview({
@@ -157,8 +163,8 @@ function FilePreview({
   fileName: string;
   filePreviewUrl: string;
   fileType: string;
-  onPredictionChange: (prediction: string) => void;
-  shadowPrediction: string;
+  onPredictionChange: (prediction: ShadowPrediction | null) => void;
+  shadowPrediction: ShadowPrediction | null;
 }) {
   const type = fileType.toLowerCase();
   const isImage = ["jpg", "jpeg", "png"].includes(type);
@@ -168,9 +174,15 @@ function FilePreview({
   return (
     <div className="relative mt-4 overflow-hidden rounded-xl border border-[#d7d2c7] bg-white">
       {shadowPrediction ? (
-        <div className="pointer-events-none absolute left-4 right-4 top-4 z-10 rounded-xl border border-black/10 bg-[#14161d]/85 px-4 py-3 text-sm font-medium leading-6 text-white/80 shadow-[0_18px_50px_rgba(0,0,0,0.22)] backdrop-blur">
-          {shadowPrediction}
-        </div>
+        <span
+          className="pointer-events-none absolute z-10 max-w-[22rem] text-sm font-medium leading-6 text-black/35"
+          style={{
+            left: shadowPrediction.x,
+            top: shadowPrediction.y,
+          }}
+        >
+          {shadowPrediction.text}
+        </span>
       ) : null}
 
       {isImage ? (
@@ -221,7 +233,7 @@ function DocxPreview({
 }: {
   file: File | null;
   fileName: string;
-  onPredictionChange: (prediction: string) => void;
+  onPredictionChange: (prediction: ShadowPrediction | null) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState("");
@@ -265,7 +277,7 @@ function DocxPreview({
       cancelled = true;
       container.contentEditable = "false";
       container.innerHTML = "";
-      onPredictionChange("");
+      onPredictionChange(null);
     };
   }, [file, onPredictionChange]);
 
@@ -284,13 +296,50 @@ function DocxPreview({
   return (
     <div
       className="max-h-[42rem] overflow-auto bg-white text-black outline-none"
-      onInput={(event) =>
-        onPredictionChange(
-          buildShadowPrediction(event.currentTarget.textContent || "", fileName),
-        )
-      }
+      onInput={(event) => {
+        const text = buildShadowPrediction(
+          event.currentTarget.textContent || "",
+          fileName,
+        );
+        const position = getCaretPosition(event.currentTarget);
+        onPredictionChange(text && position ? { text, ...position } : null);
+      }}
+      onKeyUp={(event) => {
+        const text = buildShadowPrediction(
+          event.currentTarget.textContent || "",
+          fileName,
+        );
+        const position = getCaretPosition(event.currentTarget);
+        onPredictionChange(text && position ? { text, ...position } : null);
+      }}
       ref={containerRef}
       suppressContentEditableWarning
     />
   );
+}
+
+function getCaretPosition(container: HTMLElement) {
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0) return null;
+
+  const range = selection.getRangeAt(0).cloneRange();
+  if (!container.contains(range.commonAncestorContainer)) return null;
+
+  range.collapse(false);
+  const marker = document.createElement("span");
+  marker.textContent = "\u200b";
+  range.insertNode(marker);
+
+  const markerRect = marker.getBoundingClientRect();
+  const containerRect = container.getBoundingClientRect();
+  const position = {
+    x: markerRect.left - containerRect.left + container.scrollLeft + 6,
+    y: markerRect.top - containerRect.top + container.scrollTop,
+  };
+
+  marker.remove();
+  selection.removeAllRanges();
+  selection.addRange(range);
+
+  return position;
 }
