@@ -7,6 +7,7 @@ const storageKey = "ly-docs-progress";
 type ShadowPrediction = {
   label?: string;
   mode?: "field" | "word";
+  options?: string[];
   replacement?: string;
   text: string;
   width?: number;
@@ -123,7 +124,7 @@ function buildFieldAssistantSuggestion({
   fieldQuestion: string;
   fileName: string;
   textBeforeCursor: string;
-}): Pick<ShadowPrediction, "mode" | "replacement" | "text"> | null {
+}): Pick<ShadowPrediction, "mode" | "options" | "replacement" | "text"> | null {
   const lastWord = getLastWord(textBeforeCursor);
   const documentNeed = detectDocumentNeed(`${fileName} ${documentText} ${fieldQuestion}`);
   const wordOptions = buildWordOptions(lastWord, documentNeed);
@@ -131,8 +132,9 @@ function buildFieldAssistantSuggestion({
   if (wordOptions.length > 0) {
     return {
       mode: "word",
+      options: wordOptions,
       replacement: wordOptions[0],
-      text: wordOptions.join(" / "),
+      text: wordOptions[0],
     };
   }
 
@@ -455,16 +457,20 @@ function FilePreview({
       ref={previewRef}
     >
       {shadowPrediction ? (
-        <span
-          className="pointer-events-none absolute z-20 max-w-[28rem] rounded-md border border-[#d7d2c7] bg-[#f7f4ed]/95 px-3 py-2 text-xs font-semibold leading-5 text-[#14161d] shadow-[0_12px_36px_rgba(0,0,0,0.18)]"
+        <div
+          className="pointer-events-none absolute z-20 grid max-w-[18rem] gap-1 rounded-md border border-[#d7d2c7] bg-[#f7f4ed]/95 p-2 text-xs font-semibold leading-5 text-[#14161d] shadow-[0_12px_36px_rgba(0,0,0,0.18)]"
           style={{
             left: shadowPrediction.x,
             top: shadowPrediction.y,
-            minWidth: shadowPrediction.width ? Math.min(shadowPrediction.width, 240) : undefined,
+            minWidth: shadowPrediction.width ? Math.min(shadowPrediction.width, 220) : undefined,
           }}
         >
-          {shadowPrediction.text}
-        </span>
+          {(shadowPrediction.options || [shadowPrediction.text]).map((option) => (
+            <span className="rounded px-2 py-1 text-left" key={option}>
+              {option}
+            </span>
+          ))}
+        </div>
       ) : null}
 
       {isImage ? (
@@ -658,7 +664,7 @@ function getCaretPosition(container: HTMLElement, previewRoot: HTMLElement | nul
   const width = markerRect.width || 220;
   const position = {
     x: Math.max(8, markerRect.left - rootRect.left + 18),
-    y: Math.max(8, markerRect.top - rootRect.top - 42),
+    y: Math.max(8, markerRect.top - rootRect.top - 112),
     width,
   };
 
@@ -687,7 +693,7 @@ function getActiveFieldPosition(container: HTMLElement, previewRoot: HTMLElement
   return {
     width: Math.max(160, Math.min(cellRect.width - 12, 320)),
     x: Math.max(8, cellRect.left - rootRect.left + 10),
-    y: Math.max(8, cellRect.top - rootRect.top - 42),
+    y: Math.max(8, cellRect.top - rootRect.top - 112),
   };
 }
 
