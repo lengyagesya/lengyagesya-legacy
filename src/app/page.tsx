@@ -222,12 +222,13 @@ function createFieldPrediction(
   currentInput = "",
 ): Pick<ShadowPrediction, "mode" | "replacement" | "text"> | null {
   const cleanText = text.trim();
-  if (!cleanText) return null;
+  const displayText = buildPredictionDisplayText(currentInput, cleanText);
+  if (!cleanText || !displayText) return null;
 
   return {
     mode: "field",
     replacement: buildInsertionText(currentInput, cleanText),
-    text: cleanText,
+    text: displayText,
   };
 }
 
@@ -240,6 +241,26 @@ function buildInsertionText(currentInput: string, suggestion: string) {
   }
 
   return ` ${suggestion}`;
+}
+
+function buildPredictionDisplayText(currentInput: string, suggestion: string) {
+  const input = normalizeFieldText(currentInput);
+  if (!input) return suggestion;
+
+  const lowerInput = input.toLowerCase();
+  const lowerSuggestion = suggestion.toLowerCase();
+  const inputAsSentence = sentenceCase(input);
+  const lowerInputAsSentence = inputAsSentence.toLowerCase();
+
+  if (lowerSuggestion.startsWith(lowerInput)) {
+    return suggestion.slice(input.length).trim();
+  }
+
+  if (lowerSuggestion.startsWith(lowerInputAsSentence)) {
+    return suggestion.slice(inputAsSentence.length).trim();
+  }
+
+  return suggestion;
 }
 
 function adaptSuggestionToInput(
