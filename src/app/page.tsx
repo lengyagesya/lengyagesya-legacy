@@ -228,7 +228,7 @@ function createFieldPrediction(
   return {
     mode: "field",
     replacement: buildInsertionText(currentInput, cleanText),
-    text: displayText,
+    text: ensurePredictionLooksLikeContinuation(displayText),
   };
 }
 
@@ -263,6 +263,16 @@ function buildPredictionDisplayText(currentInput: string, suggestion: string) {
   return suggestion;
 }
 
+function ensurePredictionLooksLikeContinuation(text: string) {
+  const cleanText = text.trim();
+  if (!cleanText) return "";
+
+  return cleanText
+    .replace(/^(maklumat|catatan|perkara)\s+ini\s+/i, "")
+    .replace(/^(murid|peserta|pelatih|pihak kami)\s+/i, "")
+    .trim();
+}
+
 function adaptSuggestionToInput(
   input: string,
   suggestion: string,
@@ -276,8 +286,7 @@ function adaptSuggestionToInput(
   if (!cleanInput.includes(" ") && !startsWithActionVerb(cleanInput)) {
     const prefixSuggestion = buildPrefixSuggestion(fieldKind, cleanInput);
     if (prefixSuggestion) return prefixSuggestion;
-    if (fieldKind === "fokus" || fieldKind === "tajuk") return sentenceCase(cleanInput);
-    return "";
+    return buildShortInputContinuation(fieldKind, documentNeed, cleanInput);
   }
 
   if (!cleanInput.includes(" ")) {
@@ -384,6 +393,66 @@ function buildFieldKindSuggestion(fieldKind: string, documentNeed: string, input
   }
 
   return "";
+}
+
+function buildShortInputContinuation(fieldKind: string, documentNeed: string, input: string) {
+  const phrase = normalizeFieldText(input);
+  if (phrase.length < 2) return "";
+
+  const options: Record<string, string[]> = {
+    bahan: [
+      `${sentenceCase(phrase)} digunakan sebagai bahan sokongan aktiviti.`,
+      `${sentenceCase(phrase)} disediakan untuk membantu pelaksanaan aktiviti.`,
+    ],
+    fokus: [
+      `${sentenceCase(phrase)} dan komunikasi`,
+      `${sentenceCase(phrase)} motor halus`,
+      `${sentenceCase(phrase)} sosial`,
+    ],
+    langkah: [
+      `${sentenceCase(phrase)} peserta secara berperingkat.`,
+      `${sentenceCase(phrase)} penerangan ringkas sebelum aktiviti dimulakan.`,
+    ],
+    objektif: [
+      startsWithActionVerb(phrase)
+        ? `${sentenceCase(phrase)} dengan bimbingan yang sesuai.`
+        : `${getDocumentSubject(documentNeed)} dapat ${phrase} dengan bimbingan yang sesuai.`,
+      startsWithActionVerb(phrase)
+        ? `${sentenceCase(phrase)} mengikut tahap keupayaan semasa.`
+        : `${getDocumentSubject(documentNeed)} dapat ${phrase} mengikut tahap keupayaan semasa.`,
+    ],
+    pemerhatian: [
+      `${sentenceCase(phrase)} diperhatikan sepanjang aktiviti dijalankan.`,
+      `${sentenceCase(phrase)} menunjukkan perkembangan yang boleh direkodkan.`,
+    ],
+    refleksi: [
+      `${sentenceCase(phrase)} dijadikan asas untuk penambahbaikan seterusnya.`,
+      `${sentenceCase(phrase)} membantu menentukan tindakan susulan yang sesuai.`,
+    ],
+    rumusan: [
+      `${sentenceCase(phrase)} menunjukkan pelaksanaan berjalan dengan baik.`,
+      `${sentenceCase(phrase)} boleh dijadikan rujukan untuk tindakan seterusnya.`,
+    ],
+    standardKandungan: [
+      `${sentenceCase(phrase)} dijadikan rujukan dalam perancangan pembelajaran.`,
+      `${sentenceCase(phrase)} dipilih mengikut keperluan pembelajaran semasa.`,
+    ],
+    standardPembelajaran: [
+      `${sentenceCase(phrase)} disesuaikan dengan tahap penguasaan murid.`,
+      `${sentenceCase(phrase)} digunakan sebagai panduan pelaksanaan aktiviti.`,
+    ],
+    tajuk: [
+      `${sentenceCase(phrase)} pembelajaran harian`,
+      `${sentenceCase(phrase)} kemahiran asas`,
+    ],
+    umum: [
+      `${sentenceCase(phrase)} disusun dengan jelas dan mudah difahami.`,
+      `${sentenceCase(phrase)} boleh dijadikan rujukan untuk tindakan seterusnya.`,
+      `${sentenceCase(phrase)} direkodkan supaya maklumat lebih kemas dan teratur.`,
+    ],
+  };
+
+  return pickChangingSuggestion(options[fieldKind] || options.umum, phrase);
 }
 
 function buildSmartChangingSuggestion(fieldKind: string, documentNeed: string, input: string) {
@@ -720,16 +789,21 @@ function FilePreview({
       ref={previewRef}
     >
       {shadowPrediction ? (
-        <div
-          className="pointer-events-none absolute z-20 grid max-w-[18rem] gap-1 rounded-md border border-[#d7d2c7] bg-[#f7f4ed]/95 p-2 text-xs font-semibold leading-5 text-[#14161d] shadow-[0_12px_36px_rgba(0,0,0,0.18)]"
-          style={{
-            left: shadowPrediction.x,
-            top: shadowPrediction.y,
-            minWidth: shadowPrediction.width ? Math.min(shadowPrediction.width, 220) : undefined,
-          }}
-        >
-          <span className="rounded px-2 py-1 text-left">{shadowPrediction.text}</span>
-        </div>
+        <>
+          <div
+            className="pointer-events-none absolute z-20 max-w-[26rem] rounded-lg border border-[#88a9ff] bg-[#111827]/95 px-3 py-2 text-left text-sm font-semibold leading-5 text-[#e7eeff] shadow-[0_14px_42px_rgba(43,91,255,0.28)]"
+            style={{
+              left: shadowPrediction.x,
+              top: shadowPrediction.y,
+              minWidth: shadowPrediction.width ? Math.min(shadowPrediction.width, 300) : undefined,
+            }}
+          >
+            {shadowPrediction.text}
+          </div>
+          <div className="pointer-events-none absolute inset-x-3 bottom-3 z-20 rounded-xl border border-[#88a9ff]/70 bg-[#111827]/95 px-4 py-3 text-left text-sm font-semibold leading-6 text-[#e7eeff] shadow-[0_18px_48px_rgba(43,91,255,0.32)]">
+            {shadowPrediction.text}
+          </div>
+        </>
       ) : null}
 
       {isImage ? (
