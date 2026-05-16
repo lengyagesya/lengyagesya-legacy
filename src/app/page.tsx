@@ -109,45 +109,78 @@ export default function Home() {
   );
 }
 
-function buildShadowPrediction(text: string, fileName: string) {
-  const lastWord = getLastWord(text);
-  const documentHint = fileName.toLowerCase();
+function buildShadowPrediction(textBeforeCursor: string, documentText: string, fileName: string) {
+  const lastWord = getLastWord(textBeforeCursor);
+  const documentNeed = detectDocumentNeed(`${fileName} ${documentText}`);
 
   if (!lastWord || lastWord.length < 2) {
     return "";
   }
 
-  const dictionary: Record<string, string> = {
-    aktiviti: "dilaksanakan",
-    alat: "digunakan",
-    bahan: "digunakan",
-    bimbingan: "diberikan",
-    guru: "membimbing",
-    intervensi: "dilaksanakan",
-    kanak: "kanak",
-    kemahiran: "motor",
-    laporan: "disediakan",
-    masa: "pelaksanaan",
-    murid: "dapat",
-    objektif: "pembelajaran",
-    pemerhatian: "menunjukkan",
-    penilaian: "dijalankan",
-    peserta: "mengikuti",
-    refleksi: "dicatatkan",
-    tarikh: "pelaksanaan",
+  const suggestions: Record<string, Record<string, string>> = {
+    laporan: {
+      aktiviti: "dilaksanakan dengan lancar",
+      cadangan: "penambahbaikan akan diambil kira",
+      objektif: "program telah dicapai",
+      pemerhatian: "menunjukkan penglibatan yang baik",
+      program: "berjalan mengikut perancangan",
+      rumusan: "pelaksanaan berjalan dengan baik",
+    },
+    rpa: {
+      aktiviti: "dilaksanakan secara berperingkat",
+      bahan: "digunakan semasa aktiviti",
+      objektif: "dapat dicapai dengan bimbingan",
+      pelatih: "memberi respons yang baik",
+      pemerhatian: "menunjukkan perkembangan positif",
+      refleksi: "perlu diteruskan dengan penambahbaikan",
+    },
+    rph: {
+      aktiviti: "pembelajaran dijalankan secara terancang",
+      guru: "membimbing murid secara berfokus",
+      murid: "dapat mengikuti pembelajaran",
+      objektif: "pembelajaran dapat dicapai",
+      refleksi: "pengajaran perlu diperkukuh",
+      standard: "pembelajaran telah dirujuk",
+    },
+    rpi: {
+      intervensi: "dilaksanakan secara konsisten",
+      klien: "menunjukkan perkembangan berperingkat",
+      matlamat: "dicapai secara berperingkat",
+      murid: "memerlukan bimbingan berterusan",
+      objektif: "jangka pendek telah dikenal pasti",
+      penilaian: "dibuat secara berkala",
+    },
+    surat: {
+      berhubung: "perkara di atas",
+      dimaklumkan: "bahawa pihak kami",
+      kerjasama: "pihak tuan amat dihargai",
+      memohon: "pertimbangan pihak tuan",
+      perkara: "tersebut adalah dirujuk",
+      surat: "ini dikemukakan untuk perhatian",
+    },
+    umum: {
+      aktiviti: "dilaksanakan dengan teratur",
+      dokumen: "disediakan dengan lengkap",
+      maklumat: "telah dikemaskini",
+      objektif: "telah dikenal pasti",
+      perkara: "ini perlu diberi perhatian",
+      tujuan: "dokumen ini disediakan",
+    },
   };
 
-  const documentFallback = documentHint.includes("rph")
-    ? "pembelajaran"
-    : documentHint.includes("rpa")
-      ? "aktiviti"
-      : documentHint.includes("rpi")
-        ? "intervensi"
-        : documentHint.includes("laporan")
-          ? "program"
-          : "dokumen";
+  return suggestions[documentNeed][lastWord] || suggestions[documentNeed].perkara || suggestions.umum.perkara;
+}
 
-  return dictionary[lastWord] || documentFallback;
+function detectDocumentNeed(text: string) {
+  const normalized = text.toLowerCase();
+
+  if (normalized.includes("rph") || normalized.includes("standard kandungan")) return "rph";
+  if (normalized.includes("rpa") || normalized.includes("tajuk aktiviti")) return "rpa";
+  if (normalized.includes("rpi") || normalized.includes("intervensi")) return "rpi";
+  if (normalized.includes("laporan") || normalized.includes("rumusan")) return "laporan";
+  if (normalized.includes("surat") || normalized.includes("tuan") || normalized.includes("puan")) return "surat";
+
+  return "umum";
 }
 
 function getLastWord(text: string) {
@@ -223,6 +256,7 @@ function FilePreview({
           fileName={fileName}
           onPredictionChange={onPredictionChange}
           previewRootRef={previewRef}
+          shadowPrediction={shadowPrediction}
         />
       ) : null}
 
@@ -246,17 +280,23 @@ function DocxPreview({
   fileName,
   onPredictionChange,
   previewRootRef,
+  shadowPrediction,
 }: {
   file: File | null;
   fileName: string;
   onPredictionChange: (prediction: ShadowPrediction | null) => void;
   previewRootRef: React.RefObject<HTMLDivElement | null>;
+  shadowPrediction: ShadowPrediction | null;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState("");
 
   function updatePrediction(container: HTMLElement) {
-    const text = buildShadowPrediction(container.textContent || "", fileName);
+    const text = buildShadowPrediction(
+      getTextBeforeCaret(container),
+      container.textContent || "",
+      fileName,
+    );
     const position = getCaretPosition(container, previewRootRef.current);
     onPredictionChange(text && position ? { text, ...position } : null);
   }
@@ -325,6 +365,13 @@ function DocxPreview({
       onKeyUp={(event) => {
         updatePrediction(event.currentTarget);
       }}
+      onKeyDown={(event) => {
+        if (event.key === "Tab" && shadowPrediction?.text) {
+          event.preventDefault();
+          document.execCommand("insertText", false, ` ${shadowPrediction.text}`);
+          onPredictionChange(null);
+        }
+      }}
       ref={containerRef}
       suppressContentEditableWarning
     />
@@ -347,7 +394,7 @@ function getCaretPosition(container: HTMLElement, previewRoot: HTMLElement | nul
   const rootRect = previewRoot.getBoundingClientRect();
   const position = {
     x: markerRect.left - rootRect.left + 8,
-    y: markerRect.top - rootRect.top - 1,
+    y: markerRect.top - rootRect.top - 24,
   };
 
   marker.remove();
@@ -355,4 +402,18 @@ function getCaretPosition(container: HTMLElement, previewRoot: HTMLElement | nul
   selection.addRange(range);
 
   return position;
+}
+
+function getTextBeforeCaret(container: HTMLElement) {
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0) return "";
+
+  const range = selection.getRangeAt(0).cloneRange();
+  if (!container.contains(range.commonAncestorContainer)) return "";
+
+  const textRange = document.createRange();
+  textRange.selectNodeContents(container);
+  textRange.setEnd(range.endContainer, range.endOffset);
+
+  return textRange.toString();
 }
