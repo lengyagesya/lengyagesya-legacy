@@ -15,6 +15,122 @@ type ShadowPrediction = {
   y: number;
 };
 
+const formalMalayDatabase = {
+  commonWords: [
+    "aktiviti",
+    "arahan",
+    "bimbingan",
+    "catatan",
+    "dokumen",
+    "guru",
+    "hasil",
+    "kemahiran",
+    "kerjasama",
+    "maklumat",
+    "membaca",
+    "memberi",
+    "membimbing",
+    "membuat",
+    "memerlukan",
+    "memahami",
+    "menarik",
+    "mencapai",
+    "mencatat",
+    "mengenal",
+    "mengikut",
+    "mengira",
+    "menggunakan",
+    "menilai",
+    "menulis",
+    "menunjukkan",
+    "menyediakan",
+    "menyebut",
+    "murid",
+    "objektif",
+    "pelaksanaan",
+    "pembelajaran",
+    "pemerhatian",
+    "penambahbaikan",
+    "penilaian",
+    "peserta",
+    "program",
+    "refleksi",
+    "respons",
+    "rumusan",
+    "sekolah",
+    "secara",
+    "semasa",
+    "sesi",
+    "sokongan",
+    "tindakan",
+    "tugasan",
+  ],
+  fieldWords: {
+    bahan: ["kad", "lembaran", "pensel", "gambar", "objek", "bahan", "alat", "carta"],
+    fokus: ["bahasa", "komunikasi", "motor", "kognitif", "sosioemosi", "membaca", "menulis"],
+    langkah: ["memberi", "membimbing", "menunjukkan", "menilai", "memulakan", "mengulang"],
+    objektif: ["membaca", "menulis", "menyebut", "mengenal", "memahami", "mengira", "memadankan", "melengkapkan"],
+    pemerhatian: ["memberi", "menunjukkan", "mengikuti", "memerlukan", "menumpukan", "berusaha"],
+    refleksi: ["aktiviti", "peserta", "bahan", "masa", "bimbingan", "sesi"],
+    rumusan: ["secara", "aktiviti", "program", "objektif", "kerjasama", "penambahbaikan"],
+    umum: [],
+  } as Record<string, string[]>,
+  nextPhrases: {
+    aktiviti: ["dijalankan", "berjalan", "dimulakan", "diteruskan", "dilaksanakan"],
+    "aktiviti berjalan": ["dengan lancar mengikut perancangan.", "dengan baik sepanjang sesi dijalankan."],
+    "aktiviti dijalankan": ["secara berperingkat mengikut tahap peserta.", "dengan bimbingan dan pemantauan yang sesuai."],
+    "aktiviti dimulakan": ["dengan penerangan ringkas kepada peserta.", "dengan set induksi yang mudah difahami."],
+    boleh: ["membaca", "menulis", "menyebut", "mengira", "mengenal", "memadankan"],
+    "boleh membaca": ["ayat mudah dengan bimbingan guru.", "perkataan mudah berdasarkan bahan yang diberikan."],
+    "boleh menulis": ["perkataan mudah dengan kemas dan betul.", "nama sendiri dengan bimbingan guru."],
+    "boleh menyebut": ["perkataan mudah berdasarkan gambar yang ditunjukkan.", "bunyi huruf dengan sebutan yang jelas."],
+    "boleh mengira": ["nombor dalam lingkungan yang sesuai dengan tahap semasa.", "objek dengan bimbingan guru."],
+    "boleh mengenal": ["huruf, nombor atau gambar melalui aktiviti berpandu.", "warna asas berdasarkan bahan yang ditunjukkan."],
+    dapat: ["membaca", "menulis", "menyebut", "mengira", "mengenal", "mengikuti", "menyiapkan"],
+    "dapat membaca": ["ayat mudah dengan bimbingan guru.", "perkataan mudah secara berpandu."],
+    "dapat menulis": ["perkataan mudah dengan kemas dan betul.", "jawapan ringkas mengikut arahan."],
+    "dapat mengikuti": ["aktiviti dengan bimbingan yang sesuai.", "arahan mudah secara berperingkat."],
+    dengan: ["bimbingan", "jelas", "baik", "lancar", "teratur"],
+    guru: ["membimbing", "memberi", "memantau", "menilai"],
+    "guru membimbing": ["murid secara berperingkat mengikut tahap penguasaan."],
+    memberi: ["respons", "bimbingan", "kerjasama", "tumpuan", "perhatian"],
+    "memberi respons": ["yang baik apabila arahan diberikan.", "secara positif semasa aktiviti dijalankan."],
+    menunjukkan: ["minat", "respons", "perkembangan", "kerjasama", "usaha"],
+    "menunjukkan minat": ["semasa aktiviti dijalankan.", "dan memberi tumpuan terhadap tugasan."],
+    "menunjukkan perkembangan": ["positif sepanjang sesi dijalankan.", "yang boleh diperhatikan dari semasa ke semasa."],
+    murid: ["boleh", "dapat", "menunjukkan", "memerlukan", "mengikuti"],
+    "murid boleh": ["membaca", "menulis", "menyebut", "mengira", "mengenal"],
+    "murid dapat": ["mengikuti", "membaca", "menulis", "menyebut", "menyiapkan"],
+    peserta: ["boleh", "dapat", "menunjukkan", "memerlukan", "mengikuti"],
+    "peserta dapat": ["mengikuti aktiviti dengan bimbingan yang sesuai.", "memberi respons mengikut tahap keupayaan."],
+    "peserta menunjukkan": ["minat dan memberi respons yang baik.", "usaha untuk melibatkan diri dalam aktiviti."],
+    saya: ["akan", "membuat", "menyediakan", "mengisi", "menulis"],
+    "saya akan": ["menyediakan maklumat yang diperlukan.", "mengisi maklumat dengan lengkap."],
+    "saya membuat": ["catatan berdasarkan maklumat yang diberikan."],
+    secara: ["berperingkat", "keseluruhan", "teratur", "berpandu", "konsisten"],
+    "secara keseluruhan": ["aktiviti berjalan dengan baik.", "pelaksanaan mencapai tujuan yang dirancang."],
+  } as Record<string, string[]>,
+  typoCorrections: {
+    aktviti: "aktiviti",
+    arahn: "arahan",
+    bimbingn: "bimbingan",
+    bolh: "boleh",
+    dpat: "dapat",
+    guruu: "guru",
+    maklmat: "maklumat",
+    membca: "membaca",
+    menuls: "menulis",
+    menyebt: "menyebut",
+    murd: "murid",
+    objektf: "objektif",
+    pemrhatian: "pemerhatian",
+    pesrta: "peserta",
+    refleks: "refleksi",
+    respon: "respons",
+    tugasn: "tugasan",
+  } as Record<string, string>,
+};
+
 export default function Home() {
   const [fileName, setFileName] = useState("");
   const [filePreviewUrl, setFilePreviewUrl] = useState("");
@@ -260,6 +376,7 @@ function buildKeyboardStylePrediction({
 
 function pickWordCompletions(fieldKind: string, documentNeed: string, prefix: string) {
   const lowerPrefix = prefix.toLowerCase();
+  const typoCorrection = formalMalayDatabase.typoCorrections[lowerPrefix];
   const matches = getContextWords(fieldKind, documentNeed)
     .filter((word) => {
       const lowerWord = word.toLowerCase();
@@ -267,6 +384,10 @@ function pickWordCompletions(fieldKind: string, documentNeed: string, prefix: st
     })
     .slice(0, 6)
     .map((word) => word.slice(prefix.length));
+
+  if (typoCorrection) {
+    return [typoCorrection, ...matches].slice(0, 6);
+  }
 
   if (matches.length > 0) return matches;
 
@@ -324,6 +445,7 @@ function buildRandomPrefixFallbacks(fieldKind: string, documentNeed: string, pre
 function pickNextPhrases(fieldKind: string, documentNeed: string, previousText: string) {
   const key = previousText.toLowerCase();
   const nextByPrevious: Record<string, string[]> = {
+    ...formalMalayDatabase.nextPhrases,
     aktiviti: ["dijalankan", "berjalan", "dimulakan", "diteruskan"],
     "aktiviti berjalan": ["dengan lancar mengikut perancangan."],
     "aktiviti dijalankan": ["secara berperingkat mengikut tahap peserta."],
@@ -376,6 +498,7 @@ function pickNextPhrases(fieldKind: string, documentNeed: string, previousText: 
 
 function getContextWords(fieldKind: string, documentNeed: string) {
   const commonWords = [
+    ...formalMalayDatabase.commonWords,
     "aktiviti",
     "arahan",
     "ayat",
@@ -416,6 +539,7 @@ function getContextWords(fieldKind: string, documentNeed: string) {
     "tugasan",
   ];
   const byField: Record<string, string[]> = {
+    ...formalMalayDatabase.fieldWords,
     bahan: ["kad", "lembaran", "bahan", "pensel", "gambar", "objek"],
     fokus: ["bahasa", "komunikasi", "motor", "kognitif", "sosioemosi", "membaca", "menulis"],
     langkah: ["memberi", "membimbing", "menunjukkan", "menilai", "memulakan", "mengulang"],
