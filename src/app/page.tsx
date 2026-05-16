@@ -9,6 +9,8 @@ export default function Home() {
   const [filePreviewUrl, setFilePreviewUrl] = useState("");
   const [fileType, setFileType] = useState("");
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [aiDraft, setAiDraft] = useState("");
+  const [aiSuggestion, setAiSuggestion] = useState("");
 
   useEffect(() => {
     window.localStorage.removeItem(storageKey);
@@ -23,6 +25,17 @@ export default function Home() {
     });
     setFileType(file?.name.split(".").pop()?.toUpperCase() || "");
     setUploadedFile(file || null);
+    setAiDraft("");
+    setAiSuggestion("");
+  }
+
+  function generateAiSuggestion() {
+    setAiSuggestion(buildShadowSuggestion(aiDraft, fileName));
+  }
+
+  async function copyAiSuggestion() {
+    if (!aiSuggestion) return;
+    await navigator.clipboard.writeText(aiSuggestion);
   }
 
   return (
@@ -90,6 +103,49 @@ export default function Home() {
                   filePreviewUrl={filePreviewUrl}
                   fileType={fileType}
                 />
+                <div className="mt-4 rounded-2xl border border-[#d7d2c7] bg-white/75 p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-bold text-[#14161d]">
+                        Shadow AI
+                      </p>
+                      <p className="mt-1 text-xs leading-5 text-[#6a7080]">
+                        Tulis ayat kasar, kemudian jana cadangan ayat yang lebih
+                        kemas.
+                      </p>
+                    </div>
+                    <button
+                      className="rounded-full border border-[#c8c2b8] bg-[#14161d] px-4 py-2 text-xs font-bold uppercase tracking-[0.14em] text-white transition duration-300 hover:bg-[#2a3140]"
+                      onClick={generateAiSuggestion}
+                      type="button"
+                    >
+                      Cadang Ayat
+                    </button>
+                  </div>
+                  <textarea
+                    className="mt-4 min-h-28 w-full resize-none rounded-xl border border-[#d7d2c7] bg-white px-4 py-3 text-sm leading-6 text-[#14161d] outline-none transition duration-300 placeholder:text-[#9a958e] focus:border-[#7da1ff]"
+                    onChange={(event) => setAiDraft(event.target.value)}
+                    placeholder="Contoh: murid buat aktiviti mewarna ikut arahan guru tapi perlu bimbingan sikit"
+                    value={aiDraft}
+                  />
+                  {aiSuggestion ? (
+                    <div className="mt-4 rounded-xl border border-[#d7d2c7] bg-[#f7f4ed] p-4">
+                      <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#6a7080]">
+                        Cadangan
+                      </p>
+                      <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-[#14161d]">
+                        {aiSuggestion}
+                      </p>
+                      <button
+                        className="mt-4 rounded-full border border-[#c8c2b8] bg-white px-4 py-2 text-xs font-bold uppercase tracking-[0.14em] text-[#14161d] transition duration-300 hover:border-[#7da1ff]"
+                        onClick={copyAiSuggestion}
+                        type="button"
+                      >
+                        Copy Jawapan
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
               </div>
             </div>
           ) : null}
@@ -97,6 +153,54 @@ export default function Home() {
       </section>
     </main>
   );
+}
+
+function buildShadowSuggestion(text: string, fileName: string) {
+  const cleanText = normalizeSentence(text);
+  const documentHint = fileName.toLowerCase();
+
+  if (!cleanText) {
+    return "Sila tulis ayat kasar terlebih dahulu supaya cadangan ayat dapat disediakan dengan lebih tepat.";
+  }
+
+  if (documentHint.includes("rph")) {
+    return `Aktiviti pengajaran dan pembelajaran dilaksanakan secara terancang dengan bimbingan guru. ${cleanText} Murid diberi peluang untuk menyertai aktiviti mengikut tahap keupayaan masing-masing.`;
+  }
+
+  if (documentHint.includes("rpa")) {
+    return `Aktiviti dilaksanakan mengikut perancangan yang telah ditetapkan. ${cleanText} Pemerhatian dibuat bagi memastikan peserta dapat mengikuti arahan, memberi respons dan menunjukkan perkembangan secara berperingkat.`;
+  }
+
+  if (documentHint.includes("rpi")) {
+    return `Intervensi dilaksanakan secara berfokus berdasarkan keperluan individu. ${cleanText} Penilaian dibuat secara berterusan bagi mengenal pasti perkembangan, cabaran dan tindakan susulan yang sesuai.`;
+  }
+
+  if (documentHint.includes("laporan")) {
+    return `Program telah dilaksanakan dengan teratur dan mencapai tujuan yang dirancang. ${cleanText} Secara keseluruhan, pelaksanaan berjalan lancar dengan kerjasama semua pihak yang terlibat.`;
+  }
+
+  return `Maklumat ini disusun semula dalam bentuk ayat yang lebih kemas dan profesional. ${cleanText}`;
+}
+
+function normalizeSentence(text: string) {
+  const collapsed = text
+    .trim()
+    .replace(/\s+/g, " ")
+    .replace(/\s+([,.!?;:])/g, "$1");
+
+  if (!collapsed) return "";
+
+  const sentences = collapsed
+    .split(/(?<=[.!?])\s+/)
+    .map((sentence) => {
+      const trimmed = sentence.trim();
+      if (!trimmed) return "";
+      const withCapital = trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+      return /[.!?]$/.test(withCapital) ? withCapital : `${withCapital}.`;
+    })
+    .filter(Boolean);
+
+  return sentences.join(" ");
 }
 
 function FilePreview({
