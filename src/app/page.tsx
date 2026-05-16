@@ -789,21 +789,16 @@ function FilePreview({
       ref={previewRef}
     >
       {shadowPrediction ? (
-        <>
-          <div
-            className="pointer-events-none absolute z-20 max-w-[26rem] rounded-lg border border-[#88a9ff] bg-[#111827]/95 px-3 py-2 text-left text-sm font-semibold leading-5 text-[#e7eeff] shadow-[0_14px_42px_rgba(43,91,255,0.28)]"
-            style={{
-              left: shadowPrediction.x,
-              top: shadowPrediction.y,
-              minWidth: shadowPrediction.width ? Math.min(shadowPrediction.width, 300) : undefined,
-            }}
-          >
-            {shadowPrediction.text}
-          </div>
-          <div className="pointer-events-none absolute inset-x-3 bottom-3 z-20 rounded-xl border border-[#88a9ff]/70 bg-[#111827]/95 px-4 py-3 text-left text-sm font-semibold leading-6 text-[#e7eeff] shadow-[0_18px_48px_rgba(43,91,255,0.32)]">
-            {shadowPrediction.text}
-          </div>
-        </>
+        <div
+          className="pointer-events-none absolute z-20 max-w-[26rem] rounded-lg border border-[#88a9ff] bg-[#111827]/95 px-3 py-2 text-left text-sm font-semibold leading-5 text-[#e7eeff] shadow-[0_14px_42px_rgba(43,91,255,0.28)]"
+          style={{
+            left: shadowPrediction.x,
+            top: shadowPrediction.y,
+            minWidth: shadowPrediction.width ? Math.min(shadowPrediction.width, 300) : undefined,
+          }}
+        >
+          {shadowPrediction.text}
+        </div>
       ) : null}
 
       {isImage ? (
