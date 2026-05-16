@@ -7,6 +7,7 @@ const storageKey = "ly-docs-progress";
 type ShadowPrediction = {
   label?: string;
   mode?: "field";
+  options?: string[];
   replacement?: string;
   text: string;
   width?: number;
@@ -133,7 +134,7 @@ function buildFieldAssistantSuggestion({
     textBeforeCursor,
   });
 
-  if (keyboardPrediction) return createKeyboardPrediction(keyboardPrediction);
+  if (keyboardPrediction.length > 0) return createKeyboardPrediction(keyboardPrediction);
 
   const lastWord = getLastWord(textBeforeCursor);
   const fieldSuggestion = buildFieldSuggestion(fieldQuestion, documentNeed, fieldText);
@@ -212,14 +213,19 @@ function buildFieldAssistantSuggestion({
   );
 }
 
-function createKeyboardPrediction(text: string): Pick<ShadowPrediction, "mode" | "replacement" | "text"> | null {
-  const cleanText = text.trim();
-  if (!cleanText) return null;
+function createKeyboardPrediction(
+  options: string[],
+): Pick<ShadowPrediction, "mode" | "options" | "replacement" | "text"> | null {
+  const cleanOptions = options.filter((option) => option.trim());
+  const firstOption = cleanOptions[0] || "";
+  const displayOptions = cleanOptions.map((option) => option.trim());
+  if (!firstOption) return null;
 
   return {
     mode: "field",
-    replacement: text,
-    text: cleanText,
+    options: cleanOptions,
+    replacement: firstOption,
+    text: displayOptions[0],
   };
 }
 
@@ -233,7 +239,7 @@ function buildKeyboardStylePrediction({
   textBeforeCursor: string;
 }) {
   const input = normalizeFieldText(textBeforeCursor);
-  if (!input) return "";
+  if (!input) return [];
 
   const fieldKind = detectFieldKind(fieldQuestion);
   const endsWithSpace = /\s$/.test(textBeforeCursor);
@@ -243,25 +249,27 @@ function buildKeyboardStylePrediction({
   const previousTwo = words.slice(-2).join(" ");
 
   if (!endsWithSpace && currentWord) {
-    const completion = pickWordCompletion(fieldKind, documentNeed, currentWord);
-    if (completion) return completion;
+    const completions = pickWordCompletions(fieldKind, documentNeed, currentWord);
+    if (completions.length > 0) return completions;
   }
 
-  const nextPhrase = pickNextPhrase(fieldKind, documentNeed, previousTwo || previousWord);
-  return nextPhrase ? ` ${nextPhrase}` : "";
+  return pickNextPhrases(fieldKind, documentNeed, previousTwo || previousWord).map(
+    (phrase) => ` ${phrase}`,
+  );
 }
 
-function pickWordCompletion(fieldKind: string, documentNeed: string, prefix: string) {
+function pickWordCompletions(fieldKind: string, documentNeed: string, prefix: string) {
   const lowerPrefix = prefix.toLowerCase();
-  const match = getContextWords(fieldKind, documentNeed).find((word) => {
-    const lowerWord = word.toLowerCase();
-    return lowerWord.startsWith(lowerPrefix) && lowerWord !== lowerPrefix;
-  });
-
-  return match ? match.slice(prefix.length) : "";
+  return getContextWords(fieldKind, documentNeed)
+    .filter((word) => {
+      const lowerWord = word.toLowerCase();
+      return lowerWord.startsWith(lowerPrefix) && lowerWord !== lowerPrefix;
+    })
+    .slice(0, 6)
+    .map((word) => word.slice(prefix.length));
 }
 
-function pickNextPhrase(fieldKind: string, documentNeed: string, previousText: string) {
+function pickNextPhrases(fieldKind: string, documentNeed: string, previousText: string) {
   const key = previousText.toLowerCase();
   const nextByPrevious: Record<string, string[]> = {
     aktiviti: ["dijalankan", "berjalan", "dimulakan", "diteruskan"],
@@ -311,7 +319,7 @@ function pickNextPhrase(fieldKind: string, documentNeed: string, previousText: s
   const lastKey = key.split(" ").at(-1) || "";
   const options = nextByPrevious[key] || nextByPrevious[lastKey] || contextDefaults[fieldKind] || contextDefaults.umum;
 
-  return pickChangingSuggestion(options, `${fieldKind}-${documentNeed}-${key}`);
+  return rotateSuggestions(options, `${fieldKind}-${documentNeed}-${key}`).slice(0, 6);
 }
 
 function getContextWords(fieldKind: string, documentNeed: string) {
@@ -963,6 +971,18 @@ function pickChangingSuggestion(options: string[], input: string) {
   return options[score % options.length];
 }
 
+function rotateSuggestions(options: string[], input: string) {
+  if (options.length === 0) return [];
+
+  const score = Array.from(input).reduce(
+    (total, character, index) => total + character.charCodeAt(0) * (index + 1),
+    input.length,
+  );
+  const startIndex = score % options.length;
+
+  return [...options.slice(startIndex), ...options.slice(0, startIndex)];
+}
+
 function getDocumentSubject(documentNeed: string) {
   if (documentNeed === "rph" || documentNeed === "rpi") return "Murid";
   if (documentNeed === "surat") return "Pihak kami";
@@ -1144,7 +1164,19 @@ function FilePreview({
             minWidth: shadowPrediction.width ? Math.min(shadowPrediction.width, 300) : undefined,
           }}
         >
-          {shadowPrediction.text}
+          <div className="grid gap-1">
+            {(shadowPrediction.options || [shadowPrediction.text]).slice(0, 6).map((option, index) => (
+              <div
+                className="flex items-start gap-2 rounded-md px-2 py-1 text-left"
+                key={`${option}-${index}`}
+              >
+                <span className="mt-0.5 rounded bg-[#88a9ff]/20 px-1.5 text-[0.65rem] font-bold text-[#b8c8ff]">
+                  {index + 1}
+                </span>
+                <span>{option.trim()}</span>
+              </div>
+            ))}
+          </div>
         </div>
       ) : null}
 
@@ -1326,7 +1358,11 @@ function getPredictionHotkeyOption(
   if (!prediction?.text) return "";
 
   if (event.key === "Tab") {
-    return prediction.replacement || prediction.text;
+    return prediction.replacement || prediction.options?.[0] || prediction.text;
+  }
+
+  if (event.altKey && /^[1-6]$/.test(event.key)) {
+    return prediction.options?.[Number(event.key) - 1] || "";
   }
 
   return "";
