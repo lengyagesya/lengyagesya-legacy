@@ -193,7 +193,6 @@ function buildFieldAssistantSuggestion({
       dokumen: "Dokumen ini disediakan sebagai rujukan dan rekod pelaksanaan.",
       maklumat: "Maklumat telah disemak dan disusun supaya lebih jelas.",
       objektif: "Objektif dinyatakan dengan jelas supaya pelaksanaan lebih terarah.",
-      perkara: "Perkara ini dicatatkan untuk makluman dan tindakan selanjutnya.",
       tujuan: "Dokumen ini disediakan untuk memudahkan rujukan pihak berkaitan.",
     },
   };
@@ -202,28 +201,13 @@ function buildFieldAssistantSuggestion({
     word.startsWith(lastWord),
   );
 
-  const starter: Record<string, string> = {
-    laporan: "Secara keseluruhan, aktiviti berjalan lancar dan peserta memberi kerjasama yang baik.",
-    rpa: "Peserta dapat mengikuti aktiviti dengan bimbingan dan menunjukkan respons yang positif.",
-    rph: "Murid dapat mengikuti pembelajaran dengan arahan yang jelas dan bimbingan guru.",
-    rpi: "Intervensi boleh diteruskan secara konsisten mengikut keperluan individu.",
-    surat: "Dengan segala hormatnya, pihak kami ingin memaklumkan perkara berikut.",
-    umum: "Maklumat ini boleh disusun dengan ringkas, jelas dan mudah difahami.",
-  };
-
   if (!lastWord) {
-    return {
-      mode: "field",
-      replacement: starter[documentNeed],
-      text: starter[documentNeed],
-    };
+    return null;
   }
 
-  const prediction = partialMatch
-    ? suggestions[documentNeed][partialMatch]
-    : suggestions[documentNeed].perkara || suggestions.umum.perkara;
+  const finalSuggestion = partialMatch ? suggestions[documentNeed][partialMatch] : "";
 
-  const finalSuggestion = prediction || starter[documentNeed];
+  if (!finalSuggestion) return null;
 
   return {
     mode: "field",
