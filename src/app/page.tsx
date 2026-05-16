@@ -121,14 +121,14 @@ function FilePreview({
         // eslint-disable-next-line @next/next/no-img-element
         <img
           alt={`File sebenar ${fileName}`}
-          className="max-h-[26rem] w-full object-contain"
+          className="max-h-[36rem] w-full object-contain"
           src={filePreviewUrl}
         />
       ) : null}
 
       {isPdf ? (
         <object
-          className="h-[26rem] w-full"
+          className="h-[36rem] w-full"
           data={filePreviewUrl}
           title={`File sebenar ${fileName}`}
           type="application/pdf"
@@ -212,7 +212,7 @@ function DocxPreview({ file }: { file: File | null }) {
 
   return (
     <div
-      className="max-h-[32rem] overflow-auto bg-white text-black outline-none"
+      className="max-h-[42rem] overflow-auto bg-white text-black outline-none"
       ref={containerRef}
       suppressContentEditableWarning
     />
