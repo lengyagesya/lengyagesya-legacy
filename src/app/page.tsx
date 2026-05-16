@@ -6,8 +6,7 @@ const storageKey = "ly-docs-progress";
 
 type ShadowPrediction = {
   label?: string;
-  mode?: "field" | "word";
-  options?: string[];
+  mode?: "field";
   replacement?: string;
   text: string;
   width?: number;
@@ -116,26 +115,21 @@ export default function Home() {
 
 function buildFieldAssistantSuggestion({
   documentText,
+  fieldText,
   fieldQuestion,
   fileName,
   textBeforeCursor,
 }: {
   documentText: string;
+  fieldText: string;
   fieldQuestion: string;
   fileName: string;
   textBeforeCursor: string;
-}): Pick<ShadowPrediction, "mode" | "options" | "replacement" | "text"> | null {
+}): Pick<ShadowPrediction, "mode" | "replacement" | "text"> | null {
   const lastWord = getLastWord(textBeforeCursor);
   const documentNeed = detectDocumentNeed(`${fileName} ${documentText} ${fieldQuestion}`);
-  const fieldSuggestions = buildFieldSuggestions(fieldQuestion, documentNeed);
-  if (fieldSuggestions.length > 0) {
-    return {
-      mode: "field",
-      options: fieldSuggestions,
-      replacement: fieldSuggestions[0],
-      text: fieldSuggestions[0],
-    };
-  }
+  const fieldSuggestion = buildFieldSuggestion(fieldQuestion, documentNeed, fieldText);
+  if (fieldSuggestion) return createFieldPrediction(fieldSuggestion, fieldText);
 
   const suggestions: Record<string, Record<string, string>> = {
     laporan: {
@@ -192,72 +186,124 @@ function buildFieldAssistantSuggestion({
   );
 
   if (!lastWord) {
-    const starterOptions = buildStarterSentences(documentNeed);
-
-    return {
-      mode: "field",
-      options: starterOptions,
-      replacement: starterOptions[0],
-      text: starterOptions[0],
-    };
+    return createFieldPrediction(buildStarterSentence(documentNeed, fieldText), fieldText);
   }
 
   const finalSuggestion = partialMatch ? suggestions[documentNeed][partialMatch] : "";
 
   if (!finalSuggestion) {
-    const starterOptions = buildStarterSentences(documentNeed);
-
-    return {
-      mode: "field",
-      options: starterOptions,
-      replacement: starterOptions[0],
-      text: starterOptions[0],
-    };
+    return createFieldPrediction(buildStarterSentence(documentNeed, fieldText), fieldText);
   }
+
+  return createFieldPrediction(
+    adaptSuggestionToInput(fieldText, finalSuggestion, documentNeed),
+    fieldText,
+  );
+}
+
+function createFieldPrediction(
+  text: string,
+  currentInput = "",
+): Pick<ShadowPrediction, "mode" | "replacement" | "text"> | null {
+  const cleanText = text.trim();
+  if (!cleanText) return null;
 
   return {
     mode: "field",
-    options: [finalSuggestion, ...buildStarterSentences(documentNeed)].slice(0, 3),
-    replacement: finalSuggestion,
-    text: finalSuggestion,
+    replacement: buildInsertionText(currentInput, cleanText),
+    text: cleanText,
   };
 }
 
-function buildStarterSentences(documentNeed: string) {
-  const starters: Record<string, string[]> = {
-    laporan: [
-      "Aktiviti telah dilaksanakan dengan lancar dan mendapat kerjasama yang baik daripada peserta.",
-      "Secara keseluruhan, pelaksanaan program berjalan mengikut perancangan yang telah ditetapkan.",
-      "Peserta menunjukkan minat dan penglibatan yang positif sepanjang aktiviti dijalankan.",
-    ],
-    rpa: [
-      "Peserta dapat mengikuti aktiviti dengan bimbingan dan menunjukkan respons yang positif.",
-      "Aktiviti dijalankan secara berperingkat mengikut tahap keupayaan peserta.",
-      "Peserta memerlukan sokongan berterusan tetapi menunjukkan usaha untuk melibatkan diri.",
-    ],
-    rph: [
-      "Murid dapat mengikuti pembelajaran dengan arahan yang jelas dan bimbingan guru.",
-      "Aktiviti pembelajaran dijalankan secara berpandu supaya murid lebih mudah memahami isi pelajaran.",
-      "Sebahagian murid masih memerlukan bimbingan tambahan untuk mencapai objektif pembelajaran.",
-    ],
-    rpi: [
-      "Intervensi dilaksanakan secara berfokus mengikut keperluan individu.",
-      "Murid menunjukkan perkembangan kecil yang positif dan perlu terus dipantau.",
-      "Bimbingan berterusan diperlukan untuk mengukuhkan kemahiran yang disasarkan.",
-    ],
-    surat: [
-      "Dengan segala hormatnya, pihak kami ingin memaklumkan perkara berikut.",
-      "Sehubungan dengan itu, kerjasama dan pertimbangan pihak tuan amat kami hargai.",
-      "Surat ini dikemukakan sebagai makluman dan rujukan pihak tuan.",
-    ],
-    umum: [
-      "Maklumat ini boleh disusun dengan ringkas, jelas dan mudah difahami.",
-      "Dokumen ini disediakan sebagai rujukan dan rekod pelaksanaan.",
-      "Maklumat yang diisi perlu menggambarkan tujuan dokumen dengan jelas.",
-    ],
+function buildInsertionText(currentInput: string, suggestion: string) {
+  const input = normalizeFieldText(currentInput);
+  if (!input) return suggestion;
+
+  if (suggestion.toLowerCase().startsWith(input.toLowerCase())) {
+    return suggestion.slice(input.length);
+  }
+
+  return ` ${suggestion}`;
+}
+
+function buildStarterSentence(documentNeed: string, input: string) {
+  const starters: Record<string, string> = {
+    laporan: "Aktiviti telah dilaksanakan dengan lancar dan mendapat kerjasama yang baik daripada peserta.",
+    rpa: "Peserta dapat mengikuti aktiviti dengan bimbingan dan menunjukkan respons yang positif.",
+    rph: "Murid dapat mengikuti pembelajaran dengan arahan yang jelas dan bimbingan guru.",
+    rpi: "Intervensi dilaksanakan secara berfokus mengikut keperluan individu.",
+    surat: "Dengan segala hormatnya, pihak kami ingin memaklumkan perkara berikut.",
+    umum: "Maklumat ini boleh disusun dengan ringkas, jelas dan mudah difahami.",
   };
 
-  return starters[documentNeed] || starters.umum;
+  return adaptSuggestionToInput(input, starters[documentNeed] || starters.umum, documentNeed);
+}
+
+function adaptSuggestionToInput(input: string, suggestion: string, documentNeed: string) {
+  const cleanInput = normalizeFieldText(input);
+  if (!cleanInput) return suggestion;
+
+  const lowerInput = cleanInput.toLowerCase();
+  const lowerSuggestion = suggestion.toLowerCase();
+
+  if (lowerSuggestion.startsWith(lowerInput)) {
+    return `${cleanInput}${suggestion.slice(cleanInput.length)}`;
+  }
+
+  if (lowerSuggestion.includes(lowerInput)) {
+    return suggestion;
+  }
+
+  const continuation = getTopicContinuation(documentNeed, cleanInput);
+  return `${sentenceCase(cleanInput)} ${continuation}`;
+}
+
+function getTopicContinuation(documentNeed: string, input: string) {
+  const lowerInput = input.toLowerCase();
+
+  if (lowerInput.includes("murid") || lowerInput.includes("pelatih") || lowerInput.includes("peserta")) {
+    return "menunjukkan respons yang positif dan masih memerlukan bimbingan mengikut keperluan semasa.";
+  }
+
+  if (lowerInput.includes("aktiviti") || lowerInput.includes("program")) {
+    return "dijalankan secara teratur mengikut perancangan yang telah ditetapkan.";
+  }
+
+  if (lowerInput.includes("objektif")) {
+    return "dinyatakan dengan jelas supaya pelaksanaan lebih terarah dan mudah dinilai.";
+  }
+
+  if (lowerInput.includes("pemerhatian")) {
+    return "menunjukkan perkembangan yang boleh dijadikan rujukan untuk tindakan susulan.";
+  }
+
+  if (lowerInput.includes("refleksi") || lowerInput.includes("rumusan")) {
+    return "dibuat berdasarkan pelaksanaan sebenar dan keperluan penambahbaikan seterusnya.";
+  }
+
+  const continuations: Record<string, string> = {
+    laporan: "direkodkan untuk makluman, rujukan dan tindakan susulan pihak berkaitan.",
+    rpa: "disusun mengikut tahap keupayaan peserta supaya aktiviti dapat dijalankan dengan lebih berkesan.",
+    rph: "disusun mengikut objektif pembelajaran supaya murid dapat mengikuti sesi dengan lebih jelas.",
+    rpi: "disesuaikan mengikut keperluan individu supaya perkembangan dapat dipantau secara berterusan.",
+    surat: "dikemukakan untuk perhatian dan pertimbangan pihak tuan.",
+    umum: "disusun dengan jelas supaya mudah difahami dan digunakan sebagai rujukan.",
+  };
+
+  return continuations[documentNeed] || continuations.umum;
+}
+
+function sentenceCase(text: string) {
+  const trimmed = text.trim();
+  if (!trimmed) return "";
+  return `${trimmed.charAt(0).toUpperCase()}${trimmed.slice(1)}`;
+}
+
+function normalizeFieldText(text: string) {
+  return text
+    .replace(/\s+/g, " ")
+    .replace(/[|_]{2,}/g, "")
+    .trim();
 }
 
 function detectDocumentNeed(text: string) {
@@ -283,72 +329,50 @@ function getLastWord(text: string) {
   return words.at(-1) || "";
 }
 
-function buildFieldSuggestions(fieldQuestion: string, documentNeed: string) {
+function buildFieldSuggestion(fieldQuestion: string, documentNeed: string, input: string) {
   const field = fieldQuestion.toLowerCase();
 
-  if (!field) return [];
-  if (field.includes("bilangan") || field.includes("jumlah")) return ["3", "5", "10"];
+  if (!field) return "";
+  if (field.includes("bilangan") || field.includes("jumlah")) return adaptSuggestionToInput(input, "3 orang peserta", documentNeed);
   if (field.includes("bidang") || field.includes("fokus")) {
-    return documentNeed === "rph"
-      ? ["Bahasa dan komunikasi", "Kognitif", "Sosioemosi", "Fizikal", "Kreativiti"]
-      : ["Motor halus", "Motor kasar", "Kognitif", "Komunikasi", "Sosial", "Urus diri"];
+    return adaptSuggestionToInput(
+      input,
+      documentNeed === "rph" ? "Bahasa dan komunikasi" : "Motor halus",
+      documentNeed,
+    );
   }
-  if (field.includes("tarikh")) return [new Date().toLocaleDateString("ms-MY")];
-  if (field.includes("masa")) return ["9.00 pagi", "10.00 pagi", "2.30 petang"];
-  if (field.includes("tempat")) return ["Bilik aktiviti", "Ruang pembelajaran", "Kelas"];
-  if (field.includes("nama guru")) return ["Nama guru / pendidik"];
-  if (field.includes("nama murid") || field.includes("nama pelatih")) return ["Nama murid / pelatih"];
+  if (field.includes("tarikh")) return new Date().toLocaleDateString("ms-MY");
+  if (field.includes("masa")) return adaptSuggestionToInput(input, "9.00 pagi", documentNeed);
+  if (field.includes("tempat")) return adaptSuggestionToInput(input, "Bilik aktiviti", documentNeed);
+  if (field.includes("nama guru")) return adaptSuggestionToInput(input, "Nama guru / pendidik", documentNeed);
+  if (field.includes("nama murid") || field.includes("nama pelatih")) return adaptSuggestionToInput(input, "Nama murid / pelatih", documentNeed);
   if (field.includes("bahan") || field.includes("alat")) {
-    return [
-      "Kad gambar, pensel warna dan lembaran kerja",
-      "Bahan maujud dan alat bantu mengajar",
-      "Kad imbasan, objek sebenar dan bahan aktiviti",
-    ];
+    return adaptSuggestionToInput(input, "Kad gambar, pensel warna dan lembaran kerja", documentNeed);
   }
   if (field.includes("objektif")) {
-    return documentNeed === "rph"
-      ? [
-          "Murid dapat mencapai objektif pembelajaran melalui aktiviti berpandu dan bimbingan guru.",
-          "Murid dapat memahami isi pembelajaran dan memberi respons semasa aktiviti dijalankan.",
-          "Murid dapat menyelesaikan tugasan mengikut tahap penguasaan masing-masing.",
-        ]
-      : [
-          "Peserta dapat mengikuti aktiviti dan memberi respons mengikut tahap keupayaan masing-masing.",
-          "Peserta dapat melibatkan diri dalam aktiviti dengan bimbingan petugas.",
-          "Peserta dapat menunjukkan perkembangan melalui pemerhatian semasa aktiviti.",
-        ];
+    return adaptSuggestionToInput(
+      input,
+      documentNeed === "rph"
+        ? "Murid dapat mencapai objektif pembelajaran melalui aktiviti berpandu dan bimbingan guru."
+        : "Peserta dapat mengikuti aktiviti dan memberi respons mengikut tahap keupayaan masing-masing.",
+      documentNeed,
+    );
   }
   if (field.includes("pemerhatian")) {
-    return [
-      "Peserta menunjukkan minat, memberi respons dan cuba mengikuti arahan yang diberikan.",
-      "Peserta memerlukan bimbingan berterusan tetapi menunjukkan usaha untuk melibatkan diri.",
-      "Peserta dapat menumpukan perhatian dalam tempoh yang singkat dengan sokongan petugas.",
-    ];
+    return adaptSuggestionToInput(input, "Peserta menunjukkan minat, memberi respons dan cuba mengikuti arahan yang diberikan.", documentNeed);
   }
   if (field.includes("refleksi")) {
-    return [
-      "Aktiviti berjalan lancar, namun beberapa penyesuaian boleh dibuat mengikut keperluan peserta.",
-      "Sebahagian peserta memerlukan bimbingan tambahan pada sesi seterusnya.",
-      "Aktiviti sesuai diteruskan dengan bahan yang lebih menarik dan mudah difahami.",
-    ];
+    return adaptSuggestionToInput(input, "Aktiviti berjalan lancar, namun beberapa penyesuaian boleh dibuat mengikut keperluan peserta.", documentNeed);
   }
   if (field.includes("rumusan")) {
-    return [
-      "Secara keseluruhan, pelaksanaan berjalan baik dan mencapai tujuan yang dirancang.",
-      "Program memberi manfaat kepada peserta dan boleh diteruskan pada masa akan datang.",
-      "Kerjasama semua pihak membantu memastikan aktiviti berjalan dengan teratur.",
-    ];
+    return adaptSuggestionToInput(input, "Secara keseluruhan, pelaksanaan berjalan baik dan mencapai tujuan yang dirancang.", documentNeed);
   }
-  if (field.includes("tajuk")) return [documentNeed === "surat" ? "Permohonan Rasmi" : "Aktiviti Harian"];
+  if (field.includes("tajuk")) return adaptSuggestionToInput(input, documentNeed === "surat" ? "Permohonan Rasmi" : "Aktiviti Harian", documentNeed);
   if (field.includes("perkara")) {
-    return [
-      "Permohonan dan makluman rasmi",
-      "Makluman pelaksanaan program",
-      "Permohonan pertimbangan pihak tuan",
-    ];
+    return adaptSuggestionToInput(input, "Permohonan dan makluman rasmi", documentNeed);
   }
 
-  return [];
+  return "";
 }
 
 function FilePreview({
@@ -386,11 +410,7 @@ function FilePreview({
             minWidth: shadowPrediction.width ? Math.min(shadowPrediction.width, 220) : undefined,
           }}
         >
-          {(shadowPrediction.options || [shadowPrediction.text]).map((option) => (
-            <span className="rounded px-2 py-1 text-left" key={option}>
-              {option}
-            </span>
-          ))}
+          <span className="rounded px-2 py-1 text-left">{shadowPrediction.text}</span>
         </div>
       ) : null}
 
@@ -455,8 +475,10 @@ function DocxPreview({
 
   function updatePrediction(container: HTMLElement) {
     const fieldQuestion = getFieldQuestionNearCaret(container);
+    const fieldText = getActiveFieldText(container);
     const suggestion = buildFieldAssistantSuggestion({
       documentText: container.textContent || "",
+      fieldText,
       fieldQuestion,
       fileName,
       textBeforeCursor: getTextBeforeCaret(container),
@@ -553,11 +575,7 @@ function DocxPreview({
 
         if (selectedOption) {
           event.preventDefault();
-          if (activePrediction?.mode === "word") {
-            replaceLastWord(selectedOption);
-          } else {
-            document.execCommand("insertText", false, ` ${selectedOption}`);
-          }
+          document.execCommand("insertText", false, selectedOption);
           onPredictionChange(null);
         }
       }}
@@ -574,11 +592,7 @@ function getPredictionHotkeyOption(
   if (!prediction?.text) return "";
 
   if (event.key === "Tab") {
-    return prediction.replacement || prediction.options?.[0] || prediction.text;
-  }
-
-  if (event.altKey && /^[1-6]$/.test(event.key)) {
-    return prediction.options?.[Number(event.key) - 1] || "";
+    return prediction.replacement || prediction.text;
   }
 
   return "";
@@ -648,39 +662,6 @@ function getTextBeforeCaret(container: HTMLElement) {
   return textRange.toString();
 }
 
-function replaceLastWord(replacement: string) {
-  const selection = window.getSelection();
-  if (!selection || selection.rangeCount === 0) return;
-
-  const range = selection.getRangeAt(0);
-  const node = range.startContainer;
-
-  if (node.nodeType !== Node.TEXT_NODE) {
-    document.execCommand("insertText", false, replacement);
-    return;
-  }
-
-  const text = node.textContent || "";
-  const before = text.slice(0, range.startOffset);
-  const after = text.slice(range.startOffset);
-  const match = before.match(/[\p{L}\p{N}-]+$/u);
-
-  if (!match) {
-    document.execCommand("insertText", false, replacement);
-    return;
-  }
-
-  const nextText = `${before.slice(0, -match[0].length)}${replacement}${after}`;
-  const nextOffset = before.length - match[0].length + replacement.length;
-  node.textContent = nextText;
-
-  const nextRange = document.createRange();
-  nextRange.setStart(node, nextOffset);
-  nextRange.collapse(true);
-  selection.removeAllRanges();
-  selection.addRange(nextRange);
-}
-
 function getFieldQuestionNearCaret(container: HTMLElement) {
   const selection = window.getSelection();
   if (!selection || selection.rangeCount === 0) return "";
@@ -706,6 +687,23 @@ function getFieldQuestionNearCaret(container: HTMLElement) {
 
   const paragraphText = element.closest("p, div")?.textContent || "";
   return cleanFieldQuestion(paragraphText);
+}
+
+function getActiveFieldText(container: HTMLElement) {
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0) return "";
+
+  const node = selection.getRangeAt(0).startContainer;
+  if (!container.contains(node)) return "";
+
+  const element =
+    node.nodeType === Node.TEXT_NODE ? node.parentElement : (node as HTMLElement);
+  if (!element) return "";
+
+  const cell = element.closest("td, th");
+  if (cell) return cleanFieldQuestion(cell.textContent || "");
+
+  return cleanFieldQuestion(element.closest("p, div")?.textContent || "");
 }
 
 function cleanFieldQuestion(text: string) {
