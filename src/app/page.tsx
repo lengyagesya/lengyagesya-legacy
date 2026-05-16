@@ -185,20 +185,36 @@ function buildFieldAssistantSuggestion({
     word.startsWith(lastWord),
   );
 
-  if (!lastWord) {
-    return null;
-  }
-
   const finalSuggestion = partialMatch ? suggestions[documentNeed][partialMatch] : "";
 
   if (!finalSuggestion) {
-    return null;
+    const automaticSuggestion = adaptSuggestionToInput(
+      fieldText || lastWord,
+      getDocumentDefaultSuggestion(documentNeed),
+      documentNeed,
+      fieldQuestion,
+    );
+
+    return createFieldPrediction(automaticSuggestion, fieldText);
   }
 
   return createFieldPrediction(
     adaptSuggestionToInput(fieldText, finalSuggestion, documentNeed, fieldQuestion),
     fieldText,
   );
+}
+
+function getDocumentDefaultSuggestion(documentNeed: string) {
+  const suggestions: Record<string, string> = {
+    laporan: "Maklumat ini direkodkan sebagai rujukan pelaksanaan aktiviti.",
+    rpa: "Maklumat ini disusun mengikut keperluan aktiviti dan tahap peserta.",
+    rph: "Maklumat ini disusun mengikut keperluan pembelajaran murid.",
+    rpi: "Maklumat ini disusun mengikut keperluan individu dan tindakan susulan.",
+    surat: "Maklumat ini dikemukakan untuk perhatian pihak berkaitan.",
+    umum: "Maklumat ini disusun supaya lebih jelas dan mudah difahami.",
+  };
+
+  return suggestions[documentNeed] || suggestions.umum;
 }
 
 function createFieldPrediction(
@@ -286,7 +302,7 @@ function detectFieldKind(fieldQuestion: string) {
   if (field.includes("standard kandungan")) return "standardKandungan";
   if (field.includes("standard pembelajaran")) return "standardPembelajaran";
 
-  return "";
+  return "umum";
 }
 
 function buildFieldKindSuggestion(fieldKind: string, documentNeed: string, input: string) {
@@ -340,6 +356,10 @@ function buildFieldKindSuggestion(fieldKind: string, documentNeed: string, input
 
   if (fieldKind === "standardPembelajaran") {
     return `${sentence} disesuaikan dengan tahap penguasaan murid.`;
+  }
+
+  if (fieldKind === "umum") {
+    return `${sentence} disusun dengan jelas supaya mudah difahami dan sesuai dijadikan rujukan.`;
   }
 
   return "";
@@ -397,6 +417,11 @@ function buildSmartChangingSuggestion(fieldKind: string, documentNeed: string, i
       `${sentence} disesuaikan dengan tahap penguasaan murid.`,
       `${sentence} digunakan sebagai panduan pelaksanaan aktiviti pembelajaran.`,
       `${sentence} dirancang supaya murid dapat mencapai hasil pembelajaran yang ditetapkan.`,
+    ],
+    umum: [
+      `${sentence} disusun dengan jelas supaya mudah difahami.`,
+      `${sentence} boleh dijadikan rujukan untuk tindakan seterusnya.`,
+      `${sentence} direkodkan supaya maklumat lebih kemas dan teratur.`,
     ],
   };
 
@@ -472,6 +497,12 @@ function buildPrefixSuggestion(fieldKind: string, input: string) {
       "Latihan kemahiran asas",
       "Pengukuhan kemahiran komunikasi",
       "Permohonan dan makluman rasmi",
+    ],
+    umum: [
+      "Maklumat ini disusun dengan jelas dan mudah difahami.",
+      "Catatan ini direkodkan sebagai rujukan pelaksanaan.",
+      "Perkara ini boleh digunakan untuk tindakan susulan yang sesuai.",
+      "Maklumat tersebut perlu dikemas kini mengikut keperluan semasa.",
     ],
   };
 
