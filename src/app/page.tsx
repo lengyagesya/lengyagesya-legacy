@@ -113,7 +113,7 @@ function buildShadowPrediction(textBeforeCursor: string, documentText: string, f
   const lastWord = getLastWord(textBeforeCursor);
   const documentNeed = detectDocumentNeed(`${fileName} ${documentText}`);
 
-  if (!lastWord || lastWord.length < 2) {
+  if (!lastWord) {
     return "";
   }
 
@@ -168,7 +168,13 @@ function buildShadowPrediction(textBeforeCursor: string, documentText: string, f
     },
   };
 
-  return suggestions[documentNeed][lastWord] || suggestions[documentNeed].perkara || suggestions.umum.perkara;
+  const partialMatch = Object.keys(suggestions[documentNeed]).find((word) =>
+    word.startsWith(lastWord),
+  );
+
+  return partialMatch
+    ? suggestions[documentNeed][partialMatch]
+    : suggestions[documentNeed].perkara || suggestions.umum.perkara;
 }
 
 function detectDocumentNeed(text: string) {
@@ -365,6 +371,12 @@ function DocxPreview({
       onKeyUp={(event) => {
         updatePrediction(event.currentTarget);
       }}
+      onMouseUp={(event) => {
+        updatePrediction(event.currentTarget);
+      }}
+      onFocus={(event) => {
+        updatePrediction(event.currentTarget);
+      }}
       onKeyDown={(event) => {
         if (event.key === "Tab" && shadowPrediction?.text) {
           event.preventDefault();
@@ -393,8 +405,8 @@ function getCaretPosition(container: HTMLElement, previewRoot: HTMLElement | nul
   const markerRect = marker.getBoundingClientRect();
   const rootRect = previewRoot.getBoundingClientRect();
   const position = {
-    x: markerRect.left - rootRect.left + 8,
-    y: markerRect.top - rootRect.top - 24,
+    x: Math.max(8, markerRect.left - rootRect.left + 8),
+    y: Math.max(8, markerRect.top - rootRect.top - 24),
   };
 
   marker.remove();
