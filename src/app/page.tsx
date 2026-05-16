@@ -362,7 +362,7 @@ function FilePreview({
     >
       {shadowPrediction ? (
         <span
-          className="pointer-events-none absolute z-20 max-w-[28rem] rounded-md bg-[#111318]/90 px-3 py-2 text-sm font-semibold leading-6 text-white/85 shadow-[0_12px_36px_rgba(0,0,0,0.25)]"
+          className="pointer-events-none absolute z-20 max-w-[28rem] rounded-md border border-[#d7d2c7] bg-[#f7f4ed]/95 px-3 py-2 text-xs font-semibold leading-5 text-[#14161d] shadow-[0_12px_36px_rgba(0,0,0,0.18)]"
           style={{
             left: shadowPrediction.x,
             top: shadowPrediction.y,
@@ -370,7 +370,7 @@ function FilePreview({
           }}
         >
           {shadowPrediction.label ? (
-            <span className="mr-2 text-white/45">{shadowPrediction.label}</span>
+            <span className="mr-2 text-[#6a7080]">{shadowPrediction.label}</span>
           ) : null}
           {shadowPrediction.text}
         </span>
@@ -567,8 +567,8 @@ function getCaretPosition(container: HTMLElement, previewRoot: HTMLElement | nul
   const rootRect = previewRoot.getBoundingClientRect();
   const width = markerRect.width || 220;
   const position = {
-    x: Math.max(8, markerRect.left - rootRect.left + 8),
-    y: Math.max(8, markerRect.top - rootRect.top - 24),
+    x: Math.max(8, markerRect.left - rootRect.left + 18),
+    y: Math.max(8, markerRect.top - rootRect.top - 42),
     width,
   };
 
@@ -596,8 +596,8 @@ function getActiveFieldPosition(container: HTMLElement, previewRoot: HTMLElement
 
   return {
     width: Math.max(160, Math.min(cellRect.width - 12, 320)),
-    x: Math.max(8, cellRect.left - rootRect.left + 6),
-    y: Math.max(8, cellRect.top - rootRect.top - 30),
+    x: Math.max(8, cellRect.left - rootRect.left + 10),
+    y: Math.max(8, cellRect.top - rootRect.top - 42),
   };
 }
 
