@@ -222,13 +222,15 @@ function createFieldPrediction(
   currentInput = "",
 ): Pick<ShadowPrediction, "mode" | "replacement" | "text"> | null {
   const cleanText = text.trim();
-  const displayText = buildPredictionDisplayText(currentInput, cleanText);
+  const displayText = formatMalayPredictionContinuation(
+    buildPredictionDisplayText(currentInput, cleanText),
+  );
   if (!cleanText || !displayText) return null;
 
   return {
     mode: "field",
     replacement: buildInsertionText(currentInput, cleanText),
-    text: ensurePredictionLooksLikeContinuation(displayText),
+    text: displayText,
   };
 }
 
@@ -251,6 +253,8 @@ function buildPredictionDisplayText(currentInput: string, suggestion: string) {
   const lowerSuggestion = suggestion.toLowerCase();
   const inputAsSentence = sentenceCase(input);
   const lowerInputAsSentence = inputAsSentence.toLowerCase();
+  const directIndex = lowerSuggestion.indexOf(lowerInput);
+  const sentenceIndex = lowerSuggestion.indexOf(lowerInputAsSentence);
 
   if (lowerSuggestion.startsWith(lowerInput)) {
     return suggestion.slice(input.length).trim();
@@ -260,17 +264,29 @@ function buildPredictionDisplayText(currentInput: string, suggestion: string) {
     return suggestion.slice(inputAsSentence.length).trim();
   }
 
+  if (directIndex > -1) {
+    return suggestion.slice(directIndex + input.length).trim();
+  }
+
+  if (sentenceIndex > -1) {
+    return suggestion.slice(sentenceIndex + inputAsSentence.length).trim();
+  }
+
   return suggestion;
 }
 
-function ensurePredictionLooksLikeContinuation(text: string) {
-  const cleanText = text.trim();
-  if (!cleanText) return "";
-
-  return cleanText
+function formatMalayPredictionContinuation(text: string) {
+  const cleanText = text
+    .trim()
     .replace(/^(maklumat|catatan|perkara)\s+ini\s+/i, "")
     .replace(/^(murid|peserta|pelatih|pihak kami)\s+/i, "")
+    .replace(/^\s*[,.;:!?-]+\s*/, "")
     .trim();
+
+  if (!cleanText) return "";
+
+  const normalized = cleanText.replace(/\s+/g, " ");
+  return /[.!?]$/.test(normalized) ? normalized : `${normalized}.`;
 }
 
 function adaptSuggestionToInput(
