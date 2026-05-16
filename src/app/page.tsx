@@ -1,12 +1,14 @@
 "use client";
 
-import { ChangeEvent, useEffect, useState } from "react";
+import { ChangeEvent, useEffect, useRef, useState } from "react";
 
 const storageKey = "ly-docs-progress";
 
 export default function Home() {
   const [fileName, setFileName] = useState("");
+  const [filePreviewUrl, setFilePreviewUrl] = useState("");
   const [fileType, setFileType] = useState("");
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [documentText, setDocumentText] = useState("");
 
   useEffect(() => {
@@ -16,7 +18,12 @@ export default function Home() {
   function handleUpload(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     setFileName(file?.name || "");
+    setFilePreviewUrl((currentUrl) => {
+      if (currentUrl) URL.revokeObjectURL(currentUrl);
+      return file ? URL.createObjectURL(file) : "";
+    });
     setFileType(file?.name.split(".").pop()?.toUpperCase() || "");
+    setUploadedFile(file || null);
     setDocumentText("");
   }
 
@@ -86,13 +93,21 @@ export default function Home() {
                 />
               </div>
 
-              <div className="rounded-2xl border border-white/10 bg-[#f7f4ed] p-5 text-[#14161d] shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
-                <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#6a7080]">
-                  Draf teks
-                </p>
-                <div className="mt-4 min-h-48 whitespace-pre-wrap rounded-xl border border-[#d7d2c7] bg-white/70 p-4 text-sm leading-7">
-                  {documentText || "Teks yang diisi akan muncul di sini."}
+              <div className="rounded-2xl border border-white/10 bg-[#f7f4ed] p-4 text-[#14161d] shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#6a7080]">
+                    File sebenar
+                  </p>
+                  <span className="rounded-full border border-[#d7d2c7] bg-white/70 px-3 py-1 text-[0.65rem] font-bold uppercase tracking-[0.16em] text-[#6a7080]">
+                    {fileType}
+                  </span>
                 </div>
+                <FilePreview
+                  file={uploadedFile}
+                  fileName={fileName}
+                  filePreviewUrl={filePreviewUrl}
+                  fileType={fileType}
+                />
               </div>
             </div>
           ) : null}
@@ -100,4 +115,111 @@ export default function Home() {
       </section>
     </main>
   );
+}
+
+function FilePreview({
+  file,
+  fileName,
+  filePreviewUrl,
+  fileType,
+}: {
+  file: File | null;
+  fileName: string;
+  filePreviewUrl: string;
+  fileType: string;
+}) {
+  const type = fileType.toLowerCase();
+  const isImage = ["jpg", "jpeg", "png"].includes(type);
+  const isPdf = type === "pdf";
+  const isDocx = type === "docx";
+
+  return (
+    <div className="mt-4 overflow-hidden rounded-xl border border-[#d7d2c7] bg-white">
+      {isImage ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          alt={`File sebenar ${fileName}`}
+          className="max-h-[26rem] w-full object-contain"
+          src={filePreviewUrl}
+        />
+      ) : null}
+
+      {isPdf ? (
+        <object
+          className="h-[26rem] w-full"
+          data={filePreviewUrl}
+          title={`File sebenar ${fileName}`}
+          type="application/pdf"
+        />
+      ) : null}
+
+      {isDocx ? <DocxPreview file={file} /> : null}
+
+      {!isImage && !isPdf && !isDocx ? (
+        <div className="grid min-h-48 place-items-center p-6 text-center">
+          <div>
+            <p className="text-sm font-bold text-[#14161d]">{fileName}</p>
+            <p className="mt-2 text-sm leading-6 text-[#6a7080]">
+              File ini sudah dipilih. Preview visual untuk format ini akan
+              ditambah pada fasa seterusnya.
+            </p>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function DocxPreview({ file }: { file: File | null }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || !file) return;
+
+    let cancelled = false;
+    container.innerHTML = "";
+    setError("");
+
+    import("docx-preview")
+      .then(({ renderAsync }) =>
+        renderAsync(file, container, undefined, {
+          breakPages: true,
+          className: "ly-docx",
+          experimental: true,
+          ignoreFonts: false,
+          ignoreHeight: false,
+          ignoreWidth: false,
+          inWrapper: true,
+          renderFooters: true,
+          renderHeaders: true,
+          useBase64URL: true,
+        }),
+      )
+      .catch(() => {
+        if (!cancelled) {
+          setError("DOCX ini tidak dapat dipaparkan.");
+        }
+      });
+
+    return () => {
+      cancelled = true;
+      container.innerHTML = "";
+    };
+  }, [file]);
+
+  if (!file) {
+    return (
+      <div className="p-5 text-sm leading-6 text-[#6a7080]">
+        File DOCX belum tersedia.
+      </div>
+    );
+  }
+
+  if (error) {
+    return <div className="p-5 text-sm leading-6 text-[#8f3131]">{error}</div>;
+  }
+
+  return <div className="max-h-[26rem] overflow-auto bg-white text-black" ref={containerRef} />;
 }
