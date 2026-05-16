@@ -365,16 +365,16 @@ function buildKeyboardStylePrediction({
   const previousTwo = words.slice(-2).join(" ");
 
   if (!endsWithSpace && currentWord) {
-    const completions = pickWordCompletions(fieldKind, documentNeed, currentWord);
-    if (completions.length > 0) return completions;
+    const sentenceSuggestions = pickSentenceSuggestionsFromPrefix(fieldKind, documentNeed, currentWord);
+    if (sentenceSuggestions.length > 0) return sentenceSuggestions;
   }
 
-  return pickNextPhrases(fieldKind, documentNeed, previousTwo || previousWord).map(
-    (phrase) => ` ${phrase}`,
+  return pickNextPhrases(fieldKind, documentNeed, previousTwo || previousWord).map((phrase) =>
+    phrase.startsWith(" ") ? phrase : ` ${phrase}`,
   );
 }
 
-function pickWordCompletions(fieldKind: string, documentNeed: string, prefix: string) {
+function pickSentenceSuggestionsFromPrefix(fieldKind: string, documentNeed: string, prefix: string) {
   const lowerPrefix = prefix.toLowerCase();
   const typoCorrection = formalMalayDatabase.typoCorrections[lowerPrefix];
   const matches = getContextWords(fieldKind, documentNeed)
@@ -383,15 +383,55 @@ function pickWordCompletions(fieldKind: string, documentNeed: string, prefix: st
       return lowerWord.startsWith(lowerPrefix) && lowerWord !== lowerPrefix;
     })
     .slice(0, 6)
-    .map((word) => word.slice(prefix.length));
+    .map((word) => buildSentenceFromKeyword(fieldKind, documentNeed, word));
 
   if (typoCorrection) {
-    return [typoCorrection, ...matches].slice(0, 6);
+    return [
+      buildSentenceFromKeyword(fieldKind, documentNeed, typoCorrection),
+      ...matches,
+    ].slice(0, 6);
   }
 
   if (matches.length > 0) return matches;
 
   return buildRandomPrefixFallbacks(fieldKind, documentNeed, prefix);
+}
+
+function buildSentenceFromKeyword(fieldKind: string, documentNeed: string, keyword: string) {
+  const subject = getDocumentSubject(documentNeed);
+  const word = normalizeFieldText(keyword).toLowerCase();
+
+  if (fieldKind === "objektif") {
+    if (startsWithActionVerb(word)) return `${word} dengan bimbingan yang sesuai.`;
+    return `${subject} dapat ${word} dengan bimbingan yang sesuai.`;
+  }
+
+  if (fieldKind === "pemerhatian") {
+    return `${subject} menunjukkan ${word} semasa aktiviti dijalankan.`;
+  }
+
+  if (fieldKind === "refleksi") {
+    return `${word} perlu diberi perhatian pada sesi seterusnya.`;
+  }
+
+  if (fieldKind === "bahan") {
+    return `${word} digunakan sebagai bahan sokongan aktiviti.`;
+  }
+
+  if (fieldKind === "langkah") {
+    return `${word} aktiviti secara berperingkat mengikut tahap peserta.`;
+  }
+
+  if (fieldKind === "fokus") {
+    return `${sentenceCase(word)} dipilih sebagai fokus utama aktiviti.`;
+  }
+
+  if (word === "saya") return "saya akan menyediakan maklumat yang diperlukan.";
+  if (word === "murid") return "murid dapat mengikuti aktiviti dengan bimbingan yang sesuai.";
+  if (word === "peserta") return "peserta menunjukkan minat dan memberi respons yang baik.";
+  if (word === "aktiviti") return "aktiviti dijalankan secara berperingkat mengikut perancangan.";
+
+  return `${word} ditulis dengan jelas mengikut konteks dokumen.`;
 }
 
 function buildRandomPrefixFallbacks(fieldKind: string, documentNeed: string, prefix: string) {
@@ -493,7 +533,33 @@ function pickNextPhrases(fieldKind: string, documentNeed: string, previousText: 
   const lastKey = key.split(" ").at(-1) || "";
   const options = nextByPrevious[key] || nextByPrevious[lastKey] || contextDefaults[fieldKind] || contextDefaults.umum;
 
-  return rotateSuggestions(options, `${fieldKind}-${documentNeed}-${key}`).slice(0, 6);
+  return rotateSuggestions(options, `${fieldKind}-${documentNeed}-${key}`)
+    .map((option) => expandShortPrediction(fieldKind, documentNeed, option))
+    .slice(0, 6);
+}
+
+function expandShortPrediction(fieldKind: string, documentNeed: string, option: string) {
+  const text = option.trim();
+  if (!text) return "";
+  if (/[.!?]$/.test(text) || text.split(/\s+/).length > 2) return text;
+
+  const subject = getDocumentSubject(documentNeed).toLowerCase();
+
+  if (fieldKind === "objektif") return `${text} dengan bimbingan yang sesuai.`;
+  if (fieldKind === "pemerhatian") return `${text} semasa aktiviti dijalankan.`;
+  if (fieldKind === "refleksi") return `${text} untuk penambahbaikan sesi seterusnya.`;
+  if (fieldKind === "langkah") return `${text} secara berperingkat mengikut tahap ${subject}.`;
+  if (fieldKind === "bahan") return `${text} sebagai bahan sokongan aktiviti.`;
+
+  if (text === "membaca") return "membaca ayat mudah dengan bimbingan guru.";
+  if (text === "menulis") return "menulis perkataan mudah dengan kemas dan betul.";
+  if (text === "menyebut") return "menyebut perkataan mudah berdasarkan gambar yang ditunjukkan.";
+  if (text === "mengira") return "mengira nombor mengikut tahap semasa.";
+  if (text === "mengenal") return "mengenal huruf, nombor atau gambar melalui aktiviti berpandu.";
+  if (text === "akan") return "akan menyediakan maklumat yang diperlukan.";
+  if (text === "membuat") return "membuat catatan berdasarkan maklumat yang diberikan.";
+
+  return `${text} dengan jelas dan tepat.`;
 }
 
 function getContextWords(fieldKind: string, documentNeed: string) {
