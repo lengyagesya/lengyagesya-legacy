@@ -369,15 +369,15 @@ function buildFieldKindSuggestion(fieldKind: string, documentNeed: string, input
   }
 
   if (fieldKind === "pemerhatian") {
-    return `${sentence} diperhatikan sepanjang aktiviti dan menunjukkan perkembangan yang boleh direkodkan.`;
+    return `${sentence} sepanjang aktiviti dijalankan.`;
   }
 
   if (fieldKind === "refleksi") {
-    return `${sentence} dijadikan asas untuk penambahbaikan pada sesi seterusnya.`;
+    return `${sentence} dan perlu diberi perhatian dalam sesi seterusnya.`;
   }
 
   if (fieldKind === "rumusan") {
-    return `${sentence} menunjukkan bahawa pelaksanaan berjalan dengan baik dan sesuai untuk tindakan susulan.`;
+    return `${sentence} dan boleh diteruskan dengan penambahbaikan yang sesuai.`;
   }
 
   if (fieldKind === "langkah") {
@@ -397,7 +397,7 @@ function buildFieldKindSuggestion(fieldKind: string, documentNeed: string, input
   }
 
   if (fieldKind === "standardKandungan") {
-    return `${sentence} dijadikan rujukan utama dalam perancangan pembelajaran.`;
+    return `${sentence} dalam perancangan pembelajaran.`;
   }
 
   if (fieldKind === "standardPembelajaran") {
@@ -405,7 +405,7 @@ function buildFieldKindSuggestion(fieldKind: string, documentNeed: string, input
   }
 
   if (fieldKind === "umum") {
-    return `${sentence} disusun dengan jelas supaya mudah difahami dan sesuai dijadikan rujukan.`;
+    return buildNaturalMalaySentence(fieldKind, documentNeed, phrase);
   }
 
   return "";
@@ -438,19 +438,19 @@ function buildShortInputContinuation(fieldKind: string, documentNeed: string, in
         : `${getDocumentSubject(documentNeed)} dapat ${phrase} mengikut tahap keupayaan semasa.`,
     ],
     pemerhatian: [
-      `${sentenceCase(phrase)} diperhatikan sepanjang aktiviti dijalankan.`,
-      `${sentenceCase(phrase)} menunjukkan perkembangan yang boleh direkodkan.`,
+      `${sentenceCase(phrase)} sepanjang aktiviti dijalankan.`,
+      `${sentenceCase(phrase)} dengan bimbingan yang sesuai.`,
     ],
     refleksi: [
-      `${sentenceCase(phrase)} dijadikan asas untuk penambahbaikan seterusnya.`,
-      `${sentenceCase(phrase)} membantu menentukan tindakan susulan yang sesuai.`,
+      `${sentenceCase(phrase)} dan perlu diteruskan dengan pendekatan yang lebih sesuai.`,
+      `${sentenceCase(phrase)} dengan penambahbaikan pada sesi seterusnya.`,
     ],
     rumusan: [
       `${sentenceCase(phrase)} menunjukkan pelaksanaan berjalan dengan baik.`,
-      `${sentenceCase(phrase)} boleh dijadikan rujukan untuk tindakan seterusnya.`,
+      `${sentenceCase(phrase)} dan sesuai diteruskan dalam aktiviti seterusnya.`,
     ],
     standardKandungan: [
-      `${sentenceCase(phrase)} dijadikan rujukan dalam perancangan pembelajaran.`,
+      `${sentenceCase(phrase)} dalam perancangan pembelajaran.`,
       `${sentenceCase(phrase)} dipilih mengikut keperluan pembelajaran semasa.`,
     ],
     standardPembelajaran: [
@@ -462,9 +462,9 @@ function buildShortInputContinuation(fieldKind: string, documentNeed: string, in
       `${sentenceCase(phrase)} kemahiran asas`,
     ],
     umum: [
-      `${sentenceCase(phrase)} disusun dengan jelas dan mudah difahami.`,
-      `${sentenceCase(phrase)} boleh dijadikan rujukan untuk tindakan seterusnya.`,
-      `${sentenceCase(phrase)} direkodkan supaya maklumat lebih kemas dan teratur.`,
+      buildNaturalMalaySentence(fieldKind, documentNeed, phrase),
+      `${sentenceCase(phrase)} dengan jelas dan tepat.`,
+      `${sentenceCase(phrase)} mengikut keperluan yang dinyatakan.`,
     ],
   };
 
@@ -510,14 +510,14 @@ function buildSmartChangingSuggestion(fieldKind: string, documentNeed: string, i
         : `${getDocumentSubject(documentNeed)} dapat ${phrase} secara berperingkat berdasarkan arahan yang diberikan.`,
     ],
     pemerhatian: [
-      `${sentence} diperhatikan sepanjang aktiviti dijalankan.`,
-      `${sentence} menunjukkan perkembangan yang boleh direkodkan untuk tindakan susulan.`,
+      `${sentence} sepanjang aktiviti dijalankan.`,
+      `${sentence} dengan respons yang boleh diperhatikan.`,
       `${sentence} berlaku dengan bimbingan dan pemantauan yang sesuai.`,
       `${sentence} menunjukkan perubahan yang positif berbanding permulaan aktiviti.`,
       `${sentence} memerlukan sokongan tambahan bagi memastikan tugasan dapat disiapkan.`,
     ],
     refleksi: [
-      `${sentence} dijadikan asas untuk penambahbaikan pada sesi seterusnya.`,
+      `${sentence} dan perlu diberi perhatian pada sesi seterusnya.`,
       `${sentence} menunjukkan bahawa aktiviti perlu disesuaikan mengikut keperluan peserta.`,
       `${sentence} membantu mengenal pasti tindakan susulan yang lebih sesuai.`,
       `${sentence} menunjukkan keperluan untuk mempelbagaikan kaedah bimbingan.`,
@@ -525,13 +525,13 @@ function buildSmartChangingSuggestion(fieldKind: string, documentNeed: string, i
     ],
     rumusan: [
       `${sentence} menunjukkan pelaksanaan berjalan dengan baik dan sesuai diteruskan.`,
-      `${sentence} boleh dijadikan rujukan untuk perancangan seterusnya.`,
+      `${sentence} dan sesuai digunakan dalam perancangan seterusnya.`,
       `${sentence} memberi gambaran bahawa objektif aktiviti dapat dicapai secara berperingkat.`,
       `${sentence} menunjukkan hasil yang boleh digunakan untuk tindakan susulan.`,
       `${sentence} membantu memperjelas pencapaian dan keperluan penambahbaikan.`,
     ],
     standardKandungan: [
-      `${sentence} dijadikan rujukan utama dalam perancangan pembelajaran.`,
+      `${sentence} dalam perancangan pembelajaran.`,
       `${sentence} dipilih berdasarkan keperluan pembelajaran semasa.`,
       `${sentence} disesuaikan dengan fokus pengajaran yang dirancang.`,
     ],
@@ -541,15 +541,63 @@ function buildSmartChangingSuggestion(fieldKind: string, documentNeed: string, i
       `${sentence} dirancang supaya murid dapat mencapai hasil pembelajaran yang ditetapkan.`,
     ],
     umum: [
-      `${sentence} disusun dengan jelas supaya mudah difahami.`,
-      `${sentence} boleh dijadikan rujukan untuk tindakan seterusnya.`,
-      `${sentence} direkodkan supaya maklumat lebih kemas dan teratur.`,
-      `${sentence} ditulis semula supaya lebih sesuai dengan format dokumen rasmi.`,
-      `${sentence} diperincikan bagi memastikan maklumat yang disampaikan lebih tepat.`,
+      buildNaturalMalaySentence(fieldKind, documentNeed, phrase),
+      `${sentence} dengan jelas dan tepat.`,
+      `${sentence} mengikut keperluan yang dinyatakan.`,
+      `${sentence} secara ringkas dan mudah difahami.`,
+      `${sentence} dengan maklumat yang lengkap dan sesuai.`,
     ],
   };
 
   return pickChangingSuggestion(variants[fieldKind] || [], phrase);
+}
+
+function buildNaturalMalaySentence(fieldKind: string, documentNeed: string, input: string) {
+  const phrase = normalizeFieldText(input);
+  const lowerPhrase = phrase.toLowerCase();
+  const sentence = sentenceCase(phrase);
+
+  if (!phrase) return "";
+
+  if (lowerPhrase.includes("boleh membaca") || lowerPhrase.includes("dapat membaca")) {
+    return `${sentence} ayat mudah dengan bimbingan guru.`;
+  }
+
+  if (lowerPhrase.includes("boleh menulis") || lowerPhrase.includes("dapat menulis")) {
+    return `${sentence} perkataan mudah dengan kemas dan betul.`;
+  }
+
+  if (lowerPhrase.includes("boleh menyebut") || lowerPhrase.includes("dapat menyebut")) {
+    return `${sentence} perkataan mudah berdasarkan gambar yang ditunjukkan.`;
+  }
+
+  if (lowerPhrase.includes("boleh mengira") || lowerPhrase.includes("dapat mengira")) {
+    return `${sentence} nombor dalam lingkungan yang sesuai dengan tahap semasa.`;
+  }
+
+  if (lowerPhrase.includes("boleh mengenal") || lowerPhrase.includes("dapat mengenal")) {
+    return `${sentence} huruf, nombor atau gambar melalui aktiviti berpandu.`;
+  }
+
+  if (lowerPhrase.includes("murid boleh") || lowerPhrase.includes("peserta boleh")) {
+    return `${sentence} dengan bimbingan yang sesuai.`;
+  }
+
+  if (fieldKind === "pemerhatian") {
+    return `${sentence} sepanjang aktiviti dijalankan.`;
+  }
+
+  if (fieldKind === "refleksi") {
+    return `${sentence} dan perlu diberi perhatian pada sesi seterusnya.`;
+  }
+
+  if (fieldKind === "objektif") {
+    return startsWithActionVerb(phrase)
+      ? `${sentence} dengan bimbingan yang sesuai.`
+      : `${getDocumentSubject(documentNeed)} dapat ${phrase} dengan bimbingan yang sesuai.`;
+  }
+
+  return `${sentence} dengan jelas dan tepat.`;
 }
 
 function buildPrefixSuggestion(fieldKind: string, input: string) {
