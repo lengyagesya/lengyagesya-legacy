@@ -267,8 +267,8 @@ function buildWordOptions(prefix: string, documentNeed: string) {
     "fizikal",
     "fokus",
     "guru",
-    "harimau",
-    "hantu",
+    "hasil",
+    "hadir",
     "intervensi",
     "kemahiran",
     "kognitif",
@@ -369,9 +369,6 @@ function FilePreview({
             minWidth: shadowPrediction.width ? Math.min(shadowPrediction.width, 240) : undefined,
           }}
         >
-          {shadowPrediction.label ? (
-            <span className="mr-2 text-[#6a7080]">{shadowPrediction.label}</span>
-          ) : null}
           {shadowPrediction.text}
         </span>
       ) : null}
@@ -451,7 +448,6 @@ function DocxPreview({
     onPredictionChange(
       suggestion && position
         ? {
-            label: suggestion.mode === "word" ? "" : fieldQuestion || "Cadangan",
             ...suggestion,
             ...position,
           }
