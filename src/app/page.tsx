@@ -126,8 +126,16 @@ function buildFieldAssistantSuggestion({
   fileName: string;
   textBeforeCursor: string;
 }): Pick<ShadowPrediction, "mode" | "replacement" | "text"> | null {
-  const lastWord = getLastWord(textBeforeCursor);
   const documentNeed = detectDocumentNeed(`${fileName} ${documentText} ${fieldQuestion}`);
+  const keyboardPrediction = buildKeyboardStylePrediction({
+    documentNeed,
+    fieldQuestion,
+    textBeforeCursor,
+  });
+
+  if (keyboardPrediction) return createKeyboardPrediction(keyboardPrediction);
+
+  const lastWord = getLastWord(textBeforeCursor);
   const fieldSuggestion = buildFieldSuggestion(fieldQuestion, documentNeed, fieldText);
   if (fieldSuggestion) return createFieldPrediction(fieldSuggestion, fieldText);
 
@@ -202,6 +210,189 @@ function buildFieldAssistantSuggestion({
     adaptSuggestionToInput(fieldText, finalSuggestion, documentNeed, fieldQuestion),
     fieldText,
   );
+}
+
+function createKeyboardPrediction(text: string): Pick<ShadowPrediction, "mode" | "replacement" | "text"> | null {
+  const cleanText = text.trim();
+  if (!cleanText) return null;
+
+  return {
+    mode: "field",
+    replacement: text,
+    text: cleanText,
+  };
+}
+
+function buildKeyboardStylePrediction({
+  documentNeed,
+  fieldQuestion,
+  textBeforeCursor,
+}: {
+  documentNeed: string;
+  fieldQuestion: string;
+  textBeforeCursor: string;
+}) {
+  const input = normalizeFieldText(textBeforeCursor);
+  if (!input) return "";
+
+  const fieldKind = detectFieldKind(fieldQuestion);
+  const endsWithSpace = /\s$/.test(textBeforeCursor);
+  const words = input.toLowerCase().split(/\s+/).filter(Boolean);
+  const currentWord = endsWithSpace ? "" : words.at(-1) || "";
+  const previousWord = endsWithSpace ? words.at(-1) || "" : words.at(-2) || "";
+  const previousTwo = words.slice(-2).join(" ");
+
+  if (!endsWithSpace && currentWord) {
+    const completion = pickWordCompletion(fieldKind, documentNeed, currentWord);
+    if (completion) return completion;
+  }
+
+  const nextPhrase = pickNextPhrase(fieldKind, documentNeed, previousTwo || previousWord);
+  return nextPhrase ? ` ${nextPhrase}` : "";
+}
+
+function pickWordCompletion(fieldKind: string, documentNeed: string, prefix: string) {
+  const lowerPrefix = prefix.toLowerCase();
+  const match = getContextWords(fieldKind, documentNeed).find((word) => {
+    const lowerWord = word.toLowerCase();
+    return lowerWord.startsWith(lowerPrefix) && lowerWord !== lowerPrefix;
+  });
+
+  return match ? match.slice(prefix.length) : "";
+}
+
+function pickNextPhrase(fieldKind: string, documentNeed: string, previousText: string) {
+  const key = previousText.toLowerCase();
+  const nextByPrevious: Record<string, string[]> = {
+    aktiviti: ["dijalankan", "berjalan", "dimulakan", "diteruskan"],
+    "aktiviti berjalan": ["dengan lancar mengikut perancangan."],
+    "aktiviti dijalankan": ["secara berperingkat mengikut tahap peserta."],
+    boleh: ["membaca", "menulis", "menyebut", "mengira", "mengenal"],
+    "boleh membaca": ["ayat mudah dengan bimbingan guru."],
+    "boleh menulis": ["perkataan mudah dengan kemas dan betul."],
+    "boleh menyebut": ["perkataan mudah berdasarkan gambar yang ditunjukkan."],
+    "boleh mengira": ["nombor dalam lingkungan yang sesuai dengan tahap semasa."],
+    "boleh mengenal": ["huruf, nombor atau gambar melalui aktiviti berpandu."],
+    dapat: ["membaca", "menulis", "menyebut", "mengira", "mengenal", "mengikuti"],
+    "dapat membaca": ["ayat mudah dengan bimbingan guru."],
+    "dapat menulis": ["perkataan mudah dengan kemas dan betul."],
+    "dapat mengikuti": ["aktiviti dengan bimbingan yang sesuai."],
+    dengan: ["bimbingan", "jelas", "baik", "lancar"],
+    guru: ["membimbing", "memberi", "memantau"],
+    "guru membimbing": ["murid secara berperingkat mengikut tahap penguasaan."],
+    memberi: ["respons", "bimbingan", "kerjasama", "tumpuan"],
+    "memberi respons": ["yang baik apabila arahan diberikan."],
+    menunjukkan: ["minat", "respons", "perkembangan", "kerjasama"],
+    "menunjukkan minat": ["semasa aktiviti dijalankan."],
+    murid: ["boleh", "dapat", "menunjukkan", "memerlukan"],
+    "murid boleh": ["membaca", "menulis", "menyebut", "mengira"],
+    "murid dapat": ["mengikuti", "membaca", "menulis", "menyebut"],
+    peserta: ["boleh", "dapat", "menunjukkan", "memerlukan"],
+    "peserta dapat": ["mengikuti aktiviti dengan bimbingan yang sesuai."],
+    "peserta menunjukkan": ["minat dan memberi respons yang baik."],
+    saya: ["akan", "membuat", "menyediakan", "mengisi"],
+    "saya akan": ["menyediakan maklumat yang diperlukan."],
+    "saya membuat": ["catatan berdasarkan maklumat yang diberikan."],
+    secara: ["berperingkat", "keseluruhan", "teratur", "berpandu"],
+    "secara keseluruhan": ["aktiviti berjalan dengan baik."],
+  };
+  const contextDefaults: Record<string, string[]> = {
+    bahan: ["digunakan sebagai bahan sokongan aktiviti."],
+    fokus: ["dan komunikasi"],
+    langkah: ["secara berperingkat."],
+    objektif: ["dengan bimbingan yang sesuai."],
+    pemerhatian: ["semasa aktiviti dijalankan."],
+    refleksi: ["untuk penambahbaikan sesi seterusnya."],
+    rumusan: ["secara keseluruhan."],
+    standardKandungan: ["dalam perancangan pembelajaran."],
+    standardPembelajaran: ["mengikut tahap penguasaan murid."],
+    umum: getDocumentDefaultNextPhrases(documentNeed),
+  };
+  const lastKey = key.split(" ").at(-1) || "";
+  const options = nextByPrevious[key] || nextByPrevious[lastKey] || contextDefaults[fieldKind] || contextDefaults.umum;
+
+  return pickChangingSuggestion(options, `${fieldKind}-${documentNeed}-${key}`);
+}
+
+function getContextWords(fieldKind: string, documentNeed: string) {
+  const commonWords = [
+    "aktiviti",
+    "arahan",
+    "ayat",
+    "bahan",
+    "baik",
+    "bimbingan",
+    "boleh",
+    "catatan",
+    "dapat",
+    "dengan",
+    "guru",
+    "kemahiran",
+    "lancar",
+    "maklumat",
+    "membaca",
+    "memberi",
+    "membimbing",
+    "membuat",
+    "memerlukan",
+    "memahami",
+    "menarik",
+    "menulis",
+    "menunjukkan",
+    "menyebut",
+    "murid",
+    "objektif",
+    "pelaksanaan",
+    "pembelajaran",
+    "pemerhatian",
+    "peserta",
+    "refleksi",
+    "respons",
+    "saya",
+    "secara",
+    "semasa",
+    "sesi",
+    "sokongan",
+    "tugasan",
+  ];
+  const byField: Record<string, string[]> = {
+    bahan: ["kad", "lembaran", "bahan", "pensel", "gambar", "objek"],
+    fokus: ["bahasa", "komunikasi", "motor", "kognitif", "sosioemosi", "membaca", "menulis"],
+    langkah: ["memberi", "membimbing", "menunjukkan", "menilai", "memulakan", "mengulang"],
+    objektif: ["membaca", "menulis", "menyebut", "mengenal", "memahami", "mengira", "memadankan", "melengkapkan"],
+    pemerhatian: ["memberi", "menunjukkan", "mengikuti", "memerlukan", "menumpukan", "berusaha"],
+    refleksi: ["aktiviti", "peserta", "bahan", "masa", "bimbingan", "sesi"],
+    rumusan: ["secara", "aktiviti", "program", "objektif", "kerjasama", "penambahbaikan"],
+    umum: [],
+  };
+
+  return Array.from(new Set([...(byField[fieldKind] || []), ...getDocumentWords(documentNeed), ...commonWords]));
+}
+
+function getDocumentWords(documentNeed: string) {
+  const words: Record<string, string[]> = {
+    laporan: ["laporan", "program", "rumusan", "cadangan", "pelaksanaan"],
+    rpa: ["rpa", "aktiviti", "pelatih", "peserta", "petugas"],
+    rph: ["rph", "murid", "guru", "kelas", "standard", "pembelajaran"],
+    rpi: ["rpi", "intervensi", "murid", "klien", "matlamat", "penilaian"],
+    surat: ["surat", "tuan", "puan", "permohonan", "makluman", "kerjasama"],
+    umum: [],
+  };
+
+  return words[documentNeed] || words.umum;
+}
+
+function getDocumentDefaultNextPhrases(documentNeed: string) {
+  const phrases: Record<string, string[]> = {
+    laporan: ["dengan jelas dalam laporan aktiviti."],
+    rpa: ["mengikut keperluan aktiviti dan tahap peserta."],
+    rph: ["mengikut keperluan pembelajaran murid."],
+    rpi: ["mengikut keperluan individu dan tindakan susulan."],
+    surat: ["untuk perhatian pihak berkaitan."],
+    umum: ["dengan jelas dan tepat."],
+  };
+
+  return phrases[documentNeed] || phrases.umum;
 }
 
 function getDocumentDefaultSuggestion(documentNeed: string) {
