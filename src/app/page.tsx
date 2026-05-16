@@ -6,6 +6,8 @@ const storageKey = "ly-docs-progress";
 
 type ShadowPrediction = {
   label?: string;
+  mode?: "field" | "word";
+  replacement?: string;
   text: string;
   width?: number;
   x: number;
@@ -121,12 +123,27 @@ function buildFieldAssistantSuggestion({
   fieldQuestion: string;
   fileName: string;
   textBeforeCursor: string;
-}) {
+}): Pick<ShadowPrediction, "mode" | "replacement" | "text"> | null {
   const lastWord = getLastWord(textBeforeCursor);
   const documentNeed = detectDocumentNeed(`${fileName} ${documentText} ${fieldQuestion}`);
-  const fieldSuggestion = buildFieldSuggestion(fieldQuestion, documentNeed);
+  const wordOptions = buildWordOptions(lastWord, documentNeed);
 
-  if (fieldSuggestion) return fieldSuggestion;
+  if (wordOptions.length > 0) {
+    return {
+      mode: "word",
+      replacement: wordOptions[0],
+      text: wordOptions.join(" / "),
+    };
+  }
+
+  const fieldSuggestion = buildFieldSuggestion(fieldQuestion, documentNeed);
+  if (fieldSuggestion) {
+    return {
+      mode: "field",
+      replacement: fieldSuggestion,
+      text: fieldSuggestion,
+    };
+  }
 
   const suggestions: Record<string, Record<string, string>> = {
     laporan: {
@@ -193,14 +210,24 @@ function buildFieldAssistantSuggestion({
   };
 
   if (!lastWord) {
-    return starter[documentNeed];
+    return {
+      mode: "field",
+      replacement: starter[documentNeed],
+      text: starter[documentNeed],
+    };
   }
 
   const prediction = partialMatch
     ? suggestions[documentNeed][partialMatch]
     : suggestions[documentNeed].perkara || suggestions.umum.perkara;
 
-  return prediction || starter[documentNeed];
+  const finalSuggestion = prediction || starter[documentNeed];
+
+  return {
+    mode: "field",
+    replacement: finalSuggestion,
+    text: finalSuggestion,
+  };
 }
 
 function detectDocumentNeed(text: string) {
@@ -224,6 +251,57 @@ function getLastWord(text: string) {
     .filter(Boolean);
 
   return words.at(-1) || "";
+}
+
+function buildWordOptions(prefix: string, documentNeed: string) {
+  if (!prefix) return [];
+
+  const words = [
+    "aktiviti",
+    "alat",
+    "bahan",
+    "bahasa",
+    "bimbingan",
+    "cadangan",
+    "catatan",
+    "fizikal",
+    "fokus",
+    "guru",
+    "harimau",
+    "hantu",
+    "intervensi",
+    "kemahiran",
+    "kognitif",
+    "komunikasi",
+    "laporan",
+    "masa",
+    "motor",
+    "murid",
+    "objektif",
+    "pemerhatian",
+    "penilaian",
+    "peserta",
+    "program",
+    "refleksi",
+    "sosial",
+    "sosioemosi",
+    "tarikh",
+    "tempat",
+    "urus",
+  ];
+
+  const contextWords: Record<string, string[]> = {
+    laporan: ["laporan", "program", "pemerhatian", "rumusan", "cadangan"],
+    rpa: ["aktiviti", "motor", "kognitif", "komunikasi", "sosial", "urus"],
+    rph: ["bahasa", "kognitif", "sosioemosi", "fizikal", "kreativiti"],
+    rpi: ["intervensi", "penilaian", "objektif", "kemahiran", "bimbingan"],
+    surat: ["perkara", "permohonan", "kerjasama", "makluman", "rujukan"],
+    umum: [],
+  };
+
+  return Array.from(new Set([...(contextWords[documentNeed] || []), ...words]))
+    .filter((word) => word.startsWith(prefix) && word !== prefix)
+    .slice(0, 4);
 }
 
 function buildFieldSuggestion(fieldQuestion: string, documentNeed: string) {
@@ -359,7 +437,7 @@ function DocxPreview({
 
   function updatePrediction(container: HTMLElement) {
     const fieldQuestion = getFieldQuestionNearCaret(container);
-    const text = buildFieldAssistantSuggestion({
+    const suggestion = buildFieldAssistantSuggestion({
       documentText: container.textContent || "",
       fieldQuestion,
       fileName,
@@ -371,8 +449,12 @@ function DocxPreview({
       y: 56,
     };
     onPredictionChange(
-      text && position
-        ? { label: fieldQuestion || "Cadangan", text, ...position }
+      suggestion && position
+        ? {
+            label: suggestion.mode === "word" ? "" : fieldQuestion || "Cadangan",
+            ...suggestion,
+            ...position,
+          }
         : null,
     );
   }
@@ -451,7 +533,15 @@ function DocxPreview({
       onKeyDown={(event) => {
         if (event.key === "Tab" && shadowPrediction?.text) {
           event.preventDefault();
-          document.execCommand("insertText", false, ` ${shadowPrediction.text}`);
+          if (shadowPrediction.mode === "word") {
+            replaceLastWord(shadowPrediction.replacement || shadowPrediction.text);
+          } else {
+            document.execCommand(
+              "insertText",
+              false,
+              ` ${shadowPrediction.replacement || shadowPrediction.text}`,
+            );
+          }
           onPredictionChange(null);
         }
       }}
@@ -523,6 +613,39 @@ function getTextBeforeCaret(container: HTMLElement) {
   textRange.setEnd(range.endContainer, range.endOffset);
 
   return textRange.toString();
+}
+
+function replaceLastWord(replacement: string) {
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0) return;
+
+  const range = selection.getRangeAt(0);
+  const node = range.startContainer;
+
+  if (node.nodeType !== Node.TEXT_NODE) {
+    document.execCommand("insertText", false, replacement);
+    return;
+  }
+
+  const text = node.textContent || "";
+  const before = text.slice(0, range.startOffset);
+  const after = text.slice(range.startOffset);
+  const match = before.match(/[\p{L}\p{N}-]+$/u);
+
+  if (!match) {
+    document.execCommand("insertText", false, replacement);
+    return;
+  }
+
+  const nextText = `${before.slice(0, -match[0].length)}${replacement}${after}`;
+  const nextOffset = before.length - match[0].length + replacement.length;
+  node.textContent = nextText;
+
+  const nextRange = document.createRange();
+  nextRange.setStart(node, nextOffset);
+  nextRange.collapse(true);
+  selection.removeAllRanges();
+  selection.addRange(nextRange);
 }
 
 function getFieldQuestionNearCaret(container: HTMLElement) {
