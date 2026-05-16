@@ -196,7 +196,7 @@ function buildFieldAssistantSuggestion({
   }
 
   return createFieldPrediction(
-    adaptSuggestionToInput(fieldText, finalSuggestion, documentNeed),
+    adaptSuggestionToInput(fieldText, finalSuggestion, documentNeed, fieldQuestion),
     fieldText,
   );
 }
@@ -236,13 +236,21 @@ function buildStarterSentence(documentNeed: string, input: string) {
     umum: "Maklumat ini disusun dengan ringkas, jelas dan mudah difahami.",
   };
 
-  return adaptSuggestionToInput(input, starters[documentNeed] || starters.umum, documentNeed);
+  return adaptSuggestionToInput(input, starters[documentNeed] || starters.umum, documentNeed, "");
 }
 
-function adaptSuggestionToInput(input: string, suggestion: string, documentNeed: string) {
+function adaptSuggestionToInput(
+  input: string,
+  suggestion: string,
+  documentNeed: string,
+  fieldQuestion: string,
+) {
   const cleanInput = normalizeFieldText(input);
   if (!cleanInput) return suggestion;
-  if (cleanInput.length < 4 || !cleanInput.includes(" ")) return suggestion;
+  const fieldKind = detectFieldKind(fieldQuestion);
+  if (cleanInput.length < 4 || !cleanInput.includes(" ")) {
+    return buildFieldKindSuggestion(fieldKind, documentNeed, cleanInput) || suggestion;
+  }
 
   const lowerInput = cleanInput.toLowerCase();
   const lowerSuggestion = suggestion.toLowerCase();
@@ -255,8 +263,127 @@ function adaptSuggestionToInput(input: string, suggestion: string, documentNeed:
     return suggestion;
   }
 
+  const fieldSuggestion = buildFieldKindSuggestion(fieldKind, documentNeed, cleanInput);
+  if (fieldSuggestion) return fieldSuggestion;
+
   const continuation = getTopicContinuation(documentNeed, cleanInput);
   return `${sentenceCase(cleanInput)} ${continuation}`;
+}
+
+function detectFieldKind(fieldQuestion: string) {
+  const field = fieldQuestion.toLowerCase();
+
+  if (field.includes("objektif") || field.includes("hasil pembelajaran")) return "objektif";
+  if (field.includes("pemerhatian")) return "pemerhatian";
+  if (field.includes("refleksi")) return "refleksi";
+  if (field.includes("rumusan") || field.includes("cadangan")) return "rumusan";
+  if (field.includes("bahan") || field.includes("alat")) return "bahan";
+  if (field.includes("langkah") || field.includes("aktiviti pdp") || field.includes("ringkasan")) return "langkah";
+  if (field.includes("bidang") || field.includes("fokus")) return "fokus";
+  if (field.includes("tajuk") || field.includes("perkara")) return "tajuk";
+  if (field.includes("standard kandungan")) return "standardKandungan";
+  if (field.includes("standard pembelajaran")) return "standardPembelajaran";
+
+  return "";
+}
+
+function buildFieldKindSuggestion(fieldKind: string, documentNeed: string, input: string) {
+  const phrase = normalizeFieldText(input);
+  const subject = getDocumentSubject(documentNeed);
+
+  if (!fieldKind) return "";
+
+  if (!phrase || phrase.length < 4) {
+    const defaults: Record<string, string> = {
+      bahan: "Kad gambar, bahan maujud dan lembaran kerja digunakan sebagai sokongan aktiviti.",
+      fokus: documentNeed === "rph" ? "Bahasa dan komunikasi" : "Kemahiran motor halus",
+      langkah: "Aktiviti dimulakan dengan penerangan ringkas sebelum peserta dibimbing melaksanakan tugasan.",
+      objektif: `${subject} dapat mengikuti aktiviti yang dirancang dengan bimbingan yang sesuai.`,
+      pemerhatian: `${subject} menunjukkan minat dan memberi respons yang baik sepanjang aktiviti dijalankan.`,
+      refleksi: "Aktiviti berjalan dengan baik dan boleh ditambah baik mengikut keperluan peserta.",
+      rumusan: "Secara keseluruhan, pelaksanaan berjalan dengan baik dan mencapai tujuan yang dirancang.",
+      standardKandungan: "Standard kandungan dipilih berdasarkan keperluan pembelajaran semasa.",
+      standardPembelajaran: "Standard pembelajaran disesuaikan dengan tahap penguasaan murid.",
+      tajuk: documentNeed === "surat" ? "Permohonan dan makluman rasmi" : "Aktiviti pembelajaran harian",
+    };
+
+    return defaults[fieldKind] || "";
+  }
+
+  const sentence = sentenceCase(phrase);
+
+  if (fieldKind === "objektif") {
+    if (startsWithActionVerb(phrase)) {
+      return `${sentence} melalui aktiviti yang dirancang dan bimbingan yang sesuai.`;
+    }
+
+    return `${subject} dapat ${phrase} melalui aktiviti yang dirancang dan bimbingan yang sesuai.`;
+  }
+
+  if (fieldKind === "pemerhatian") {
+    return `${sentence} diperhatikan sepanjang aktiviti dan menunjukkan perkembangan yang boleh direkodkan.`;
+  }
+
+  if (fieldKind === "refleksi") {
+    return `${sentence} dijadikan asas untuk penambahbaikan pada sesi seterusnya.`;
+  }
+
+  if (fieldKind === "rumusan") {
+    return `${sentence} menunjukkan bahawa pelaksanaan berjalan dengan baik dan sesuai untuk tindakan susulan.`;
+  }
+
+  if (fieldKind === "langkah") {
+    return `${sentence} dilaksanakan secara berperingkat supaya peserta dapat mengikuti aktiviti dengan lebih jelas.`;
+  }
+
+  if (fieldKind === "bahan") {
+    return `${sentence} digunakan sebagai bahan sokongan bagi membantu pelaksanaan aktiviti.`;
+  }
+
+  if (fieldKind === "fokus") {
+    return sentence;
+  }
+
+  if (fieldKind === "tajuk") {
+    return sentence;
+  }
+
+  if (fieldKind === "standardKandungan") {
+    return `${sentence} dijadikan rujukan utama dalam perancangan pembelajaran.`;
+  }
+
+  if (fieldKind === "standardPembelajaran") {
+    return `${sentence} disesuaikan dengan tahap penguasaan murid.`;
+  }
+
+  return "";
+}
+
+function getDocumentSubject(documentNeed: string) {
+  if (documentNeed === "rph" || documentNeed === "rpi") return "Murid";
+  if (documentNeed === "surat") return "Pihak kami";
+  return "Peserta";
+}
+
+function startsWithActionVerb(text: string) {
+  const firstWord = normalizeFieldText(text).toLowerCase().split(" ")[0];
+  return [
+    "membaca",
+    "menulis",
+    "menyebut",
+    "mengenal",
+    "memahami",
+    "menjawab",
+    "melengkapkan",
+    "mengikut",
+    "melakukan",
+    "menyusun",
+    "memadankan",
+    "mengira",
+    "mewarna",
+    "menampal",
+    "menggunakan",
+  ].includes(firstWord);
 }
 
 function getTopicContinuation(documentNeed: string, input: string) {
@@ -334,21 +461,22 @@ function buildFieldSuggestion(fieldQuestion: string, documentNeed: string, input
   const field = fieldQuestion.toLowerCase();
 
   if (!field) return "";
-  if (field.includes("bilangan") || field.includes("jumlah")) return adaptSuggestionToInput(input, "3 orang peserta", documentNeed);
+  if (field.includes("bilangan") || field.includes("jumlah")) return adaptSuggestionToInput(input, "3 orang peserta", documentNeed, fieldQuestion);
   if (field.includes("bidang") || field.includes("fokus")) {
     return adaptSuggestionToInput(
       input,
       documentNeed === "rph" ? "Bahasa dan komunikasi" : "Kemahiran motor halus",
       documentNeed,
+      fieldQuestion,
     );
   }
   if (field.includes("tarikh")) return new Date().toLocaleDateString("ms-MY");
-  if (field.includes("masa")) return adaptSuggestionToInput(input, "9.00 pagi", documentNeed);
-  if (field.includes("tempat")) return adaptSuggestionToInput(input, "Bilik aktiviti", documentNeed);
-  if (field.includes("nama guru")) return adaptSuggestionToInput(input, "Nama guru / pendidik", documentNeed);
-  if (field.includes("nama murid") || field.includes("nama pelatih")) return adaptSuggestionToInput(input, "Nama murid / pelatih", documentNeed);
+  if (field.includes("masa")) return adaptSuggestionToInput(input, "9.00 pagi", documentNeed, fieldQuestion);
+  if (field.includes("tempat")) return adaptSuggestionToInput(input, "Bilik aktiviti", documentNeed, fieldQuestion);
+  if (field.includes("nama guru")) return adaptSuggestionToInput(input, "Nama guru / pendidik", documentNeed, fieldQuestion);
+  if (field.includes("nama murid") || field.includes("nama pelatih")) return adaptSuggestionToInput(input, "Nama murid / pelatih", documentNeed, fieldQuestion);
   if (field.includes("bahan") || field.includes("alat")) {
-    return adaptSuggestionToInput(input, "Kad gambar, pensel warna dan lembaran kerja digunakan sebagai bahan sokongan aktiviti.", documentNeed);
+    return adaptSuggestionToInput(input, "Kad gambar, pensel warna dan lembaran kerja digunakan sebagai bahan sokongan aktiviti.", documentNeed, fieldQuestion);
   }
   if (field.includes("objektif")) {
     return adaptSuggestionToInput(
@@ -357,20 +485,21 @@ function buildFieldSuggestion(fieldQuestion: string, documentNeed: string, input
         ? "Murid dapat mencapai objektif pembelajaran melalui aktiviti berpandu dan bimbingan guru secara berperingkat."
         : "Peserta dapat mengikuti aktiviti dan memberi respons mengikut tahap keupayaan masing-masing.",
       documentNeed,
+      fieldQuestion,
     );
   }
   if (field.includes("pemerhatian")) {
-    return adaptSuggestionToInput(input, "Peserta menunjukkan minat, memberi respons yang baik dan berusaha mengikuti arahan yang diberikan.", documentNeed);
+    return adaptSuggestionToInput(input, "Peserta menunjukkan minat, memberi respons yang baik dan berusaha mengikuti arahan yang diberikan.", documentNeed, fieldQuestion);
   }
   if (field.includes("refleksi")) {
-    return adaptSuggestionToInput(input, "Aktiviti berjalan dengan baik, namun beberapa penyesuaian boleh dibuat mengikut keperluan peserta.", documentNeed);
+    return adaptSuggestionToInput(input, "Aktiviti berjalan dengan baik, namun beberapa penyesuaian boleh dibuat mengikut keperluan peserta.", documentNeed, fieldQuestion);
   }
   if (field.includes("rumusan")) {
-    return adaptSuggestionToInput(input, "Secara keseluruhan, pelaksanaan berjalan dengan baik dan mencapai tujuan yang telah dirancang.", documentNeed);
+    return adaptSuggestionToInput(input, "Secara keseluruhan, pelaksanaan berjalan dengan baik dan mencapai tujuan yang telah dirancang.", documentNeed, fieldQuestion);
   }
-  if (field.includes("tajuk")) return adaptSuggestionToInput(input, documentNeed === "surat" ? "Permohonan Rasmi" : "Aktiviti Harian", documentNeed);
+  if (field.includes("tajuk")) return adaptSuggestionToInput(input, documentNeed === "surat" ? "Permohonan Rasmi" : "Aktiviti Harian", documentNeed, fieldQuestion);
   if (field.includes("perkara")) {
-    return adaptSuggestionToInput(input, "Permohonan dan makluman rasmi", documentNeed);
+    return adaptSuggestionToInput(input, "Permohonan dan makluman rasmi", documentNeed, fieldQuestion);
   }
 
   return "";
