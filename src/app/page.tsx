@@ -254,6 +254,9 @@ function adaptSuggestionToInput(
   const lowerInput = cleanInput.toLowerCase();
   const lowerSuggestion = suggestion.toLowerCase();
 
+  const smartSuggestion = buildSmartChangingSuggestion(fieldKind, documentNeed, cleanInput);
+  if (smartSuggestion) return smartSuggestion;
+
   if (lowerSuggestion.startsWith(lowerInput)) {
     return `${cleanInput}${suggestion.slice(cleanInput.length)}`;
   }
@@ -342,6 +345,64 @@ function buildFieldKindSuggestion(fieldKind: string, documentNeed: string, input
   return "";
 }
 
+function buildSmartChangingSuggestion(fieldKind: string, documentNeed: string, input: string) {
+  const phrase = normalizeFieldText(input);
+  if (!fieldKind || phrase.length < 3) return "";
+
+  const subject = getDocumentSubject(documentNeed).toLowerCase();
+  const sentence = sentenceCase(phrase);
+  const variants: Record<string, string[]> = {
+    bahan: [
+      `${sentence} digunakan sebagai bahan sokongan semasa aktiviti dijalankan.`,
+      `${sentence} disediakan bagi membantu peserta memahami aktiviti dengan lebih jelas.`,
+      `${sentence} digunakan mengikut kesesuaian tahap dan keperluan peserta.`,
+    ],
+    langkah: [
+      `${sentence} dilaksanakan secara berperingkat supaya ${subject} dapat mengikuti aktiviti dengan lebih teratur.`,
+      `${sentence} dimulakan dengan penerangan ringkas sebelum aktiviti diteruskan.`,
+      `${sentence} dijalankan dengan bimbingan supaya pelaksanaan aktiviti lebih jelas.`,
+    ],
+    objektif: [
+      startsWithActionVerb(phrase)
+        ? `${sentence} dengan bimbingan yang sesuai.`
+        : `${getDocumentSubject(documentNeed)} dapat ${phrase} dengan bimbingan yang sesuai.`,
+      startsWithActionVerb(phrase)
+        ? `${sentence} melalui aktiviti yang dirancang secara berperingkat.`
+        : `${getDocumentSubject(documentNeed)} dapat ${phrase} melalui aktiviti yang dirancang secara berperingkat.`,
+      startsWithActionVerb(phrase)
+        ? `${sentence} mengikut tahap keupayaan semasa.`
+        : `${getDocumentSubject(documentNeed)} dapat ${phrase} mengikut tahap keupayaan semasa.`,
+    ],
+    pemerhatian: [
+      `${sentence} diperhatikan sepanjang aktiviti dijalankan.`,
+      `${sentence} menunjukkan perkembangan yang boleh direkodkan untuk tindakan susulan.`,
+      `${sentence} berlaku dengan bimbingan dan pemantauan yang sesuai.`,
+    ],
+    refleksi: [
+      `${sentence} dijadikan asas untuk penambahbaikan pada sesi seterusnya.`,
+      `${sentence} menunjukkan bahawa aktiviti perlu disesuaikan mengikut keperluan peserta.`,
+      `${sentence} membantu mengenal pasti tindakan susulan yang lebih sesuai.`,
+    ],
+    rumusan: [
+      `${sentence} menunjukkan pelaksanaan berjalan dengan baik dan sesuai diteruskan.`,
+      `${sentence} boleh dijadikan rujukan untuk perancangan seterusnya.`,
+      `${sentence} memberi gambaran bahawa objektif aktiviti dapat dicapai secara berperingkat.`,
+    ],
+    standardKandungan: [
+      `${sentence} dijadikan rujukan utama dalam perancangan pembelajaran.`,
+      `${sentence} dipilih berdasarkan keperluan pembelajaran semasa.`,
+      `${sentence} disesuaikan dengan fokus pengajaran yang dirancang.`,
+    ],
+    standardPembelajaran: [
+      `${sentence} disesuaikan dengan tahap penguasaan murid.`,
+      `${sentence} digunakan sebagai panduan pelaksanaan aktiviti pembelajaran.`,
+      `${sentence} dirancang supaya murid dapat mencapai hasil pembelajaran yang ditetapkan.`,
+    ],
+  };
+
+  return pickChangingSuggestion(variants[fieldKind] || [], phrase);
+}
+
 function buildPrefixSuggestion(fieldKind: string, input: string) {
   const prefix = normalizeFieldText(input).toLowerCase();
   if (prefix.length < 2) return "";
@@ -414,11 +475,24 @@ function buildPrefixSuggestion(fieldKind: string, input: string) {
     ],
   };
 
-  return (
-    phraseBank[fieldKind]?.find((phrase) =>
-      phrase.toLowerCase().startsWith(prefix),
-    ) || ""
+  const matches =
+    phraseBank[fieldKind]?.filter((phrase) => {
+      const lowerPhrase = phrase.toLowerCase();
+      return lowerPhrase.startsWith(prefix) || lowerPhrase.includes(` ${prefix}`);
+    }) || [];
+
+  return pickChangingSuggestion(matches, prefix);
+}
+
+function pickChangingSuggestion(options: string[], input: string) {
+  if (options.length === 0) return "";
+
+  const score = Array.from(input).reduce(
+    (total, character, index) => total + character.charCodeAt(0) * (index + 1),
+    input.length,
   );
+
+  return options[score % options.length];
 }
 
 function getDocumentSubject(documentNeed: string) {
