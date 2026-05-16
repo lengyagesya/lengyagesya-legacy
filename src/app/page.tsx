@@ -127,6 +127,16 @@ function buildFieldAssistantSuggestion({
 }): Pick<ShadowPrediction, "mode" | "options" | "replacement" | "text"> | null {
   const lastWord = getLastWord(textBeforeCursor);
   const documentNeed = detectDocumentNeed(`${fileName} ${documentText} ${fieldQuestion}`);
+  const fieldSuggestions = buildFieldSuggestions(fieldQuestion, documentNeed);
+  if (fieldSuggestions.length > 0) {
+    return {
+      mode: "field",
+      options: fieldSuggestions,
+      replacement: fieldSuggestions[0],
+      text: fieldSuggestions[0],
+    };
+  }
+
   const wordOptions = buildWordOptions(lastWord, documentNeed);
 
   if (wordOptions.length > 0) {
@@ -135,15 +145,6 @@ function buildFieldAssistantSuggestion({
       options: wordOptions,
       replacement: wordOptions[0],
       text: wordOptions[0],
-    };
-  }
-
-  const fieldSuggestion = buildFieldSuggestion(fieldQuestion, documentNeed);
-  if (fieldSuggestion) {
-    return {
-      mode: "field",
-      replacement: fieldSuggestion,
-      text: fieldSuggestion,
     };
   }
 
@@ -384,34 +385,72 @@ function buildWordOptions(prefix: string, documentNeed: string) {
     .slice(0, 6);
 }
 
-function buildFieldSuggestion(fieldQuestion: string, documentNeed: string) {
+function buildFieldSuggestions(fieldQuestion: string, documentNeed: string) {
   const field = fieldQuestion.toLowerCase();
 
-  if (!field) return "";
-  if (field.includes("bilangan") || field.includes("jumlah")) return "3";
+  if (!field) return [];
+  if (field.includes("bilangan") || field.includes("jumlah")) return ["3", "5", "10"];
   if (field.includes("bidang") || field.includes("fokus")) {
     return documentNeed === "rph"
-      ? "Bahasa dan komunikasi / Kognitif / Sosioemosi / Fizikal / Kreativiti"
-      : "Motor halus / Motor kasar / Kognitif / Komunikasi / Sosial / Urus diri";
+      ? ["Bahasa dan komunikasi", "Kognitif", "Sosioemosi", "Fizikal", "Kreativiti"]
+      : ["Motor halus", "Motor kasar", "Kognitif", "Komunikasi", "Sosial", "Urus diri"];
   }
-  if (field.includes("tarikh")) return new Date().toLocaleDateString("ms-MY");
-  if (field.includes("masa")) return "9.00 pagi";
-  if (field.includes("tempat")) return "Bilik aktiviti / ruang pembelajaran";
-  if (field.includes("nama guru")) return "Nama guru / pendidik";
-  if (field.includes("nama murid") || field.includes("nama pelatih")) return "Nama murid / pelatih";
-  if (field.includes("bahan") || field.includes("alat")) return "Kad gambar, pensel warna, lembaran kerja dan bahan maujud";
+  if (field.includes("tarikh")) return [new Date().toLocaleDateString("ms-MY")];
+  if (field.includes("masa")) return ["9.00 pagi", "10.00 pagi", "2.30 petang"];
+  if (field.includes("tempat")) return ["Bilik aktiviti", "Ruang pembelajaran", "Kelas"];
+  if (field.includes("nama guru")) return ["Nama guru / pendidik"];
+  if (field.includes("nama murid") || field.includes("nama pelatih")) return ["Nama murid / pelatih"];
+  if (field.includes("bahan") || field.includes("alat")) {
+    return [
+      "Kad gambar, pensel warna dan lembaran kerja",
+      "Bahan maujud dan alat bantu mengajar",
+      "Kad imbasan, objek sebenar dan bahan aktiviti",
+    ];
+  }
   if (field.includes("objektif")) {
     return documentNeed === "rph"
-      ? "Murid dapat mencapai objektif pembelajaran melalui aktiviti berpandu dan bimbingan guru."
-      : "Peserta dapat mengikuti aktiviti dan memberi respons mengikut tahap keupayaan masing-masing.";
+      ? [
+          "Murid dapat mencapai objektif pembelajaran melalui aktiviti berpandu dan bimbingan guru.",
+          "Murid dapat memahami isi pembelajaran dan memberi respons semasa aktiviti dijalankan.",
+          "Murid dapat menyelesaikan tugasan mengikut tahap penguasaan masing-masing.",
+        ]
+      : [
+          "Peserta dapat mengikuti aktiviti dan memberi respons mengikut tahap keupayaan masing-masing.",
+          "Peserta dapat melibatkan diri dalam aktiviti dengan bimbingan petugas.",
+          "Peserta dapat menunjukkan perkembangan melalui pemerhatian semasa aktiviti.",
+        ];
   }
-  if (field.includes("pemerhatian")) return "Peserta menunjukkan minat, memberi respons dan cuba mengikuti arahan yang diberikan.";
-  if (field.includes("refleksi")) return "Aktiviti berjalan lancar, namun beberapa penyesuaian boleh dibuat mengikut keperluan peserta.";
-  if (field.includes("rumusan")) return "Secara keseluruhan, pelaksanaan berjalan baik dan mencapai tujuan yang dirancang.";
-  if (field.includes("tajuk")) return documentNeed === "surat" ? "Permohonan Rasmi" : "Aktiviti Harian";
-  if (field.includes("perkara")) return "Permohonan dan makluman rasmi";
+  if (field.includes("pemerhatian")) {
+    return [
+      "Peserta menunjukkan minat, memberi respons dan cuba mengikuti arahan yang diberikan.",
+      "Peserta memerlukan bimbingan berterusan tetapi menunjukkan usaha untuk melibatkan diri.",
+      "Peserta dapat menumpukan perhatian dalam tempoh yang singkat dengan sokongan petugas.",
+    ];
+  }
+  if (field.includes("refleksi")) {
+    return [
+      "Aktiviti berjalan lancar, namun beberapa penyesuaian boleh dibuat mengikut keperluan peserta.",
+      "Sebahagian peserta memerlukan bimbingan tambahan pada sesi seterusnya.",
+      "Aktiviti sesuai diteruskan dengan bahan yang lebih menarik dan mudah difahami.",
+    ];
+  }
+  if (field.includes("rumusan")) {
+    return [
+      "Secara keseluruhan, pelaksanaan berjalan baik dan mencapai tujuan yang dirancang.",
+      "Program memberi manfaat kepada peserta dan boleh diteruskan pada masa akan datang.",
+      "Kerjasama semua pihak membantu memastikan aktiviti berjalan dengan teratur.",
+    ];
+  }
+  if (field.includes("tajuk")) return [documentNeed === "surat" ? "Permohonan Rasmi" : "Aktiviti Harian"];
+  if (field.includes("perkara")) {
+    return [
+      "Permohonan dan makluman rasmi",
+      "Makluman pelaksanaan program",
+      "Permohonan pertimbangan pihak tuan",
+    ];
+  }
 
-  return "";
+  return [];
 }
 
 function FilePreview({
