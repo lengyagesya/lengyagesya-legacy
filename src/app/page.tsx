@@ -231,6 +231,11 @@ function buildFieldSuggestion(fieldQuestion: string, documentNeed: string) {
 
   if (!field) return "";
   if (field.includes("bilangan") || field.includes("jumlah")) return "3";
+  if (field.includes("bidang") || field.includes("fokus")) {
+    return documentNeed === "rph"
+      ? "Bahasa dan komunikasi / Kognitif / Sosioemosi / Fizikal / Kreativiti"
+      : "Motor halus / Motor kasar / Kognitif / Komunikasi / Sosial / Urus diri";
+  }
   if (field.includes("tarikh")) return new Date().toLocaleDateString("ms-MY");
   if (field.includes("masa")) return "9.00 pagi";
   if (field.includes("tempat")) return "Bilik aktiviti / ruang pembelajaran";
