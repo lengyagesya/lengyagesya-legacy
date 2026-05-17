@@ -10,28 +10,9 @@ import {
 
 const storageKey = "ly-docs-progress";
 
-type FieldContext = {
-  field: string;
-  label: string;
-  source: string;
-};
-
 type ChatMessage = {
   role: "bot" | "user";
   text: string;
-};
-
-type ChatDetails = {
-  aktiviti: string;
-  bidang: string;
-  hasil: string;
-  tahap: string;
-  umur: string;
-};
-
-type ChatContext = {
-  details: ChatDetails;
-  field: string;
 };
 
 export default function Home() {
@@ -39,7 +20,6 @@ export default function Home() {
   const [filePreviewUrl, setFilePreviewUrl] = useState("");
   const [fileType, setFileType] = useState("");
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-  const [activeField, setActiveField] = useState<FieldContext | null>(null);
 
   useEffect(() => {
     window.localStorage.removeItem(storageKey);
@@ -48,7 +28,6 @@ export default function Home() {
   function handleUpload(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     setFileName(file?.name || "");
-    setActiveField(null);
     setFilePreviewUrl((currentUrl) => {
       if (currentUrl) URL.revokeObjectURL(currentUrl);
       return file ? URL.createObjectURL(file) : "";
@@ -121,12 +100,11 @@ export default function Home() {
                   fileName={fileName}
                   filePreviewUrl={filePreviewUrl}
                   fileType={fileType}
-                  onActiveFieldChange={setActiveField}
                 />
               </div>
             </section>
 
-            <ChatAssistantPanel activeField={activeField} />
+            <ChatAssistantPanel />
           </div>
         )}
       </section>
@@ -166,13 +144,11 @@ function FilePreview({
   fileName,
   filePreviewUrl,
   fileType,
-  onActiveFieldChange,
 }: {
   file: File | null;
   fileName: string;
   filePreviewUrl: string;
   fileType: string;
-  onActiveFieldChange: (field: FieldContext | null) => void;
 }) {
   const type = fileType.toLowerCase();
   const isImage = ["jpg", "jpeg", "png"].includes(type);
@@ -199,12 +175,7 @@ function FilePreview({
         />
       ) : null}
 
-      {isDocx ? (
-        <DocxPreview
-          file={file}
-          onActiveFieldChange={onActiveFieldChange}
-        />
-      ) : null}
+      {isDocx ? <DocxPreview file={file} /> : null}
 
       {!isImage && !isPdf && !isDocx ? (
         <div className="grid min-h-[44rem] place-items-center p-6 text-center">
@@ -223,10 +194,8 @@ function FilePreview({
 
 function DocxPreview({
   file,
-  onActiveFieldChange,
 }: {
   file: File | null;
-  onActiveFieldChange: (field: FieldContext | null) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState("");
@@ -266,26 +235,12 @@ function DocxPreview({
         }
       });
 
-    const handleInteraction = (event: Event) => {
-      const target = event.target;
-      if (!(target instanceof Element)) return;
-
-      onActiveFieldChange(readFieldContext(target));
-    };
-
-    container.addEventListener("click", handleInteraction);
-    container.addEventListener("keyup", handleInteraction);
-    container.addEventListener("focusin", handleInteraction);
-
     return () => {
       cancelled = true;
-      container.removeEventListener("click", handleInteraction);
-      container.removeEventListener("keyup", handleInteraction);
-      container.removeEventListener("focusin", handleInteraction);
       container.contentEditable = "false";
       container.innerHTML = "";
     };
-  }, [file, onActiveFieldChange]);
+  }, [file]);
 
   if (!file) {
     return (
@@ -308,16 +263,12 @@ function DocxPreview({
   );
 }
 
-function ChatAssistantPanel({ activeField }: { activeField: FieldContext | null }) {
+function ChatAssistantPanel() {
   const [chatInput, setChatInput] = useState("");
-  const [chatContext, setChatContext] = useState<ChatContext>({
-    details: createEmptyDetails(),
-    field: activeField?.field || "kolum",
-  });
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       role: "bot",
-      text: "Saya sedia bantu tulis ayat. Beritahu apa yang mahu dibuat, contohnya: buatkan ayat objektif untuk aktiviti mengenal warna.",
+      text: "Hai, saya di sini untuk berbual dan bantu anda menulis dengan lebih kemas.",
     },
   ]);
 
@@ -325,13 +276,10 @@ function ChatAssistantPanel({ activeField }: { activeField: FieldContext | null 
     const text = chatInput.trim();
     if (!text) return;
 
-    const nextContext = buildNextChatContext(text, chatContext, activeField);
-    const reply = buildBotReply(nextContext);
-    setChatContext(nextContext);
     setMessages((current) => [
       ...current,
       { role: "user", text },
-      { role: "bot", text: reply },
+      { role: "bot", text: buildChatbotReply(text) },
     ]);
     setChatInput("");
   }
@@ -359,10 +307,6 @@ function ChatAssistantPanel({ activeField }: { activeField: FieldContext | null 
         </div>
 
         <div className="mt-5 flex flex-1 flex-col overflow-hidden">
-          <div className="mb-3 rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-xs leading-5 text-[#aeb7c8]">
-            Konteks: {activeField ? `kolum ${activeField.label || activeField.field}` : "tiada kolum dipilih"}
-          </div>
-
           <div className="flex-1 space-y-3 overflow-auto pr-1">
             {messages.map((message, index) => (
               <div
@@ -383,7 +327,7 @@ function ChatAssistantPanel({ activeField }: { activeField: FieldContext | null 
               className="input-field min-h-28 resize-none"
               onChange={(event) => setChatInput(event.target.value)}
               onKeyDown={handleChatKeyDown}
-              placeholder="Tulis permintaan anda..."
+              placeholder="Tulis mesej anda..."
               value={chatInput}
             />
             <div className="mt-3 grid grid-cols-2 gap-2">
@@ -392,20 +336,16 @@ function ChatAssistantPanel({ activeField }: { activeField: FieldContext | null 
                 onClick={sendChat}
                 type="button"
               >
-                Minta bantuan
+                Hantar
               </button>
               <button
                 className="btn-quiet min-h-11 px-4 py-2"
                 onClick={() => {
                   setChatInput("");
-                  setChatContext({
-                    details: createEmptyDetails(),
-                    field: activeField?.field || "kolum",
-                  });
                   setMessages([
                     {
                       role: "bot",
-                      text: "Chat dikosongkan. Beritahu semula ayat atau dokumen yang mahu dibantu.",
+                      text: "Chat dikosongkan. Anda boleh mula semula.",
                     },
                   ]);
                 }}
@@ -421,210 +361,24 @@ function ChatAssistantPanel({ activeField }: { activeField: FieldContext | null 
   );
 }
 
-function readFieldContext(target: Element): FieldContext {
-  const row = target.closest("tr");
-  const cell = target.closest("td, th");
-  const block = target.closest("p, div, section, span");
-  const cells = row ? Array.from(row.querySelectorAll("td, th")) : [];
-  const cellIndex = cell ? cells.indexOf(cell as HTMLTableCellElement) : -1;
-  const cellText = cleanText(cell?.textContent || "");
-  const previousCellText =
-    cellIndex > 0 ? cleanText(cells[cellIndex - 1]?.textContent || "") : "";
-  const firstCellText = cleanText(cells[0]?.textContent || "");
-  const rowText = cleanText(row?.textContent || "");
-  const blockText = cleanText(block?.textContent || "");
-  const label = pickFieldLabel([
-    previousCellText,
-    firstCellText,
-    cellText,
-    rowText,
-    blockText,
-  ]);
-  const source = [label, cellText, rowText, blockText].filter(Boolean).join(" ");
-
-  return {
-    field: detectField(label || source),
-    label,
-    source,
-  };
-}
-
-function detectField(source: string) {
-  const text = source.toLowerCase();
-
-  if (/umur\s*hayat/.test(text)) return "umur hayat";
-  if (/umur\s*akal/.test(text)) return "umur akal";
-  if (/umur|usia/.test(text)) return "umur";
-  if (/nama\s*organisasi|organisasi|sekolah|ppdk|tadika|taska/.test(text)) return "nama organisasi";
-  if (/nama.*(guru|petugas|pendidik)|guru|petugas|pendidik/.test(text)) return "nama petugas";
-  if (/nama.*(murid|pelatih|kanak|klien)|murid|pelatih|kanak|klien/.test(text)) return "nama pelatih";
-  if (/tarikh|date/.test(text)) return "tarikh";
-  if (/masa|waktu/.test(text)) return "masa";
-  if (/tempat|lokasi/.test(text)) return "tempat";
-  if (/tajuk|nama\s*aktiviti|aktiviti\s*\/\s*program/.test(text)) return "tajuk aktiviti";
-  if (/bidang|fokus|pembelajaran/.test(text)) return "bidang";
-  if (/objektif|matlamat/.test(text)) return "objektif";
-  if (/bahan|alat/.test(text)) return "bahan";
-  if (/langkah|pelaksanaan|prosedur/.test(text)) return "langkah";
-  if (/pemerhatian|respons/.test(text)) return "pemerhatian";
-  if (/refleksi|rumusan|cadangan/.test(text)) return "refleksi";
-
-  return "kolum";
-}
-
-function buildNextChatContext(
-  text: string,
-  current: ChatContext,
-  activeField: FieldContext | null,
-) {
-  const normalized = text.toLowerCase();
-  const requestedField = detectRequestedField(
-    normalized,
-    activeField?.field || current.field || "kolum",
-  );
-  const details = mergeDetails(current.details, extractKnownDetails(text));
-
-  return {
-    details,
-    field: requestedField,
-  };
-}
-
-function buildBotReply(context: ChatContext) {
-  const field = context.field;
-  const details = context.details;
-  const missing = requiredDetails[field]?.filter((item) => !details[item]) || [];
-
-  if (missing.length > 0) {
-    return `Baik, saya boleh bantu tulis untuk ${field}. Saya perlukan detail ini dulu: ${formatMissingDetails(missing)}. Jawab ringkas sahaja, contoh: aktiviti mengenal warna, umur 5 tahun, tahap sederhana, bidang kognitif.`;
-  }
-
-  return buildDraftSentence(field, details);
-}
-
-function createEmptyDetails(): ChatDetails {
-  return {
-    aktiviti: "",
-    bidang: "",
-    hasil: "",
-    tahap: "",
-    umur: "",
-  };
-}
-
-function mergeDetails(current: ChatDetails, incoming: ChatDetails): ChatDetails {
-  return {
-    aktiviti: incoming.aktiviti || current.aktiviti,
-    bidang: incoming.bidang || current.bidang,
-    hasil: incoming.hasil || current.hasil,
-    tahap: incoming.tahap || current.tahap,
-    umur: incoming.umur || current.umur,
-  };
-}
-
-function formatMissingDetails(
-  missing: Array<keyof ReturnType<typeof extractKnownDetails>>,
-) {
-  return missing
-    .map((item) => detailLabels[item])
-    .filter(Boolean)
-    .join(", ");
-}
-
-function detectRequestedField(text: string, fallback: string) {
-  if (/objektif|matlamat/.test(text)) return "objektif";
-  if (/pemerhatian|respon|respons|tingkah/.test(text)) return "pemerhatian";
-  if (/refleksi|rumusan|cadangan/.test(text)) return "refleksi";
-  if (/langkah|cara|prosedur|pelaksanaan/.test(text)) return "langkah";
-  if (/bahan|alat/.test(text)) return "bahan";
-  if (/bidang|fokus/.test(text)) return "bidang";
-  if (/tajuk|aktiviti/.test(text)) return "tajuk aktiviti";
-  return fallback;
-}
-
-function extractKnownDetails(text: string) {
+function buildChatbotReply(text: string) {
   const lower = text.toLowerCase();
-  return {
-    aktiviti: matchDetail(text, /(aktiviti|tajuk)\s+([^,.;]+)/i),
-    bidang: matchDetail(text, /(bidang|fokus)\s+([^,.;]+)/i),
-    hasil: matchDetail(text, /(hasil|target|tujuan)\s+([^,.;]+)/i),
-    tahap: matchDetail(text, /(tahap)\s+([^,.;]+)/i),
-    umur: lower.match(/\b\d{1,2}\s*tahun\b/i)?.[0] || "",
-  };
-}
 
-function matchDetail(text: string, pattern: RegExp) {
-  return text.match(pattern)?.[2]?.trim() || "";
-}
-
-const requiredDetails: Record<
-  string,
-  Array<keyof ReturnType<typeof extractKnownDetails>>
-> = {
-  objektif: ["aktiviti", "umur", "tahap", "bidang"],
-  pemerhatian: ["aktiviti", "tahap", "hasil"],
-  refleksi: ["aktiviti", "hasil"],
-  langkah: ["aktiviti", "tahap"],
-  bahan: ["aktiviti", "umur"],
-  bidang: ["aktiviti"],
-  "tajuk aktiviti": ["aktiviti"],
-  kolum: ["aktiviti", "tahap"],
-};
-
-const detailLabels: Record<keyof ChatDetails, string> = {
-  aktiviti: "nama aktiviti",
-  bidang: "bidang atau fokus",
-  hasil: "hasil yang mahu dicapai",
-  tahap: "tahap pelatih",
-  umur: "umur pelatih",
-};
-
-function buildDraftSentence(
-  field: string,
-  details: ReturnType<typeof extractKnownDetails>,
-) {
-  const aktiviti = details.aktiviti || "aktiviti yang dirancang";
-  const umur = details.umur || "mengikut umur pelatih";
-  const tahap = details.tahap || "mengikut tahap keupayaan";
-  const bidang = details.bidang || "bidang yang berkaitan";
-  const hasil = details.hasil || "menunjukkan respons yang positif";
-
-  if (field === "objektif") {
-    return `Cadangan objektif: Pelatih berumur ${umur} dapat mengikuti ${aktiviti} dalam ${bidang} dengan bimbingan mengikut ${tahap}.`;
+  if (/hai|hello|helo|salam/.test(lower)) {
+    return "Hai. Saya boleh bantu semak ayat, susun bahasa rasmi, atau bantu fikirkan isi dokumen.";
   }
 
-  if (field === "pemerhatian") {
-    return `Cadangan pemerhatian: Semasa ${aktiviti}, pelatih ${hasil} dan memerlukan bimbingan mengikut ${tahap}.`;
+  if (/buat|tulis|karang|ayat/.test(lower)) {
+    return "Boleh. Beritahu tujuan ayat itu, siapa subjeknya, dan gaya bahasa yang anda mahu supaya saya boleh bantu tulis dengan lebih tepat.";
   }
 
-  if (field === "refleksi") {
-    return `Cadangan refleksi: ${aktiviti} berjalan dengan baik kerana pelatih ${hasil}. Aktiviti ini boleh diteruskan dengan latihan berulang dan bahan yang sesuai.`;
+  if (/semak|betul|baiki|kemas/.test(lower)) {
+    return "Boleh. Hantar ayat yang mahu disemak, kemudian saya akan bantu kemaskan ejaan, susunan dan nada bahasa.";
   }
 
-  if (field === "langkah") {
-    return `Cadangan langkah: Guru memperkenalkan ${aktiviti}, menunjukkan contoh, membimbing pelatih mengikut ${tahap}, kemudian membuat pemerhatian dan pengukuhan positif.`;
+  if (/terima kasih|thanks/.test(lower)) {
+    return "Sama-sama. Saya sedia bantu bila-bila masa.";
   }
 
-  if (field === "bahan") {
-    return `Cadangan bahan: Kad imbasan, gambar berwarna, objek maujud, lembaran kerja dan bahan bantu mengajar yang sesuai untuk pelatih berumur ${umur}.`;
-  }
-
-  return `Cadangan ayat: ${aktiviti} dilaksanakan secara berstruktur mengikut ${tahap} supaya pelatih ${hasil}.`;
-}
-
-function cleanText(value: string) {
-  return value.replace(/\s+/g, " ").replace(/[:：]+$/g, "").trim();
-}
-
-function pickFieldLabel(candidates: string[]) {
-  const cleaned = candidates.map(cleanText).filter(Boolean);
-  const shortCandidate = cleaned.find((candidate) => {
-    const wordCount = candidate.split(/\s+/).length;
-    return wordCount > 0 && wordCount <= 5 && detectField(candidate) !== "kolum";
-  });
-
-  if (shortCandidate) return shortCandidate;
-
-  const detectedCandidate = cleaned.find((candidate) => detectField(candidate) !== "kolum");
-  return detectedCandidate || cleaned[0] || "";
+  return "Saya faham. Boleh jelaskan sedikit lagi apa yang anda mahu saya bantu?";
 }
