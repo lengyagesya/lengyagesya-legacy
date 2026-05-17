@@ -3,23 +3,15 @@
 import {
   ChangeEvent,
   useEffect,
-  useMemo,
   useRef,
   useState,
 } from "react";
 
 const storageKey = "ly-docs-progress";
 
-const commonTypos: Record<string, string> = {
-  aktibiti: "aktiviti",
-  objektip: "objektif",
-  pemerehatian: "pemerhatian",
-  perlaksaan: "pelaksanaan",
-  perlaksanaan: "pelaksanaan",
-  dgn: "dengan",
-  yg: "yang",
-  utk: "untuk",
-  dlm: "dalam",
+type FieldContext = {
+  field: string;
+  source: string;
 };
 
 export default function Home() {
@@ -27,6 +19,7 @@ export default function Home() {
   const [filePreviewUrl, setFilePreviewUrl] = useState("");
   const [fileType, setFileType] = useState("");
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [activeField, setActiveField] = useState<FieldContext | null>(null);
 
   useEffect(() => {
     window.localStorage.removeItem(storageKey);
@@ -35,6 +28,7 @@ export default function Home() {
   function handleUpload(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     setFileName(file?.name || "");
+    setActiveField(null);
     setFilePreviewUrl((currentUrl) => {
       if (currentUrl) URL.revokeObjectURL(currentUrl);
       return file ? URL.createObjectURL(file) : "";
@@ -107,11 +101,12 @@ export default function Home() {
                   fileName={fileName}
                   filePreviewUrl={filePreviewUrl}
                   fileType={fileType}
+                  onActiveFieldChange={setActiveField}
                 />
               </div>
             </section>
 
-            <ChatAssistantPanel />
+            <ChatAssistantPanel activeField={activeField} />
           </div>
         )}
       </section>
@@ -151,11 +146,13 @@ function FilePreview({
   fileName,
   filePreviewUrl,
   fileType,
+  onActiveFieldChange,
 }: {
   file: File | null;
   fileName: string;
   filePreviewUrl: string;
   fileType: string;
+  onActiveFieldChange: (field: FieldContext | null) => void;
 }) {
   const type = fileType.toLowerCase();
   const isImage = ["jpg", "jpeg", "png"].includes(type);
@@ -182,7 +179,12 @@ function FilePreview({
         />
       ) : null}
 
-      {isDocx ? <DocxPreview file={file} /> : null}
+      {isDocx ? (
+        <DocxPreview
+          file={file}
+          onActiveFieldChange={onActiveFieldChange}
+        />
+      ) : null}
 
       {!isImage && !isPdf && !isDocx ? (
         <div className="grid min-h-[44rem] place-items-center p-6 text-center">
@@ -199,7 +201,13 @@ function FilePreview({
   );
 }
 
-function DocxPreview({ file }: { file: File | null }) {
+function DocxPreview({
+  file,
+  onActiveFieldChange,
+}: {
+  file: File | null;
+  onActiveFieldChange: (field: FieldContext | null) => void;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState("");
 
@@ -238,12 +246,26 @@ function DocxPreview({ file }: { file: File | null }) {
         }
       });
 
+    const handleInteraction = (event: Event) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+
+      onActiveFieldChange(readFieldContext(target));
+    };
+
+    container.addEventListener("click", handleInteraction);
+    container.addEventListener("keyup", handleInteraction);
+    container.addEventListener("focusin", handleInteraction);
+
     return () => {
       cancelled = true;
+      container.removeEventListener("click", handleInteraction);
+      container.removeEventListener("keyup", handleInteraction);
+      container.removeEventListener("focusin", handleInteraction);
       container.contentEditable = "false";
       container.innerHTML = "";
     };
-  }, [file]);
+  }, [file, onActiveFieldChange]);
 
   if (!file) {
     return (
@@ -266,12 +288,8 @@ function DocxPreview({ file }: { file: File | null }) {
   );
 }
 
-function ChatAssistantPanel() {
-  const [input, setInput] = useState("");
-  const liveCheck = useMemo(() => checkTypedText(input), [input]);
-  const liveSuggestion = useMemo(() => buildLiveSuggestion(input), [input]);
-  const assistantLine = useMemo(() => buildAutoAssistantLine(input), [input]);
-
+function ChatAssistantPanel({ activeField }: { activeField: FieldContext | null }) {
+  const response = buildFieldResponse(activeField);
   return (
     <aside className="lg:sticky lg:top-5 lg:self-start">
       <div className="flex max-h-[calc(100vh-2.5rem)] min-h-[44rem] flex-col rounded-[1.75rem] border border-white/10 bg-[#0b0d13]/80 p-4 shadow-[0_28px_120px_rgba(0,0,0,0.36)] backdrop-blur-2xl sm:p-5">
@@ -281,7 +299,7 @@ function ChatAssistantPanel() {
               Chat
             </p>
             <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-white">
-              Semak ayat
+              Bot saranan
             </h2>
           </div>
           <span className="scan-dot mt-2 h-3 w-3 rounded-full bg-[#d7e3ff]" />
@@ -289,131 +307,115 @@ function ChatAssistantPanel() {
 
         <div className="mt-5 flex-1 space-y-3 overflow-auto pr-1">
           <div className="mr-8 rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm leading-6 text-[#e5ebf7]">
-            {assistantLine}
+            {response.message}
           </div>
-          <div className="mr-8 rounded-2xl border border-[#b9caff]/15 bg-[#7da1ff]/[0.07] px-4 py-3 text-sm leading-6 text-[#edf2ff]">
-            {liveSuggestion}
-          </div>
-        </div>
-
-        <div className="mt-4 rounded-2xl border border-white/10 bg-black/25 p-3">
-          <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-[#8f9ab0]">
-            Semakan semasa
-          </p>
-          <p className="text-sm leading-6 text-[#d8deea]">{liveCheck}</p>
-        </div>
-
-        <div className="mt-3 rounded-2xl border border-[#b9caff]/15 bg-[#7da1ff]/[0.07] p-3">
-          <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-[#b9caff]">
-            Saranan
-          </p>
-          <p className="text-sm leading-6 text-[#edf2ff]">{liveSuggestion}</p>
-        </div>
-
-        <div className="mt-4">
-          <textarea
-            className="input-field min-h-32 resize-none"
-            onChange={(event) => setInput(event.target.value)}
-            placeholder="Taip ayat yang mahu disemak..."
-            value={input}
-          />
-          <div className="mt-3">
-            <button
-              className="btn-quiet min-h-11 w-full px-4 py-2"
-              onClick={() => setInput("")}
-              type="button"
-            >
-              Kosongkan
-            </button>
-          </div>
+          {activeField ? (
+            <div className="rounded-2xl border border-[#b9caff]/15 bg-[#7da1ff]/[0.07] px-4 py-3">
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#b9caff]">
+                {response.title}
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {response.suggestions.map((suggestion) => (
+                  <span
+                    className="rounded-full border border-white/10 bg-white/[0.08] px-3 py-1 text-xs font-semibold text-[#edf2ff]"
+                    key={suggestion}
+                  >
+                    {suggestion}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
     </aside>
   );
 }
 
-function checkTypedText(text: string) {
-  const trimmed = text.trim();
-  if (!trimmed) {
-    return "Belum ada teks untuk disemak.";
-  }
+function readFieldContext(target: Element): FieldContext {
+  const row = target.closest("tr");
+  const cell = target.closest("td, th");
+  const block = target.closest("p, div, section, span");
+  const source = [cell?.textContent, row?.textContent, block?.textContent]
+    .filter(Boolean)
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
 
-  const typo = Object.keys(commonTypos).find((item) =>
-    new RegExp(`\\b${item}\\b`, "i").test(trimmed),
-  );
-  if (typo) {
-    return `Ejaan "${typo}" mungkin perlu dibetulkan kepada "${commonTypos[typo]}".`;
-  }
-
-  if (/(dan|serta|untuk|dengan|kepada|supaya)$/i.test(trimmed)) {
-    return "Ayat ini nampak tergantung. Tambah sambungan yang menerangkan hasil, tindakan atau tujuan.";
-  }
-
-  if (trimmed.split(/\s+/).length < 6) {
-    return "Ayat masih terlalu pendek. Tambah siapa, aktiviti, tujuan dan hasil yang ingin dicapai.";
-  }
-
-  if (/(ok|okay|best|benda|budak)/i.test(trimmed)) {
-    return "Ada perkataan santai. Untuk dokumen rasmi, gunakan bahasa yang lebih kemas dan profesional.";
-  }
-
-  if (!/[.!?]$/.test(trimmed)) {
-    return "Ayat boleh ditutup dengan tanda noktah supaya kelihatan lengkap.";
-  }
-
-  return "Ayat ini sudah lebih kemas. Semak semula nama khas, tarikh dan istilah organisasi sebelum digunakan.";
+  return {
+    field: detectField(source),
+    source,
+  };
 }
 
-function buildLiveSuggestion(text: string) {
-  const trimmed = text.trim();
-  if (!trimmed) {
-    return "Tulis ayat di ruang chat dan saranan akan muncul secara automatik.";
-  }
+function detectField(source: string) {
+  const text = source.toLowerCase();
 
-  const fixed = fixCommonTypos(trimmed);
-  if (fixed !== trimmed) {
-    return `Saranan ejaan: ${fixed}`;
-  }
+  if (/umur|usia|hayat|akal/.test(text)) return "umur";
+  if (/nama.*(murid|pelatih|kanak|klien)|murid|pelatih|kanak|klien/.test(text)) return "nama pelatih";
+  if (/nama.*(guru|petugas|pendidik)|guru|petugas|pendidik/.test(text)) return "nama petugas";
+  if (/tarikh|date/.test(text)) return "tarikh";
+  if (/masa|waktu/.test(text)) return "masa";
+  if (/tempat|lokasi/.test(text)) return "tempat";
+  if (/tajuk|aktiviti/.test(text)) return "tajuk aktiviti";
+  if (/bidang|fokus|pembelajaran/.test(text)) return "bidang";
+  if (/objektif|matlamat/.test(text)) return "objektif";
+  if (/bahan|alat/.test(text)) return "bahan";
+  if (/langkah|pelaksanaan|prosedur/.test(text)) return "langkah";
+  if (/pemerhatian|respons/.test(text)) return "pemerhatian";
+  if (/refleksi|rumusan|cadangan/.test(text)) return "refleksi";
 
-  if (/(objektif|matlamat)/i.test(trimmed)) {
-    return "Pelatih dapat mengikuti aktiviti yang dirancang dengan bimbingan serta menunjukkan respons yang sesuai.";
-  }
-
-  if (/(pemerhatian|respons|tingkah laku)/i.test(trimmed)) {
-    return "Pelatih menunjukkan minat semasa aktiviti dijalankan dan memberi respons positif terhadap arahan yang diberikan.";
-  }
-
-  if (/(refleksi|rumusan|cadangan)/i.test(trimmed)) {
-    return "Aktiviti berjalan dengan baik dan boleh ditambah baik melalui bimbingan berterusan serta penggunaan bahan yang lebih sesuai.";
-  }
-
-  if (/(dan|serta|untuk|dengan|kepada|supaya)$/i.test(trimmed)) {
-    return `${trimmed} mencapai objektif yang telah ditetapkan.`;
-  }
-
-  if (!/[.!?]$/.test(trimmed)) {
-    return `${trimmed}.`;
-  }
-
-  return "Ayat sudah kelihatan kemas. Saya akan terus semak jika anda ubah teks.";
+  return "kolum";
 }
 
-function buildAutoAssistantLine(text: string) {
-  const trimmed = text.trim();
-  if (!trimmed) {
-    return "Saya akan bercakap secara automatik selepas anda mula menaip.";
+function buildFieldResponse(activeField: FieldContext | null) {
+  if (!activeField) {
+    return {
+      message: "Klik mana-mana kolum dalam dokumen. Saya akan terus cadangkan jawapan yang sesuai.",
+      suggestions: [],
+      title: "Saranan",
+    };
   }
 
-  const check = checkTypedText(trimmed);
-  if (check.startsWith("Ayat ini sudah")) {
-    return "Ayat ini sudah boleh digunakan. Saya akan terus semak jika anda ubah teks.";
-  }
+  const field = activeField.field;
+  const suggestions = fieldSuggestions[field] || fieldSuggestions.kolum;
 
-  return check;
+  return {
+    message: `Anda sedang klik kolum ${field}. Ini cadangan yang boleh digunakan.`,
+    suggestions,
+    title: `Cadangan ${field}`,
+  };
 }
 
-function fixCommonTypos(text: string) {
-  return Object.entries(commonTypos).reduce((current, [wrong, right]) => {
-    return current.replace(new RegExp(`\\b${wrong}\\b`, "gi"), right);
-  }, text);
-}
+const fieldSuggestions: Record<string, string[]> = {
+  umur: ["1 Tahun", "2 Tahun", "3 Tahun", "4 Tahun", "5 Tahun", "6 Tahun", "7 Tahun"],
+  "nama pelatih": ["Ali bin Ahmad", "Nur Aisyah binti Rahman", "Muhammad Danish"],
+  "nama petugas": ["Cikgu Aina", "Puan Siti", "Encik Hafiz"],
+  tarikh: ["17 Mei 2026", "18 Mei 2026", "19 Mei 2026"],
+  masa: ["8.00 pagi - 9.00 pagi", "9.30 pagi - 10.30 pagi", "10.00 pagi - 11.00 pagi"],
+  tempat: ["Bilik Aktiviti", "Ruang Pembelajaran", "Dewan Serbaguna"],
+  "tajuk aktiviti": ["Mengenal Warna Asas", "Mengenal Nombor 1 Hingga 5", "Latihan Motor Halus"],
+  bidang: ["Kognitif", "Bahasa dan Komunikasi", "Motor Halus", "Sosioemosi", "Pengurusan Diri"],
+  objektif: [
+    "Pelatih dapat mengenal warna asas dengan bimbingan.",
+    "Pelatih dapat mengikuti arahan mudah semasa aktiviti dijalankan.",
+    "Pelatih dapat menyelesaikan tugasan mengikut tahap keupayaan.",
+  ],
+  bahan: ["Kad imbasan", "Pensel warna", "Lembaran kerja", "Objek maujud"],
+  langkah: [
+    "Guru memperkenalkan bahan aktiviti kepada pelatih.",
+    "Pelatih menjalankan aktiviti dengan bimbingan secara berperingkat.",
+    "Guru membuat pemerhatian dan memberi pengukuhan positif.",
+  ],
+  pemerhatian: [
+    "Pelatih menunjukkan minat dan memberi respons positif.",
+    "Pelatih memerlukan bimbingan semasa menjalankan aktiviti.",
+    "Pelatih dapat menyelesaikan tugasan dengan sokongan minimum.",
+  ],
+  refleksi: [
+    "Aktiviti berjalan dengan baik dan objektif dapat dicapai.",
+    "Aktiviti perlu diteruskan dengan latihan berulang.",
+    "Bahan aktiviti boleh dipelbagaikan untuk meningkatkan penglibatan pelatih.",
+  ],
+  kolum: ["Isi maklumat ringkas dan tepat.", "Gunakan bahasa rasmi.", "Pastikan ejaan dan tanda baca kemas."],
+};
