@@ -11,6 +11,7 @@ const storageKey = "ly-docs-progress";
 
 type FieldContext = {
   field: string;
+  label: string;
   source: string;
 };
 
@@ -336,14 +337,26 @@ function readFieldContext(target: Element): FieldContext {
   const row = target.closest("tr");
   const cell = target.closest("td, th");
   const block = target.closest("p, div, section, span");
-  const source = [cell?.textContent, row?.textContent, block?.textContent]
-    .filter(Boolean)
-    .join(" ")
-    .replace(/\s+/g, " ")
-    .trim();
+  const cells = row ? Array.from(row.querySelectorAll("td, th")) : [];
+  const cellIndex = cell ? cells.indexOf(cell as HTMLTableCellElement) : -1;
+  const cellText = cleanText(cell?.textContent || "");
+  const previousCellText =
+    cellIndex > 0 ? cleanText(cells[cellIndex - 1]?.textContent || "") : "";
+  const firstCellText = cleanText(cells[0]?.textContent || "");
+  const rowText = cleanText(row?.textContent || "");
+  const blockText = cleanText(block?.textContent || "");
+  const label = pickFieldLabel([
+    previousCellText,
+    firstCellText,
+    cellText,
+    rowText,
+    blockText,
+  ]);
+  const source = [label, cellText, rowText, blockText].filter(Boolean).join(" ");
 
   return {
-    field: detectField(source),
+    field: detectField(label || source),
+    label,
     source,
   };
 }
@@ -351,13 +364,16 @@ function readFieldContext(target: Element): FieldContext {
 function detectField(source: string) {
   const text = source.toLowerCase();
 
-  if (/umur|usia|hayat|akal/.test(text)) return "umur";
-  if (/nama.*(murid|pelatih|kanak|klien)|murid|pelatih|kanak|klien/.test(text)) return "nama pelatih";
+  if (/umur\s*hayat/.test(text)) return "umur hayat";
+  if (/umur\s*akal/.test(text)) return "umur akal";
+  if (/umur|usia/.test(text)) return "umur";
+  if (/nama\s*organisasi|organisasi|sekolah|ppdk|tadika|taska/.test(text)) return "nama organisasi";
   if (/nama.*(guru|petugas|pendidik)|guru|petugas|pendidik/.test(text)) return "nama petugas";
+  if (/nama.*(murid|pelatih|kanak|klien)|murid|pelatih|kanak|klien/.test(text)) return "nama pelatih";
   if (/tarikh|date/.test(text)) return "tarikh";
   if (/masa|waktu/.test(text)) return "masa";
   if (/tempat|lokasi/.test(text)) return "tempat";
-  if (/tajuk|aktiviti/.test(text)) return "tajuk aktiviti";
+  if (/tajuk|nama\s*aktiviti|aktiviti\s*\/\s*program/.test(text)) return "tajuk aktiviti";
   if (/bidang|fokus|pembelajaran/.test(text)) return "bidang";
   if (/objektif|matlamat/.test(text)) return "objektif";
   if (/bahan|alat/.test(text)) return "bahan";
@@ -381,13 +397,23 @@ function buildFieldResponse(activeField: FieldContext | null) {
   const suggestions = fieldSuggestions[field] || fieldSuggestions.kolum;
 
   return {
-    message: `Anda sedang klik kolum ${field}. Saya sediakan beberapa pilihan ringkas dan ayat lengkap yang boleh terus digunakan atau diubah sedikit.`,
+    message: `Anda sedang klik kolum ${activeField.label || field}. Saya hanya paparkan saranan khusus untuk kolum ini.`,
     suggestions,
     title: `Cadangan ${field} (${suggestions.length})`,
   };
 }
 
 const fieldSuggestions: Record<string, string[]> = {
+  "nama organisasi": [
+    "PPDK Seri Murni",
+    "PPDK Tunas Harapan",
+    "Taska Permata Ilmu",
+    "Tadika Cemerlang Bestari",
+    "Sekolah Kebangsaan Seri Damai",
+    "Program Pendidikan Khas Integrasi",
+    "Pusat Terapi Cahaya Kasih",
+    "Nama organisasi ditulis penuh seperti dalam rekod rasmi.",
+  ],
   umur: [
     "1 Tahun",
     "2 Tahun",
@@ -403,6 +429,26 @@ const fieldSuggestions: Record<string, string[]> = {
     "Umur akal: 4 Tahun",
     "Mengikut tahap perkembangan semasa",
     "Mengikut keupayaan individu pelatih",
+  ],
+  "umur hayat": [
+    "Umur hayat: 1 Tahun",
+    "Umur hayat: 2 Tahun",
+    "Umur hayat: 3 Tahun",
+    "Umur hayat: 4 Tahun",
+    "Umur hayat: 5 Tahun",
+    "Umur hayat: 6 Tahun",
+    "Umur hayat mengikut tarikh lahir sebenar.",
+    "Umur hayat diisi berdasarkan rekod pelatih.",
+  ],
+  "umur akal": [
+    "Umur akal: 1 Tahun",
+    "Umur akal: 2 Tahun",
+    "Umur akal: 3 Tahun",
+    "Umur akal: 4 Tahun",
+    "Umur akal: 5 Tahun",
+    "Umur akal mengikut tahap kefungsian semasa.",
+    "Umur akal diisi berdasarkan pemerhatian dan penilaian guru.",
+    "Umur akal boleh lebih rendah daripada umur hayat mengikut keupayaan pelatih.",
   ],
   "nama pelatih": [
     "Ali bin Ahmad",
@@ -563,3 +609,20 @@ const fieldSuggestions: Record<string, string[]> = {
     "Gunakan ayat yang mudah difahami dan profesional.",
   ],
 };
+
+function cleanText(value: string) {
+  return value.replace(/\s+/g, " ").replace(/[:：]+$/g, "").trim();
+}
+
+function pickFieldLabel(candidates: string[]) {
+  const cleaned = candidates.map(cleanText).filter(Boolean);
+  const shortCandidate = cleaned.find((candidate) => {
+    const wordCount = candidate.split(/\s+/).length;
+    return wordCount > 0 && wordCount <= 5 && detectField(candidate) !== "kolum";
+  });
+
+  if (shortCandidate) return shortCandidate;
+
+  const detectedCandidate = cleaned.find((candidate) => detectField(candidate) !== "kolum");
+  return detectedCandidate || cleaned[0] || "";
+}
