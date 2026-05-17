@@ -2,6 +2,7 @@
 
 import {
   ChangeEvent,
+  KeyboardEvent,
   useEffect,
   useRef,
   useState,
@@ -13,6 +14,11 @@ type FieldContext = {
   field: string;
   label: string;
   source: string;
+};
+
+type ChatMessage = {
+  role: "bot" | "user";
+  text: string;
 };
 
 export default function Home() {
@@ -291,6 +297,33 @@ function DocxPreview({
 
 function ChatAssistantPanel({ activeField }: { activeField: FieldContext | null }) {
   const response = buildFieldResponse(activeField);
+  const [chatInput, setChatInput] = useState("");
+  const [messages, setMessages] = useState<ChatMessage[]>([
+    {
+      role: "bot",
+      text: "Boleh minta saya bantu tulis ayat. Contoh: buatkan ayat objektif untuk aktiviti warna. Saya akan tanya detail yang perlu sebelum cadangkan ayat.",
+    },
+  ]);
+
+  function sendChat() {
+    const text = chatInput.trim();
+    if (!text) return;
+
+    setMessages((current) => [
+      ...current,
+      { role: "user", text },
+      { role: "bot", text: buildBotReply(text, activeField) },
+    ]);
+    setChatInput("");
+  }
+
+  function handleChatKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      sendChat();
+    }
+  }
+
   return (
     <aside className="lg:sticky lg:top-5 lg:self-start">
       <div className="flex max-h-[calc(100vh-2.5rem)] min-h-[44rem] flex-col rounded-[1.75rem] border border-white/10 bg-[#0b0d13]/80 p-4 shadow-[0_28px_120px_rgba(0,0,0,0.36)] backdrop-blur-2xl sm:p-5">
@@ -327,6 +360,57 @@ function ChatAssistantPanel({ activeField }: { activeField: FieldContext | null 
               </div>
             </div>
           ) : null}
+        </div>
+
+        <div className="mt-4 border-t border-white/10 pt-4">
+          <div className="max-h-64 space-y-3 overflow-auto pr-1">
+            {messages.map((message, index) => (
+              <div
+                className={`rounded-2xl px-4 py-3 text-sm leading-6 ${
+                  message.role === "user"
+                    ? "ml-8 bg-[#d7e3ff] text-[#050507]"
+                    : "mr-8 border border-white/10 bg-white/[0.06] text-[#e5ebf7]"
+                }`}
+                key={`${message.role}-${index}`}
+              >
+                {message.text}
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-3">
+            <textarea
+              className="input-field min-h-28 resize-none"
+              onChange={(event) => setChatInput(event.target.value)}
+              onKeyDown={handleChatKeyDown}
+              placeholder="Tulis permintaan anda..."
+              value={chatInput}
+            />
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <button
+                className="btn-primary min-h-11 px-4 py-2"
+                onClick={sendChat}
+                type="button"
+              >
+                Minta bantuan
+              </button>
+              <button
+                className="btn-quiet min-h-11 px-4 py-2"
+                onClick={() => {
+                  setChatInput("");
+                  setMessages([
+                    {
+                      role: "bot",
+                      text: "Chat dikosongkan. Klik kolum atau minta saya buatkan ayat baru.",
+                    },
+                  ]);
+                }}
+                type="button"
+              >
+                Kosongkan
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </aside>
@@ -401,6 +485,92 @@ function buildFieldResponse(activeField: FieldContext | null) {
     suggestions,
     title: `Cadangan ${field} (${suggestions.length})`,
   };
+}
+
+function buildBotReply(text: string, activeField: FieldContext | null) {
+  const normalized = text.toLowerCase();
+  const field = detectRequestedField(normalized, activeField?.field || "kolum");
+  const details = extractKnownDetails(text);
+  const missing = requiredDetails[field]?.filter((item) => !details[item]) || [];
+
+  if (missing.length > 0) {
+    return `Baik, saya boleh bantu tulis untuk kolum ${field}. Saya perlukan detail ini dulu: ${missing.join(", ")}. Contoh jawapan: aktiviti mengenal warna, umur 5 tahun, tahap sederhana, bidang kognitif.`;
+  }
+
+  return buildDraftSentence(field, details);
+}
+
+function detectRequestedField(text: string, fallback: string) {
+  if (/objektif|matlamat/.test(text)) return "objektif";
+  if (/pemerhatian|respon|respons|tingkah/.test(text)) return "pemerhatian";
+  if (/refleksi|rumusan|cadangan/.test(text)) return "refleksi";
+  if (/langkah|cara|prosedur|pelaksanaan/.test(text)) return "langkah";
+  if (/bahan|alat/.test(text)) return "bahan";
+  if (/bidang|fokus/.test(text)) return "bidang";
+  if (/tajuk|aktiviti/.test(text)) return "tajuk aktiviti";
+  return fallback;
+}
+
+function extractKnownDetails(text: string) {
+  const lower = text.toLowerCase();
+  return {
+    aktiviti: matchDetail(text, /(aktiviti|tajuk)\s+([^,.;]+)/i),
+    bidang: matchDetail(text, /(bidang|fokus)\s+([^,.;]+)/i),
+    hasil: matchDetail(text, /(hasil|target|tujuan)\s+([^,.;]+)/i),
+    tahap: matchDetail(text, /(tahap)\s+([^,.;]+)/i),
+    umur: lower.match(/\b\d{1,2}\s*tahun\b/i)?.[0] || "",
+  };
+}
+
+function matchDetail(text: string, pattern: RegExp) {
+  return text.match(pattern)?.[2]?.trim() || "";
+}
+
+const requiredDetails: Record<
+  string,
+  Array<keyof ReturnType<typeof extractKnownDetails>>
+> = {
+  objektif: ["aktiviti", "umur", "tahap", "bidang"],
+  pemerhatian: ["aktiviti", "tahap", "hasil"],
+  refleksi: ["aktiviti", "hasil"],
+  langkah: ["aktiviti", "tahap"],
+  bahan: ["aktiviti", "umur"],
+  bidang: ["aktiviti"],
+  "tajuk aktiviti": ["aktiviti"],
+  kolum: ["aktiviti", "tahap"],
+};
+
+function buildDraftSentence(
+  field: string,
+  details: ReturnType<typeof extractKnownDetails>,
+) {
+  const aktiviti = details.aktiviti || "aktiviti yang dirancang";
+  const umur = details.umur || "mengikut umur pelatih";
+  const tahap = details.tahap || "mengikut tahap keupayaan";
+  const bidang = details.bidang || "bidang yang berkaitan";
+  const hasil = details.hasil || "menunjukkan respons yang positif";
+
+  if (field === "objektif") {
+    return `Cadangan objektif: Pelatih berumur ${umur} dapat mengikuti ${aktiviti} dalam ${bidang} dengan bimbingan mengikut ${tahap}.`;
+  }
+
+  if (field === "pemerhatian") {
+    return `Cadangan pemerhatian: Semasa ${aktiviti}, pelatih ${hasil} dan memerlukan bimbingan mengikut ${tahap}.`;
+  }
+
+  if (field === "refleksi") {
+    return `Cadangan refleksi: ${aktiviti} berjalan dengan baik kerana pelatih ${hasil}. Aktiviti ini boleh diteruskan dengan latihan berulang dan bahan yang sesuai.`;
+  }
+
+  if (field === "langkah") {
+    return `Cadangan langkah: Guru memperkenalkan ${aktiviti}, menunjukkan contoh, membimbing pelatih mengikut ${tahap}, kemudian membuat pemerhatian dan pengukuhan positif.`;
+  }
+
+  if (field === "bahan") {
+    return `Cadangan bahan: Kad imbasan, gambar berwarna, objek maujud, lembaran kerja dan bahan bantu mengajar yang sesuai untuk pelatih berumur ${umur}.`;
+  }
+
+  return `Cadangan ayat: ${aktiviti} dilaksanakan secara berstruktur mengikut ${tahap} supaya pelatih ${hasil}.`;
 }
 
 const fieldSuggestions: Record<string, string[]> = {
