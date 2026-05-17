@@ -3,6 +3,7 @@
 import {
   ChangeEvent,
   KeyboardEvent,
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -40,6 +41,17 @@ export default function Home() {
 
   useEffect(() => {
     window.localStorage.removeItem(storageKey);
+  }, []);
+
+  const registerDocumentInsert = useCallback(
+    (handler: ((text: string) => void) | null) => {
+      setInsertIntoDocument(handler ? () => handler : null);
+    },
+    [],
+  );
+
+  const registerDocumentUndo = useCallback((handler: (() => void) | null) => {
+    setUndoDocumentEdit(handler ? () => handler : null);
   }, []);
 
   function handleUpload(event: ChangeEvent<HTMLInputElement>) {
@@ -121,12 +133,8 @@ export default function Home() {
                   filePreviewUrl={filePreviewUrl}
                   fileType={fileType}
                   onDocumentTextChange={setDocumentText}
-                  onRegisterInsert={(handler) =>
-                    setInsertIntoDocument(handler ? () => handler : null)
-                  }
-                  onRegisterUndo={(handler) =>
-                    setUndoDocumentEdit(handler ? () => handler : null)
-                  }
+                  onRegisterInsert={registerDocumentInsert}
+                  onRegisterUndo={registerDocumentUndo}
                 />
               </div>
             </section>
