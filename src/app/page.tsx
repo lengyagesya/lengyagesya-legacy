@@ -282,6 +282,7 @@ function ChatAssistantPanel() {
   ]);
 
   const liveCheck = useMemo(() => checkTypedText(input), [input]);
+  const liveSuggestion = useMemo(() => buildLiveSuggestion(input), [input]);
 
   function sendMessage() {
     const trimmed = input.trim();
@@ -308,7 +309,7 @@ function ChatAssistantPanel() {
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#8f9ab0]">
-              AI Chat
+              Chat
             </p>
             <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-white">
               Semak ayat
@@ -337,6 +338,13 @@ function ChatAssistantPanel() {
             Semakan semasa
           </p>
           <p className="text-sm leading-6 text-[#d8deea]">{liveCheck}</p>
+        </div>
+
+        <div className="mt-3 rounded-2xl border border-[#b9caff]/15 bg-[#7da1ff]/[0.07] p-3">
+          <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-[#b9caff]">
+            Saranan
+          </p>
+          <p className="text-sm leading-6 text-[#edf2ff]">{liveSuggestion}</p>
         </div>
 
         <div className="mt-4">
@@ -419,6 +427,40 @@ function buildChatReply(text: string) {
   }
 
   return `Semakan: ${check} Versi lebih kemas: ${closed}`;
+}
+
+function buildLiveSuggestion(text: string) {
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return "Tulis ayat di ruang chat dan saranan akan muncul secara automatik.";
+  }
+
+  const fixed = fixCommonTypos(trimmed);
+  if (fixed !== trimmed) {
+    return `Saranan ejaan: ${fixed}`;
+  }
+
+  if (/(objektif|matlamat)/i.test(trimmed)) {
+    return "Pelatih dapat mengikuti aktiviti yang dirancang dengan bimbingan serta menunjukkan respons yang sesuai.";
+  }
+
+  if (/(pemerhatian|respons|tingkah laku)/i.test(trimmed)) {
+    return "Pelatih menunjukkan minat semasa aktiviti dijalankan dan memberi respons positif terhadap arahan yang diberikan.";
+  }
+
+  if (/(refleksi|rumusan|cadangan)/i.test(trimmed)) {
+    return "Aktiviti berjalan dengan baik dan boleh ditambah baik melalui bimbingan berterusan serta penggunaan bahan yang lebih sesuai.";
+  }
+
+  if (/(dan|serta|untuk|dengan|kepada|supaya)$/i.test(trimmed)) {
+    return `${trimmed} mencapai objektif yang telah ditetapkan.`;
+  }
+
+  if (!/[.!?]$/.test(trimmed)) {
+    return `${trimmed}.`;
+  }
+
+  return "Ayat sudah kelihatan kemas. Anda boleh hantar untuk dapatkan versi semakan penuh.";
 }
 
 function fixCommonTypos(text: string) {
