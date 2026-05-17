@@ -21,6 +21,19 @@ type ChatMessage = {
   text: string;
 };
 
+type ChatDetails = {
+  aktiviti: string;
+  bidang: string;
+  hasil: string;
+  tahap: string;
+  umur: string;
+};
+
+type ChatContext = {
+  details: ChatDetails;
+  field: string;
+};
+
 export default function Home() {
   const [fileName, setFileName] = useState("");
   const [filePreviewUrl, setFilePreviewUrl] = useState("");
@@ -296,12 +309,15 @@ function DocxPreview({
 }
 
 function ChatAssistantPanel({ activeField }: { activeField: FieldContext | null }) {
-  const response = buildFieldResponse(activeField);
   const [chatInput, setChatInput] = useState("");
+  const [chatContext, setChatContext] = useState<ChatContext>({
+    details: createEmptyDetails(),
+    field: activeField?.field || "kolum",
+  });
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       role: "bot",
-      text: "Boleh minta saya bantu tulis ayat. Contoh: buatkan ayat objektif untuk aktiviti warna. Saya akan tanya detail yang perlu sebelum cadangkan ayat.",
+      text: "Saya sedia bantu tulis ayat. Beritahu apa yang mahu dibuat, contohnya: buatkan ayat objektif untuk aktiviti mengenal warna.",
     },
   ]);
 
@@ -309,10 +325,13 @@ function ChatAssistantPanel({ activeField }: { activeField: FieldContext | null 
     const text = chatInput.trim();
     if (!text) return;
 
+    const nextContext = buildNextChatContext(text, chatContext, activeField);
+    const reply = buildBotReply(nextContext);
+    setChatContext(nextContext);
     setMessages((current) => [
       ...current,
       { role: "user", text },
-      { role: "bot", text: buildBotReply(text, activeField) },
+      { role: "bot", text: reply },
     ]);
     setChatInput("");
   }
@@ -333,37 +352,18 @@ function ChatAssistantPanel({ activeField }: { activeField: FieldContext | null 
               Chat
             </p>
             <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-white">
-              Bot saranan
+              Chatbot
             </h2>
           </div>
           <span className="scan-dot mt-2 h-3 w-3 rounded-full bg-[#d7e3ff]" />
         </div>
 
-        <div className="mt-5 flex-1 space-y-3 overflow-auto pr-1">
-          <div className="mr-8 rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm leading-6 text-[#e5ebf7]">
-            {response.message}
+        <div className="mt-5 flex flex-1 flex-col overflow-hidden">
+          <div className="mb-3 rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-xs leading-5 text-[#aeb7c8]">
+            Konteks: {activeField ? `kolum ${activeField.label || activeField.field}` : "tiada kolum dipilih"}
           </div>
-          {activeField ? (
-            <div className="rounded-2xl border border-[#b9caff]/15 bg-[#7da1ff]/[0.07] px-4 py-3">
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#b9caff]">
-                {response.title}
-              </p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {response.suggestions.map((suggestion) => (
-                  <span
-                    className="rounded-full border border-white/10 bg-white/[0.08] px-3 py-1 text-xs font-semibold text-[#edf2ff]"
-                    key={suggestion}
-                  >
-                    {suggestion}
-                  </span>
-                ))}
-              </div>
-            </div>
-          ) : null}
-        </div>
 
-        <div className="mt-4 border-t border-white/10 pt-4">
-          <div className="max-h-64 space-y-3 overflow-auto pr-1">
+          <div className="flex-1 space-y-3 overflow-auto pr-1">
             {messages.map((message, index) => (
               <div
                 className={`rounded-2xl px-4 py-3 text-sm leading-6 ${
@@ -378,7 +378,7 @@ function ChatAssistantPanel({ activeField }: { activeField: FieldContext | null 
             ))}
           </div>
 
-          <div className="mt-3">
+          <div className="mt-4">
             <textarea
               className="input-field min-h-28 resize-none"
               onChange={(event) => setChatInput(event.target.value)}
@@ -398,10 +398,14 @@ function ChatAssistantPanel({ activeField }: { activeField: FieldContext | null 
                 className="btn-quiet min-h-11 px-4 py-2"
                 onClick={() => {
                   setChatInput("");
+                  setChatContext({
+                    details: createEmptyDetails(),
+                    field: activeField?.field || "kolum",
+                  });
                   setMessages([
                     {
                       role: "bot",
-                      text: "Chat dikosongkan. Klik kolum atau minta saya buatkan ayat baru.",
+                      text: "Chat dikosongkan. Beritahu semula ayat atau dokumen yang mahu dibantu.",
                     },
                   ]);
                 }}
@@ -468,36 +472,63 @@ function detectField(source: string) {
   return "kolum";
 }
 
-function buildFieldResponse(activeField: FieldContext | null) {
-  if (!activeField) {
-    return {
-      message: "Klik mana-mana kolum dalam dokumen. Saya akan terus cadangkan jawapan yang sesuai.",
-      suggestions: [],
-      title: "Saranan",
-    };
-  }
-
-  const field = activeField.field;
-  const suggestions = fieldSuggestions[field] || fieldSuggestions.kolum;
+function buildNextChatContext(
+  text: string,
+  current: ChatContext,
+  activeField: FieldContext | null,
+) {
+  const normalized = text.toLowerCase();
+  const requestedField = detectRequestedField(
+    normalized,
+    activeField?.field || current.field || "kolum",
+  );
+  const details = mergeDetails(current.details, extractKnownDetails(text));
 
   return {
-    message: `Anda sedang klik kolum ${activeField.label || field}. Saya hanya paparkan saranan khusus untuk kolum ini.`,
-    suggestions,
-    title: `Cadangan ${field} (${suggestions.length})`,
+    details,
+    field: requestedField,
   };
 }
 
-function buildBotReply(text: string, activeField: FieldContext | null) {
-  const normalized = text.toLowerCase();
-  const field = detectRequestedField(normalized, activeField?.field || "kolum");
-  const details = extractKnownDetails(text);
+function buildBotReply(context: ChatContext) {
+  const field = context.field;
+  const details = context.details;
   const missing = requiredDetails[field]?.filter((item) => !details[item]) || [];
 
   if (missing.length > 0) {
-    return `Baik, saya boleh bantu tulis untuk kolum ${field}. Saya perlukan detail ini dulu: ${missing.join(", ")}. Contoh jawapan: aktiviti mengenal warna, umur 5 tahun, tahap sederhana, bidang kognitif.`;
+    return `Baik, saya boleh bantu tulis untuk ${field}. Saya perlukan detail ini dulu: ${formatMissingDetails(missing)}. Jawab ringkas sahaja, contoh: aktiviti mengenal warna, umur 5 tahun, tahap sederhana, bidang kognitif.`;
   }
 
   return buildDraftSentence(field, details);
+}
+
+function createEmptyDetails(): ChatDetails {
+  return {
+    aktiviti: "",
+    bidang: "",
+    hasil: "",
+    tahap: "",
+    umur: "",
+  };
+}
+
+function mergeDetails(current: ChatDetails, incoming: ChatDetails): ChatDetails {
+  return {
+    aktiviti: incoming.aktiviti || current.aktiviti,
+    bidang: incoming.bidang || current.bidang,
+    hasil: incoming.hasil || current.hasil,
+    tahap: incoming.tahap || current.tahap,
+    umur: incoming.umur || current.umur,
+  };
+}
+
+function formatMissingDetails(
+  missing: Array<keyof ReturnType<typeof extractKnownDetails>>,
+) {
+  return missing
+    .map((item) => detailLabels[item])
+    .filter(Boolean)
+    .join(", ");
 }
 
 function detectRequestedField(text: string, fallback: string) {
@@ -540,6 +571,14 @@ const requiredDetails: Record<
   kolum: ["aktiviti", "tahap"],
 };
 
+const detailLabels: Record<keyof ChatDetails, string> = {
+  aktiviti: "nama aktiviti",
+  bidang: "bidang atau fokus",
+  hasil: "hasil yang mahu dicapai",
+  tahap: "tahap pelatih",
+  umur: "umur pelatih",
+};
+
 function buildDraftSentence(
   field: string,
   details: ReturnType<typeof extractKnownDetails>,
@@ -572,213 +611,6 @@ function buildDraftSentence(
 
   return `Cadangan ayat: ${aktiviti} dilaksanakan secara berstruktur mengikut ${tahap} supaya pelatih ${hasil}.`;
 }
-
-const fieldSuggestions: Record<string, string[]> = {
-  "nama organisasi": [
-    "PPDK Seri Murni",
-    "PPDK Tunas Harapan",
-    "Taska Permata Ilmu",
-    "Tadika Cemerlang Bestari",
-    "Sekolah Kebangsaan Seri Damai",
-    "Program Pendidikan Khas Integrasi",
-    "Pusat Terapi Cahaya Kasih",
-    "Nama organisasi ditulis penuh seperti dalam rekod rasmi.",
-  ],
-  umur: [
-    "1 Tahun",
-    "2 Tahun",
-    "3 Tahun",
-    "4 Tahun",
-    "5 Tahun",
-    "6 Tahun",
-    "7 Tahun",
-    "8 Tahun",
-    "9 Tahun",
-    "10 Tahun",
-    "Umur hayat: 6 Tahun",
-    "Umur akal: 4 Tahun",
-    "Mengikut tahap perkembangan semasa",
-    "Mengikut keupayaan individu pelatih",
-  ],
-  "umur hayat": [
-    "Umur hayat: 1 Tahun",
-    "Umur hayat: 2 Tahun",
-    "Umur hayat: 3 Tahun",
-    "Umur hayat: 4 Tahun",
-    "Umur hayat: 5 Tahun",
-    "Umur hayat: 6 Tahun",
-    "Umur hayat mengikut tarikh lahir sebenar.",
-    "Umur hayat diisi berdasarkan rekod pelatih.",
-  ],
-  "umur akal": [
-    "Umur akal: 1 Tahun",
-    "Umur akal: 2 Tahun",
-    "Umur akal: 3 Tahun",
-    "Umur akal: 4 Tahun",
-    "Umur akal: 5 Tahun",
-    "Umur akal mengikut tahap kefungsian semasa.",
-    "Umur akal diisi berdasarkan pemerhatian dan penilaian guru.",
-    "Umur akal boleh lebih rendah daripada umur hayat mengikut keupayaan pelatih.",
-  ],
-  "nama pelatih": [
-    "Ali bin Ahmad",
-    "Nur Aisyah binti Rahman",
-    "Muhammad Danish bin Azman",
-    "Siti Nur Balqis binti Salleh",
-    "Ahmad Irfan bin Zulkifli",
-    "Nama pelatih diisi mengikut rekod kehadiran.",
-    "Nama murid ditulis penuh seperti dalam dokumen rasmi.",
-  ],
-  "nama petugas": [
-    "Cikgu Aina",
-    "Puan Siti Aminah",
-    "Encik Hafiz",
-    "Guru bertugas",
-    "Petugas PPDK",
-    "Pendidik kelas",
-    "Terapis bertanggungjawab",
-    "Penyelaras program",
-  ],
-  tarikh: [
-    "17 Mei 2026",
-    "18 Mei 2026",
-    "19 Mei 2026",
-    "20 Mei 2026",
-    "Tarikh pelaksanaan aktiviti",
-    "Tarikh mengikut jadual harian",
-    "Tarikh sebenar aktiviti dijalankan",
-  ],
-  masa: [
-    "8.00 pagi - 9.00 pagi",
-    "9.00 pagi - 10.00 pagi",
-    "9.30 pagi - 10.30 pagi",
-    "10.00 pagi - 11.00 pagi",
-    "11.00 pagi - 12.00 tengah hari",
-    "30 minit",
-    "45 minit",
-    "1 jam",
-  ],
-  tempat: [
-    "Bilik Aktiviti",
-    "Ruang Pembelajaran",
-    "Dewan Serbaguna",
-    "Bilik Darjah",
-    "Sudut Terapi",
-    "Ruang Sensori",
-    "Kawasan luar kelas",
-    "Pusat aktiviti harian",
-  ],
-  "tajuk aktiviti": [
-    "Mengenal Warna Asas",
-    "Mengenal Nombor 1 Hingga 5",
-    "Latihan Motor Halus",
-    "Memadankan Bentuk dan Warna",
-    "Mengenal Anggota Badan",
-    "Aktiviti Menggunting dan Menampal",
-    "Latihan Mengikut Arahan Mudah",
-    "Aktiviti Pengurusan Diri",
-    "Permainan Sosial Secara Berkumpulan",
-    "Latihan Koordinasi Mata dan Tangan",
-  ],
-  bidang: [
-    "Kognitif",
-    "Bahasa dan Komunikasi",
-    "Motor Halus",
-    "Motor Kasar",
-    "Sosioemosi",
-    "Pengurusan Diri",
-    "Sensori",
-    "Pra Akademik",
-    "Kemahiran Sosial",
-    "Kemahiran Hidup",
-    "Fokus: mengenal warna asas",
-    "Fokus: mengikut arahan mudah",
-    "Fokus: koordinasi mata dan tangan",
-    "Fokus: komunikasi dua hala",
-  ],
-  objektif: [
-    "Pelatih dapat mengenal warna asas dengan bimbingan.",
-    "Pelatih dapat mengikuti arahan mudah semasa aktiviti dijalankan.",
-    "Pelatih dapat menyelesaikan tugasan mengikut tahap keupayaan.",
-    "Pelatih dapat memadankan objek mengikut warna dengan bimbingan guru.",
-    "Pelatih dapat menyebut sekurang-kurangnya dua warna asas dengan bantuan.",
-    "Pelatih dapat memberi respons terhadap arahan mudah secara lisan atau bukan lisan.",
-    "Pelatih dapat menggunakan bahan aktiviti dengan cara yang betul dan selamat.",
-    "Pelatih dapat mengekalkan perhatian semasa aktiviti dalam tempoh yang sesuai.",
-    "Pelatih dapat menunjukkan penglibatan aktif semasa aktiviti kumpulan.",
-    "Pelatih dapat meningkatkan koordinasi mata dan tangan melalui aktiviti yang dijalankan.",
-    "Pelatih dapat melengkapkan tugasan dengan sokongan minimum daripada guru.",
-    "Pelatih dapat mengenal konsep asas melalui bahan maujud dan aktiviti berstruktur.",
-  ],
-  bahan: [
-    "Kad imbasan",
-    "Pensel warna",
-    "Lembaran kerja",
-    "Objek maujud",
-    "Gambar berwarna",
-    "Bongkah warna",
-    "Gam dan kertas warna",
-    "Gunting keselamatan",
-    "Papan putih kecil",
-    "Marker",
-    "Bakul aktiviti",
-    "Kad arahan bergambar",
-    "Bahan sensori yang sesuai",
-    "Alat bantu mengajar mengikut tahap pelatih",
-  ],
-  langkah: [
-    "Guru memperkenalkan bahan aktiviti kepada pelatih.",
-    "Pelatih menjalankan aktiviti dengan bimbingan secara berperingkat.",
-    "Guru membuat pemerhatian dan memberi pengukuhan positif.",
-    "Guru menerangkan tujuan aktiviti menggunakan arahan yang ringkas dan jelas.",
-    "Guru menunjukkan contoh perlaksanaan aktiviti sebelum pelatih mencuba.",
-    "Pelatih diminta memilih bahan yang sesuai mengikut arahan guru.",
-    "Pelatih menjalankan tugasan secara individu atau berkumpulan mengikut tahap keupayaan.",
-    "Guru memberi bantuan fizikal, lisan atau visual apabila diperlukan.",
-    "Pelatih diberi masa mencukupi untuk menyelesaikan aktiviti.",
-    "Guru menilai respons pelatih berdasarkan pemerhatian semasa aktiviti.",
-    "Guru memberi pujian dan pengukuhan selepas pelatih menyelesaikan tugasan.",
-    "Aktiviti ditutup dengan rumusan ringkas dan kemas semula bahan.",
-  ],
-  pemerhatian: [
-    "Pelatih menunjukkan minat dan memberi respons positif.",
-    "Pelatih memerlukan bimbingan semasa menjalankan aktiviti.",
-    "Pelatih dapat menyelesaikan tugasan dengan sokongan minimum.",
-    "Pelatih memberi tumpuan pada permulaan aktiviti tetapi memerlukan galakan berterusan.",
-    "Pelatih dapat mengikuti arahan mudah selepas contoh diberikan oleh guru.",
-    "Pelatih menunjukkan peningkatan dalam penggunaan bahan aktiviti.",
-    "Pelatih masih memerlukan bantuan untuk mengekalkan fokus dalam tempoh yang lebih lama.",
-    "Pelatih dapat berinteraksi dengan guru semasa aktiviti berlangsung.",
-    "Pelatih menunjukkan respons bukan lisan seperti menunjuk, memilih atau mengangguk.",
-    "Pelatih berjaya menyelesaikan sebahagian tugasan mengikut tahap keupayaan.",
-    "Pelatih memerlukan pengulangan arahan sebelum dapat melaksanakan tugasan.",
-    "Pelatih menunjukkan keyakinan apabila diberi pujian dan sokongan.",
-  ],
-  refleksi: [
-    "Aktiviti berjalan dengan baik dan objektif dapat dicapai.",
-    "Aktiviti perlu diteruskan dengan latihan berulang.",
-    "Bahan aktiviti boleh dipelbagaikan untuk meningkatkan penglibatan pelatih.",
-    "Aktiviti sesuai diteruskan kerana pelatih menunjukkan respons yang positif.",
-    "Masa pelaksanaan boleh dipendekkan supaya pelatih lebih fokus.",
-    "Arahan perlu diberikan secara lebih ringkas dan berulang untuk membantu kefahaman pelatih.",
-    "Bahan visual perlu ditambah bagi meningkatkan minat dan penglibatan pelatih.",
-    "Pelatih memerlukan bimbingan individu untuk mengukuhkan kemahiran yang dipelajari.",
-    "Aktiviti boleh diubah suai mengikut tahap keupayaan dan minat pelatih.",
-    "Objektif boleh dicapai secara berperingkat melalui latihan yang konsisten.",
-    "Guru perlu menyediakan bahan yang lebih mudah dikendalikan oleh pelatih.",
-    "Pengukuhan positif membantu meningkatkan keyakinan pelatih semasa aktiviti.",
-  ],
-  kolum: [
-    "Isi maklumat ringkas dan tepat.",
-    "Gunakan bahasa rasmi.",
-    "Pastikan ejaan dan tanda baca kemas.",
-    "Tulis jawapan berdasarkan pemerhatian sebenar.",
-    "Elakkan ayat terlalu panjang dalam satu ruang.",
-    "Gunakan istilah pelatih, murid, guru, petugas atau aktiviti mengikut kesesuaian.",
-    "Pastikan maklumat selaras dengan tajuk aktiviti.",
-    "Gunakan ayat yang mudah difahami dan profesional.",
-  ],
-};
 
 function cleanText(value: string) {
   return value.replace(/\s+/g, " ").replace(/[:：]+$/g, "").trim();
