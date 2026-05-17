@@ -2,7 +2,7 @@
 
 import {
   ChangeEvent,
-  useCallback,
+  KeyboardEvent,
   useEffect,
   useMemo,
   useRef,
@@ -11,28 +11,10 @@ import {
 
 const storageKey = "ly-docs-progress";
 
-type InsightTone = "warning" | "good" | "info";
-
-type AiInsight = {
-  title: string;
-  detail: string;
-  suggestion: string;
-  tone: InsightTone;
-};
-
-type AssistantAction = {
-  label: string;
+type ChatMessage = {
+  role: "user" | "assistant";
   text: string;
 };
-
-const actionLabels = [
-  "Sambung ayat",
-  "Baiki typo",
-  "Variasi",
-  "Profesional",
-  "Auto lengkap",
-  "Tulis semula",
-];
 
 const commonTypos: Record<string, string> = {
   aktibiti: "aktiviti",
@@ -40,63 +22,31 @@ const commonTypos: Record<string, string> = {
   pemerehatian: "pemerhatian",
   perlaksaan: "pelaksanaan",
   perlaksanaan: "pelaksanaan",
-  pelatih2: "pelatih-pelatih",
-  murid2: "murid-murid",
-  kanak2: "kanak-kanak",
   dgn: "dengan",
   yg: "yang",
   utk: "untuk",
+  dlm: "dalam",
 };
-
-const professionalPhrases = [
-  "Pelatih dapat melaksanakan aktiviti dengan bimbingan secara berperingkat.",
-  "Pemerhatian menunjukkan pelatih memberi respons yang sesuai terhadap arahan yang diberikan.",
-  "Aktiviti dijalankan mengikut tahap keupayaan pelatih serta disesuaikan dengan keperluan semasa.",
-  "Refleksi menunjukkan aktiviti ini boleh diteruskan dengan penambahbaikan pada bahan dan tempoh pelaksanaan.",
-  "Objektif aktiviti adalah jelas, boleh diperhatikan, dan sesuai dengan tahap perkembangan pelatih.",
-];
 
 export default function Home() {
   const [fileName, setFileName] = useState("");
   const [filePreviewUrl, setFilePreviewUrl] = useState("");
   const [fileType, setFileType] = useState("");
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-  const [documentText, setDocumentText] = useState("");
-  const [assistantInsert, setAssistantInsert] =
-    useState<((text: string) => void) | null>(null);
 
   useEffect(() => {
     window.localStorage.removeItem(storageKey);
   }, []);
 
-  const analysis = useMemo(() => analyseDocument(documentText), [documentText]);
-  const registerAssistantInsert = useCallback(
-    (handler: ((text: string) => void) | null) => {
-      setAssistantInsert(handler ? () => handler : null);
-    },
-    [],
-  );
-
   function handleUpload(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     setFileName(file?.name || "");
-    setDocumentText("");
-    setAssistantInsert(null);
     setFilePreviewUrl((currentUrl) => {
       if (currentUrl) URL.revokeObjectURL(currentUrl);
       return file ? URL.createObjectURL(file) : "";
     });
     setFileType(file?.name.split(".").pop()?.toUpperCase() || "");
     setUploadedFile(file || null);
-  }
-
-  function handleAssistantAction(text: string) {
-    if (assistantInsert) {
-      assistantInsert(text);
-      return;
-    }
-
-    navigator.clipboard?.writeText(text).catch(() => undefined);
   }
 
   const hasDocument = Boolean(fileName);
@@ -163,19 +113,11 @@ export default function Home() {
                   fileName={fileName}
                   filePreviewUrl={filePreviewUrl}
                   fileType={fileType}
-                  onDocumentTextChange={setDocumentText}
-                  onRegisterInsert={registerAssistantInsert}
                 />
               </div>
             </section>
 
-            <AiAssistantPanel
-              actions={analysis.actions}
-              documentText={documentText}
-              insights={analysis.insights}
-              onAction={handleAssistantAction}
-              summary={analysis.summary}
-            />
+            <ChatAssistantPanel />
           </div>
         )}
       </section>
@@ -198,7 +140,7 @@ function UploadBox({
       </span>
       <span className="mt-3 max-w-md text-sm leading-6 text-[#aeb7c8]">
         Masukkan fail RPA atau format kerja. Selepas upload, dokumen muncul
-        sebagai kertas sebenar di sebelah kiri dan AI membantu di sebelah kanan.
+        sebagai kertas sebenar di sebelah kiri dan chat AI berada di sebelah kanan.
       </span>
       <input
         accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
@@ -215,15 +157,11 @@ function FilePreview({
   fileName,
   filePreviewUrl,
   fileType,
-  onDocumentTextChange,
-  onRegisterInsert,
 }: {
   file: File | null;
   fileName: string;
   filePreviewUrl: string;
   fileType: string;
-  onDocumentTextChange: (text: string) => void;
-  onRegisterInsert: (handler: ((text: string) => void) | null) => void;
 }) {
   const type = fileType.toLowerCase();
   const isImage = ["jpg", "jpeg", "png"].includes(type);
@@ -250,13 +188,7 @@ function FilePreview({
         />
       ) : null}
 
-      {isDocx ? (
-        <DocxPreview
-          file={file}
-          onDocumentTextChange={onDocumentTextChange}
-          onRegisterInsert={onRegisterInsert}
-        />
-      ) : null}
+      {isDocx ? <DocxPreview file={file} /> : null}
 
       {!isImage && !isPdf && !isDocx ? (
         <div className="grid min-h-[44rem] place-items-center p-6 text-center">
@@ -273,15 +205,7 @@ function FilePreview({
   );
 }
 
-function DocxPreview({
-  file,
-  onDocumentTextChange,
-  onRegisterInsert,
-}: {
-  file: File | null;
-  onDocumentTextChange: (text: string) => void;
-  onRegisterInsert: (handler: ((text: string) => void) | null) => void;
-}) {
+function DocxPreview({ file }: { file: File | null }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState("");
 
@@ -292,8 +216,6 @@ function DocxPreview({
     let cancelled = false;
     container.innerHTML = "";
     setError("");
-
-    const updateText = () => onDocumentTextChange(container.innerText || "");
 
     import("docx-preview")
       .then(({ renderAsync }) =>
@@ -315,20 +237,6 @@ function DocxPreview({
 
         container.contentEditable = "true";
         container.setAttribute("spellcheck", "true");
-        updateText();
-        onRegisterInsert((text: string) => {
-          container.focus();
-          const selection = window.getSelection();
-          if (!selection || selection.rangeCount === 0) {
-            const range = document.createRange();
-            range.selectNodeContents(container);
-            range.collapse(false);
-            selection?.removeAllRanges();
-            selection?.addRange(range);
-          }
-          document.execCommand("insertText", false, text);
-          updateText();
-        });
       })
       .catch(() => {
         if (!cancelled) {
@@ -336,20 +244,12 @@ function DocxPreview({
         }
       });
 
-    container.addEventListener("input", updateText);
-    container.addEventListener("keyup", updateText);
-    container.addEventListener("mouseup", updateText);
-
     return () => {
       cancelled = true;
-      container.removeEventListener("input", updateText);
-      container.removeEventListener("keyup", updateText);
-      container.removeEventListener("mouseup", updateText);
       container.contentEditable = "false";
       container.innerHTML = "";
-      onRegisterInsert(null);
     };
-  }, [file, onDocumentTextChange, onRegisterInsert]);
+  }, [file]);
 
   if (!file) {
     return (
@@ -372,312 +272,157 @@ function DocxPreview({
   );
 }
 
-function AiAssistantPanel({
-  actions,
-  documentText,
-  insights,
-  onAction,
-  summary,
-}: {
-  actions: AssistantAction[];
-  documentText: string;
-  insights: AiInsight[];
-  onAction: (text: string) => void;
-  summary: string;
-}) {
-  const wordCount = documentText.trim().split(/\s+/).filter(Boolean).length;
+function ChatAssistantPanel() {
+  const [input, setInput] = useState("");
+  const [messages, setMessages] = useState<ChatMessage[]>([
+    {
+      role: "assistant",
+      text: "Taip ayat yang mahu disemak di sini. Saya hanya semak teks dalam chat ini, bukan format dokumen.",
+    },
+  ]);
+
+  const liveCheck = useMemo(() => checkTypedText(input), [input]);
+
+  function sendMessage() {
+    const trimmed = input.trim();
+    if (!trimmed) return;
+
+    setMessages((current) => [
+      ...current,
+      { role: "user", text: trimmed },
+      { role: "assistant", text: buildChatReply(trimmed) },
+    ]);
+    setInput("");
+  }
+
+  function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      sendMessage();
+    }
+  }
 
   return (
     <aside className="lg:sticky lg:top-5 lg:self-start">
-      <div className="rounded-[1.75rem] border border-white/10 bg-[#0b0d13]/80 p-4 shadow-[0_28px_120px_rgba(0,0,0,0.36)] backdrop-blur-2xl sm:p-5">
+      <div className="flex max-h-[calc(100vh-2.5rem)] min-h-[44rem] flex-col rounded-[1.75rem] border border-white/10 bg-[#0b0d13]/80 p-4 shadow-[0_28px_120px_rgba(0,0,0,0.36)] backdrop-blur-2xl sm:p-5">
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#8f9ab0]">
-              AI Assistant
+              AI Chat
             </p>
             <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-white">
-              Semakan realtime
+              Semak ayat
             </h2>
           </div>
           <span className="scan-dot mt-2 h-3 w-3 rounded-full bg-[#d7e3ff]" />
         </div>
 
-        <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.055] p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#7f8aa0]">
-            Konteks dokumen
-          </p>
-          <p className="mt-3 text-sm leading-6 text-[#d8deea]">{summary}</p>
-          <div className="mt-4 grid grid-cols-2 gap-2">
-            <Metric label="Perkataan" value={wordCount.toString()} />
-            <Metric label="Isu dikesan" value={insights.length.toString()} />
-          </div>
-        </div>
-
-        <div className="mt-5 space-y-3">
-          {insights.map((insight) => (
-            <InsightCard insight={insight} key={`${insight.title}-${insight.detail}`} />
+        <div className="mt-5 flex-1 space-y-3 overflow-auto pr-1">
+          {messages.map((message, index) => (
+            <div
+              className={`rounded-2xl px-4 py-3 text-sm leading-6 ${
+                message.role === "user"
+                  ? "ml-8 bg-[#d7e3ff] text-[#050507]"
+                  : "mr-8 border border-white/10 bg-white/[0.06] text-[#e5ebf7]"
+              }`}
+              key={`${message.role}-${index}`}
+            >
+              {message.text}
+            </div>
           ))}
         </div>
 
-        <div className="mt-5 rounded-2xl border border-[#b9caff]/15 bg-[#7da1ff]/[0.07] p-4">
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#b9caff]">
-            Cadangan automatik
+        <div className="mt-4 rounded-2xl border border-white/10 bg-black/25 p-3">
+          <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-[#8f9ab0]">
+            Semakan semasa
           </p>
-          <p className="mt-3 text-sm leading-6 text-[#edf2ff]">
-            {actions[0]?.text || professionalPhrases[0]}
-          </p>
+          <p className="text-sm leading-6 text-[#d8deea]">{liveCheck}</p>
         </div>
 
-        <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
-          {actionLabels.map((label, index) => (
+        <div className="mt-4">
+          <textarea
+            className="input-field min-h-32 resize-none"
+            onChange={(event) => setInput(event.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Taip ayat yang mahu disemak..."
+            value={input}
+          />
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <button className="btn-primary min-h-11 px-4 py-2" onClick={sendMessage} type="button">
+              Hantar
+            </button>
             <button
-              className="mini-button text-left"
-              key={label}
-              onClick={() => onAction(actions[index]?.text || professionalPhrases[index % professionalPhrases.length])}
+              className="btn-quiet min-h-11 px-4 py-2"
+              onClick={() => setInput("")}
               type="button"
             >
-              {label}
+              Kosongkan
             </button>
-          ))}
+          </div>
         </div>
       </div>
     </aside>
   );
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2">
-      <p className="text-lg font-semibold text-white">{value}</p>
-      <p className="text-[0.65rem] font-bold uppercase tracking-[0.16em] text-[#7f8aa0]">
-        {label}
-      </p>
-    </div>
-  );
-}
-
-function InsightCard({ insight }: { insight: AiInsight }) {
-  const toneClass =
-    insight.tone === "warning"
-      ? "border-amber-300/20 bg-amber-300/[0.07] text-amber-100"
-      : insight.tone === "good"
-        ? "border-emerald-300/20 bg-emerald-300/[0.07] text-emerald-100"
-        : "border-[#b9caff]/20 bg-[#7da1ff]/[0.07] text-[#e8efff]";
-
-  return (
-    <article className={`rounded-2xl border p-4 ${toneClass}`}>
-      <p className="text-sm font-semibold">{insight.title}</p>
-      <p className="mt-2 text-sm leading-6 opacity-[0.82]">{insight.detail}</p>
-      <p className="mt-3 rounded-xl bg-black/18 p-3 text-sm leading-6 text-white/90">
-        {insight.suggestion}
-      </p>
-    </article>
-  );
-}
-
-function analyseDocument(text: string): {
-  actions: AssistantAction[];
-  insights: AiInsight[];
-  summary: string;
-} {
-  const cleaned = text.replace(/\s+/g, " ").trim();
-  const lower = cleaned.toLowerCase();
-  const insights: AiInsight[] = [];
-  const detectedTheme = detectTheme(lower);
-  const detectedAge = detectAge(lower);
-  const detectedField = detectField(lower);
-
-  if (!cleaned) {
-    return {
-      actions: professionalPhrases.map((phrase, index) => ({
-        label: actionLabels[index] || "Cadangan",
-        text: phrase,
-      })),
-      insights: [
-        {
-          title: "Dokumen belum dibaca",
-          detail: "Upload atau klik pada dokumen untuk mula edit.",
-          suggestion: "AI akan semak ejaan, objektif, ruangan kosong dan kesesuaian ayat selepas teks tersedia.",
-          tone: "info",
-        },
-      ],
-      summary: "Menunggu dokumen aktif.",
-    };
+function checkTypedText(text: string) {
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return "Belum ada teks untuk disemak.";
   }
 
-  const typoHits = Object.keys(commonTypos).filter((typo) =>
-    new RegExp(`\\b${typo}\\b`, "i").test(cleaned),
-  );
-  if (typoHits.length > 0) {
-    insights.push({
-      title: "Typo dikesan",
-      detail: `Perkataan seperti "${typoHits[0]}" mungkin perlu dibetulkan.`,
-      suggestion: `Guna "${commonTypos[typoHits[0]]}" supaya dokumen kelihatan lebih kemas dan rasmi.`,
-      tone: "warning",
-    });
-  }
-
-  if (/(dan|serta|untuk|dengan|kepada|supaya)$/i.test(cleaned)) {
-    insights.push({
-      title: "Ayat tergantung",
-      detail: "Ayat terakhir kelihatan belum lengkap.",
-      suggestion: "Lengkapkan ayat dengan hasil yang boleh diperhatikan atau tindakan susulan yang jelas.",
-      tone: "warning",
-    });
-  }
-
-  if (/(objektif|matlamat)/i.test(cleaned) && !/(dapat|boleh|mampu|berupaya)/i.test(cleaned)) {
-    insights.push({
-      title: "Objektif terlalu umum",
-      detail: "Objektif lebih kuat jika ada kata kerja yang boleh diukur.",
-      suggestion: buildObjectiveSuggestion(detectedTheme, detectedAge),
-      tone: "warning",
-    });
-  }
-
-  if (/(okay|ok|best|budak|benda)/i.test(cleaned)) {
-    insights.push({
-      title: "Bahasa kurang profesional",
-      detail: "Ada perkataan santai yang kurang sesuai untuk dokumen rasmi.",
-      suggestion: "Gunakan istilah seperti pelatih, murid, aktiviti, pemerhatian, pelaksanaan dan penilaian.",
-      tone: "warning",
-    });
-  }
-
-  if (/_{3,}|\.{4,}|:\s*(\n|$)/.test(text)) {
-    insights.push({
-      title: "Ruangan kosong dikesan",
-      detail: "Ada bahagian yang masih kosong atau belum lengkap.",
-      suggestion: "Isi bahagian tersebut dengan maklumat ringkas, tepat dan berkaitan aktiviti.",
-      tone: "info",
-    });
-  }
-
-  const repeated = findRepeatedSentence(cleaned);
-  if (repeated) {
-    insights.push({
-      title: "Pengulangan ayat",
-      detail: "Ayat yang sama kelihatan berulang dalam dokumen.",
-      suggestion: "Gabungkan isi yang sama atau tulis semula dengan fokus pemerhatian yang berbeza.",
-      tone: "warning",
-    });
-  }
-
-  if (detectedAge && detectedAge <= 6 && /(karangan|esei|perenggan panjang|analisis)/i.test(cleaned)) {
-    insights.push({
-      title: "Objektif mungkin terlalu tinggi",
-      detail: "Aktiviti kelihatan tidak sepadan dengan umur yang rendah.",
-      suggestion: "Gunakan objektif seperti mengecam, menyebut, memadankan, memilih atau meniru dengan bimbingan.",
-      tone: "warning",
-    });
-  }
-
-  if (insights.length === 0) {
-    insights.push({
-      title: "Dokumen kelihatan stabil",
-      detail: "Tiada isu besar dikesan ketika ini.",
-      suggestion: "Teruskan isi bahagian objektif, pemerhatian dan refleksi dengan ayat yang jelas dan boleh dinilai.",
-      tone: "good",
-    });
-  }
-
-  const baseSuggestion = buildContextSuggestion(detectedTheme, detectedAge, detectedField);
-  const actions = [
-    baseSuggestion,
-    fixTypoSuggestion(cleaned),
-    buildVariationSuggestion(detectedTheme),
-    buildProfessionalSuggestion(detectedTheme),
-    buildAutoCompleteSuggestion(detectedTheme, detectedAge),
-    buildRewriteSuggestion(detectedTheme, detectedField),
-  ].map((actionText, index) => ({
-    label: actionLabels[index],
-    text: actionText,
-  }));
-
-  return {
-    actions,
-    insights: insights.slice(0, 5),
-    summary: buildSummary(detectedTheme, detectedAge, detectedField),
-  };
-}
-
-function detectTheme(text: string) {
-  if (/warna|merah|biru|kuning|hijau/.test(text)) return "warna asas";
-  if (/nombor|mengira|bilangan|angka/.test(text)) return "nombor dan bilangan";
-  if (/motor|sensori|koordinasi|pergerakan/.test(text)) return "motor dan sensori";
-  if (/bahasa|komunikasi|sebut|perkataan/.test(text)) return "bahasa dan komunikasi";
-  if (/sosial|emosi|kerjasama|giliran/.test(text)) return "sosial dan emosi";
-  return "aktiviti pembelajaran";
-}
-
-function detectField(text: string) {
-  if (/objektif|matlamat/.test(text)) return "objektif";
-  if (/pemerhatian/.test(text)) return "pemerhatian";
-  if (/refleksi|rumusan/.test(text)) return "refleksi";
-  if (/bahan|alat/.test(text)) return "bahan";
-  if (/langkah|pelaksanaan/.test(text)) return "langkah pelaksanaan";
-  return "isi dokumen";
-}
-
-function detectAge(text: string) {
-  const match = text.match(/(?:umur|usia|hayat|akal)\D{0,12}(\d{1,2})/i);
-  return match ? Number(match[1]) : null;
-}
-
-function buildSummary(theme: string, age: number | null, field: string) {
-  const ageText = age ? `, anggaran umur ${age} tahun` : "";
-  return `AI sedang membaca konteks ${field}, tema ${theme}${ageText}. Cadangan dikemas kini setiap kali dokumen berubah.`;
-}
-
-function buildObjectiveSuggestion(theme: string, age: number | null) {
-  const support = age && age <= 6 ? "dengan bimbingan" : "secara berperingkat";
-  return `Pelatih dapat mengenal ${theme} ${support} melalui aktiviti yang dijalankan.`;
-}
-
-function buildContextSuggestion(theme: string, age: number | null, field: string) {
-  if (field === "pemerhatian") {
-    return `Pelatih menunjukkan minat terhadap aktiviti ${theme} dan memberi respons yang positif apabila diberi arahan.`;
-  }
-  if (field === "refleksi") {
-    return `Aktiviti ${theme} berjalan dengan baik dan boleh ditambah baik melalui bimbingan individu serta pengukuhan berulang.`;
-  }
-  return buildObjectiveSuggestion(theme, age);
-}
-
-function fixTypoSuggestion(text: string) {
   const typo = Object.keys(commonTypos).find((item) =>
-    new RegExp(`\\b${item}\\b`, "i").test(text),
+    new RegExp(`\\b${item}\\b`, "i").test(trimmed),
   );
-  if (!typo) return "Semak semula ejaan, tanda baca dan penggunaan huruf besar pada nama, tempat serta tajuk aktiviti.";
-  return `Betulkan "${typo}" kepada "${commonTypos[typo]}" dan pastikan ayat dibaca semula sebelum disimpan.`;
+  if (typo) {
+    return `Ejaan "${typo}" mungkin perlu dibetulkan kepada "${commonTypos[typo]}".`;
+  }
+
+  if (/(dan|serta|untuk|dengan|kepada|supaya)$/i.test(trimmed)) {
+    return "Ayat ini nampak tergantung. Tambah sambungan yang menerangkan hasil, tindakan atau tujuan.";
+  }
+
+  if (trimmed.split(/\s+/).length < 6) {
+    return "Ayat masih terlalu pendek. Tambah siapa, aktiviti, tujuan dan hasil yang ingin dicapai.";
+  }
+
+  if (/(ok|okay|best|benda|budak)/i.test(trimmed)) {
+    return "Ada perkataan santai. Untuk dokumen rasmi, gunakan bahasa yang lebih kemas dan profesional.";
+  }
+
+  if (!/[.!?]$/.test(trimmed)) {
+    return "Ayat boleh ditutup dengan tanda noktah supaya kelihatan lengkap.";
+  }
+
+  return "Ayat ini sudah lebih kemas. Semak semula nama khas, tarikh dan istilah organisasi sebelum digunakan.";
 }
 
-function buildVariationSuggestion(theme: string) {
-  return `Murid diberi peluang mencuba aktiviti ${theme} secara berperingkat mengikut tahap keupayaan masing-masing.`;
+function buildChatReply(text: string) {
+  const fixed = fixCommonTypos(text).trim();
+  const closed = /[.!?]$/.test(fixed) ? fixed : `${fixed}.`;
+  const check = checkTypedText(text);
+
+  if (check.startsWith("Ayat ini sudah")) {
+    return `Ayat ini boleh digunakan. Versi kemas: ${closed}`;
+  }
+
+  if (/(objektif|matlamat)/i.test(text)) {
+    return `Cadangan ayat objektif: Pelatih dapat mengikuti aktiviti yang dirancang dengan bimbingan serta menunjukkan respons yang sesuai.`;
+  }
+
+  if (/(pemerhatian|respons|tingkah laku)/i.test(text)) {
+    return `Cadangan pemerhatian: Pelatih menunjukkan minat semasa aktiviti dijalankan dan memberi respons positif terhadap arahan yang diberikan.`;
+  }
+
+  if (/(refleksi|rumusan|cadangan)/i.test(text)) {
+    return `Cadangan refleksi: Aktiviti berjalan dengan baik dan boleh ditambah baik melalui bimbingan berterusan serta penggunaan bahan yang lebih sesuai.`;
+  }
+
+  return `Semakan: ${check} Versi lebih kemas: ${closed}`;
 }
 
-function buildProfessionalSuggestion(theme: string) {
-  return `Pelaksanaan aktiviti ${theme} disusun secara terancang bagi menyokong perkembangan kemahiran dan penglibatan pelatih.`;
-}
-
-function buildAutoCompleteSuggestion(theme: string, age: number | null) {
-  const support = age && age <= 6 ? "dengan bantuan guru atau petugas" : "melalui latihan berulang";
-  return `Seterusnya, pelatih akan dibimbing untuk mengukuhkan kemahiran berkaitan ${theme} ${support}.`;
-}
-
-function buildRewriteSuggestion(theme: string, field: string) {
-  return `Bahagian ${field} boleh ditulis semula dengan lebih jelas supaya aktiviti ${theme} mempunyai tujuan, kaedah dan hasil pemerhatian yang seimbang.`;
-}
-
-function findRepeatedSentence(text: string) {
-  const sentences = text
-    .split(/[.!?]+/)
-    .map((sentence) => sentence.trim().toLowerCase())
-    .filter((sentence) => sentence.length > 24);
-  const seen = new Set<string>();
-  return sentences.find((sentence) => {
-    if (seen.has(sentence)) return true;
-    seen.add(sentence);
-    return false;
-  });
+function fixCommonTypos(text: string) {
+  return Object.entries(commonTypos).reduce((current, [wrong, right]) => {
+    return current.replace(new RegExp(`\\b${wrong}\\b`, "gi"), right);
+  }, text);
 }
