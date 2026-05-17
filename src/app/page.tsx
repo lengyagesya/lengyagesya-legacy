@@ -2,7 +2,6 @@
 
 import {
   ChangeEvent,
-  KeyboardEvent,
   useEffect,
   useMemo,
   useRef,
@@ -10,11 +9,6 @@ import {
 } from "react";
 
 const storageKey = "ly-docs-progress";
-
-type ChatMessage = {
-  role: "user" | "assistant";
-  text: string;
-};
 
 const commonTypos: Record<string, string> = {
   aktibiti: "aktiviti",
@@ -274,34 +268,9 @@ function DocxPreview({ file }: { file: File | null }) {
 
 function ChatAssistantPanel() {
   const [input, setInput] = useState("");
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      role: "assistant",
-      text: "Taip ayat yang mahu disemak di sini. Saya hanya semak teks dalam chat ini, bukan format dokumen.",
-    },
-  ]);
-
   const liveCheck = useMemo(() => checkTypedText(input), [input]);
   const liveSuggestion = useMemo(() => buildLiveSuggestion(input), [input]);
-
-  function sendMessage() {
-    const trimmed = input.trim();
-    if (!trimmed) return;
-
-    setMessages((current) => [
-      ...current,
-      { role: "user", text: trimmed },
-      { role: "assistant", text: buildChatReply(trimmed) },
-    ]);
-    setInput("");
-  }
-
-  function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
-    if (event.key === "Enter" && !event.shiftKey) {
-      event.preventDefault();
-      sendMessage();
-    }
-  }
+  const assistantLine = useMemo(() => buildAutoAssistantLine(input), [input]);
 
   return (
     <aside className="lg:sticky lg:top-5 lg:self-start">
@@ -319,18 +288,12 @@ function ChatAssistantPanel() {
         </div>
 
         <div className="mt-5 flex-1 space-y-3 overflow-auto pr-1">
-          {messages.map((message, index) => (
-            <div
-              className={`rounded-2xl px-4 py-3 text-sm leading-6 ${
-                message.role === "user"
-                  ? "ml-8 bg-[#d7e3ff] text-[#050507]"
-                  : "mr-8 border border-white/10 bg-white/[0.06] text-[#e5ebf7]"
-              }`}
-              key={`${message.role}-${index}`}
-            >
-              {message.text}
-            </div>
-          ))}
+          <div className="mr-8 rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm leading-6 text-[#e5ebf7]">
+            {assistantLine}
+          </div>
+          <div className="mr-8 rounded-2xl border border-[#b9caff]/15 bg-[#7da1ff]/[0.07] px-4 py-3 text-sm leading-6 text-[#edf2ff]">
+            {liveSuggestion}
+          </div>
         </div>
 
         <div className="mt-4 rounded-2xl border border-white/10 bg-black/25 p-3">
@@ -351,16 +314,12 @@ function ChatAssistantPanel() {
           <textarea
             className="input-field min-h-32 resize-none"
             onChange={(event) => setInput(event.target.value)}
-            onKeyDown={handleKeyDown}
             placeholder="Taip ayat yang mahu disemak..."
             value={input}
           />
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            <button className="btn-primary min-h-11 px-4 py-2" onClick={sendMessage} type="button">
-              Hantar
-            </button>
+          <div className="mt-3">
             <button
-              className="btn-quiet min-h-11 px-4 py-2"
+              className="btn-quiet min-h-11 w-full px-4 py-2"
               onClick={() => setInput("")}
               type="button"
             >
@@ -405,30 +364,6 @@ function checkTypedText(text: string) {
   return "Ayat ini sudah lebih kemas. Semak semula nama khas, tarikh dan istilah organisasi sebelum digunakan.";
 }
 
-function buildChatReply(text: string) {
-  const fixed = fixCommonTypos(text).trim();
-  const closed = /[.!?]$/.test(fixed) ? fixed : `${fixed}.`;
-  const check = checkTypedText(text);
-
-  if (check.startsWith("Ayat ini sudah")) {
-    return `Ayat ini boleh digunakan. Versi kemas: ${closed}`;
-  }
-
-  if (/(objektif|matlamat)/i.test(text)) {
-    return `Cadangan ayat objektif: Pelatih dapat mengikuti aktiviti yang dirancang dengan bimbingan serta menunjukkan respons yang sesuai.`;
-  }
-
-  if (/(pemerhatian|respons|tingkah laku)/i.test(text)) {
-    return `Cadangan pemerhatian: Pelatih menunjukkan minat semasa aktiviti dijalankan dan memberi respons positif terhadap arahan yang diberikan.`;
-  }
-
-  if (/(refleksi|rumusan|cadangan)/i.test(text)) {
-    return `Cadangan refleksi: Aktiviti berjalan dengan baik dan boleh ditambah baik melalui bimbingan berterusan serta penggunaan bahan yang lebih sesuai.`;
-  }
-
-  return `Semakan: ${check} Versi lebih kemas: ${closed}`;
-}
-
 function buildLiveSuggestion(text: string) {
   const trimmed = text.trim();
   if (!trimmed) {
@@ -460,7 +395,21 @@ function buildLiveSuggestion(text: string) {
     return `${trimmed}.`;
   }
 
-  return "Ayat sudah kelihatan kemas. Anda boleh hantar untuk dapatkan versi semakan penuh.";
+  return "Ayat sudah kelihatan kemas. Saya akan terus semak jika anda ubah teks.";
+}
+
+function buildAutoAssistantLine(text: string) {
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return "Saya akan bercakap secara automatik selepas anda mula menaip.";
+  }
+
+  const check = checkTypedText(trimmed);
+  if (check.startsWith("Ayat ini sudah")) {
+    return "Ayat ini sudah boleh digunakan. Saya akan terus semak jika anda ubah teks.";
+  }
+
+  return check;
 }
 
 function fixCommonTypos(text: string) {
