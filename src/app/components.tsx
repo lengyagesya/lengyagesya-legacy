@@ -58,12 +58,12 @@ function Nav() {
       </Link>
       <nav className="hidden items-center gap-2 text-sm text-[#b7becc] md:flex">
         <Link className="rounded-full px-3 py-2 hover:text-white" href="/dashboard">Dashboard</Link>
-        <Link className="rounded-full px-3 py-2 hover:text-white" href="/create">Create</Link>
+        <Link className="rounded-full px-3 py-2 hover:text-white" href="/create">Dokumen</Link>
         <Link className="rounded-full px-3 py-2 hover:text-white" href="/builder">Builder</Link>
       </nav>
       <div className="flex items-center gap-2">
         <Link className="button-secondary min-h-10 px-4 py-2" href="/login">Login</Link>
-        <Link className="button-primary min-h-10 px-4 py-2" href="/register">Start</Link>
+        <Link className="button-primary min-h-10 px-4 py-2" href="/register">Mula</Link>
       </div>
     </header>
   );
@@ -82,24 +82,44 @@ export function Reveal({ children, delay = 0 }: { children: React.ReactNode; del
 }
 
 export function Landing() {
+  const features = [
+    ["Template siap susun", "Pilih struktur awal yang kemas untuk surat, laporan, RPA, resume dan dokumen kerja."],
+    ["Drag & edit item", "Susun semula blok, ubah teks terus pada kertas, dan bina dokumen ikut cara kerja sendiri."],
+    ["Token AI hanya bila submit", "Edit manual dahulu. Token digunakan hanya apabila dokumen dihantar untuk bantuan AI."],
+    ["Export PDF", "Sediakan dokumen yang bersih untuk fasa export dan perkongsian profesional."],
+  ];
+
   return (
     <AppShell>
       <section className="grid min-h-[calc(100vh-7rem)] items-center gap-10 py-10 lg:grid-cols-[1.05fr_0.95fr]">
         <Reveal>
           <p className="mb-5 text-xs font-bold uppercase tracking-[0.34em] text-[#9db4ff]">
-            Smart document builder
+            lY Docs
           </p>
           <h1 className="max-w-4xl text-5xl font-semibold tracking-[-0.06em] sm:text-7xl lg:text-8xl">
-            Build clean documents on an editable A4 canvas.
+            Bina dokumen kemas tanpa mula dari kosong.
           </h1>
           <p className="mt-6 max-w-2xl text-lg leading-8 text-[#b8bfcc]">
-            lY Docs helps users select a document type, open a prepared canvas,
-            edit blocks directly, upload a logo, reorder sections, and prepare
-            work for AI assistance in the next phase.
+            Pilih jenis dokumen, susun item, isi maklumat, kemudian hantar ke AI
+            untuk hasil akhir.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
-            <Link className="button-primary" href="/create">Create Document</Link>
-            <Link className="button-secondary" href="/dashboard">Open Dashboard</Link>
+            <Link className="button-primary" href="/create">Mula Buat Dokumen</Link>
+            <Link className="button-secondary" href="/builder">Lihat Contoh</Link>
+          </div>
+          <div className="mt-10 grid gap-3 sm:grid-cols-2">
+            {features.map(([title, body], index) => (
+              <motion.div
+                animate={{ opacity: 1, y: 0 }}
+                className="surface rounded-[1.35rem] p-4"
+                initial={{ opacity: 0, y: 14 }}
+                key={title}
+                transition={{ delay: 0.12 + index * 0.05, duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+              >
+                <p className="font-semibold tracking-[-0.02em]">{title}</p>
+                <p className="mt-2 text-sm leading-6 text-[#aeb6c6]">{body}</p>
+              </motion.div>
+            ))}
           </div>
         </Reveal>
         <Reveal delay={0.12}>
@@ -108,15 +128,15 @@ export function Landing() {
               <div className="mb-8 flex items-center justify-between border-b border-black/10 pb-5">
                 <div>
                   <p className="text-xs uppercase tracking-[0.24em] text-black/45">lY Docs</p>
-                  <h2 className="mt-2 text-3xl font-semibold tracking-[-0.04em]">Document Builder</h2>
+                  <h2 className="mt-2 text-3xl font-semibold tracking-[-0.04em]">Dokumen Kerja</h2>
                 </div>
                 <div className="h-14 w-14 rounded-2xl border border-black/10 bg-black/5" />
               </div>
-              {["Header block", "Editable content", "Signature area"].map((item) => (
+              {["Template siap", "Blok boleh edit", "Sedia hantar ke AI"].map((item) => (
                 <div className="mb-4 rounded-xl border border-black/10 p-4" key={item}>
                   <p className="text-sm font-semibold">{item}</p>
                   <p className="mt-2 text-xs leading-5 text-black/55">
-                    Pre-arranged, draggable and ready for typing.
+                    Ruang dokumen disusun kemas untuk diisi, disemak dan disiapkan.
                   </p>
                 </div>
               ))}
@@ -136,21 +156,24 @@ export function AuthPage({ mode }: { mode: "login" | "register" }) {
         <Reveal>
           <div className="surface w-full max-w-md rounded-[2rem] p-6">
             <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#9db4ff]">
-              {isLogin ? "Welcome back" : "Create workspace"}
+              {isLogin ? "Masuk semula" : "Daftar akaun"}
             </p>
             <h1 className="mt-4 text-4xl font-semibold tracking-[-0.05em]">
-              {isLogin ? "Login to lY Docs" : "Register for lY Docs"}
+              {isLogin ? "Login lY Docs" : "Register lY Docs"}
             </h1>
+            <p className="mt-3 text-sm leading-6 text-[#aeb6c6]">
+              UI sahaja untuk fasa ini. Butang akan membawa anda terus ke dashboard.
+            </p>
             <div className="mt-6 space-y-3">
-              {!isLogin ? <input className="input" placeholder="Full name" /> : null}
-              <input className="input" placeholder="Email address" />
-              <input className="input" placeholder="Password" type="password" />
+              {!isLogin ? <input className="input" placeholder="Nama penuh" /> : null}
+              <input className="input" placeholder="Alamat emel" />
+              <input className="input" placeholder="Kata laluan" type="password" />
               <Link className="button-primary w-full" href="/dashboard">
-                {isLogin ? "Login" : "Create account"}
+                {isLogin ? "Login" : "Daftar"}
               </Link>
             </div>
             <p className="mt-5 text-sm text-[#aeb6c6]">
-              {isLogin ? "No account yet? " : "Already registered? "}
+              {isLogin ? "Belum ada akaun? " : "Sudah ada akaun? "}
               <Link className="text-white underline" href={isLogin ? "/register" : "/login"}>
                 {isLogin ? "Register" : "Login"}
               </Link>
@@ -164,29 +187,75 @@ export function AuthPage({ mode }: { mode: "login" | "register" }) {
 
 export function Dashboard() {
   const cards = [
-    ["Create new", "Start from a structured document template.", "/create"],
-    ["Continue draft", "Open your latest document builder canvas.", "/builder"],
-    ["Templates", "RPA, letters, reports, resume, memo and more.", "/create"],
+    ["Buat Dokumen Baru", "Pilih template dan buka canvas A4 yang boleh diedit.", "/create"],
+    ["Dokumen Saya", "Ruang simpanan dokumen akan tersedia dalam fasa seterusnya.", "/builder"],
+    ["Beli Token", "Tambah token AI apabila fungsi submit diaktifkan nanti.", "/dashboard"],
+    ["Template Popular", "RPA, surat rasmi, laporan, resume, memo dan proposal.", "/create"],
   ];
+  const recent = [
+    ["RPA Aktiviti Harian", "Draf terakhir", "Belum disimpan ke cloud"],
+    ["Surat Rasmi", "Contoh dokumen", "Template asas"],
+    ["Laporan Program", "Placeholder", "Akan aktif selepas database"],
+  ];
+
   return (
     <AppShell>
-      <Reveal>
-        <section className="py-8">
-          <h1 className="text-5xl font-semibold tracking-[-0.06em]">Dashboard</h1>
-          <p className="mt-4 max-w-2xl text-[#b8bfcc]">
-            Phase 1 is frontend-only. Use this workspace to choose templates and
-            open an editable document canvas.
-          </p>
-          <div className="mt-8 grid gap-4 md:grid-cols-3">
-            {cards.map(([title, body, href]) => (
-              <Link className="surface rounded-[1.5rem] p-5 transition hover:-translate-y-1" href={href} key={title}>
-                <p className="text-xl font-semibold">{title}</p>
+      <section className="py-8">
+        <Reveal>
+          <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.28em] text-[#9db4ff]">
+                lY Docs
+              </p>
+              <h1 className="mt-3 text-5xl font-semibold tracking-[-0.06em]">Dashboard</h1>
+              <p className="mt-4 max-w-2xl text-[#b8bfcc]">
+                Ruang kerja ringkas untuk mula bina dokumen, semak draf dan
+                urus token AI apabila fungsi AI diaktifkan.
+              </p>
+            </div>
+            <div className="surface inline-flex w-fit items-center rounded-full px-4 py-2 text-sm font-semibold">
+              🪙 25 Token
+            </div>
+          </div>
+        </Reveal>
+        <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {cards.map(([title, body, href], index) => (
+            <Reveal delay={index * 0.04} key={title}>
+              <Link
+                className="surface block min-h-40 rounded-[1.5rem] p-5 transition hover:-translate-y-1 hover:border-[#9db4ff]/50"
+                href={href}
+              >
+                <p className="text-xl font-semibold tracking-[-0.03em]">{title}</p>
                 <p className="mt-3 text-sm leading-6 text-[#aeb6c6]">{body}</p>
               </Link>
-            ))}
-          </div>
-        </section>
-      </Reveal>
+            </Reveal>
+          ))}
+        </div>
+        <Reveal delay={0.18}>
+          <section className="surface mt-8 rounded-[1.75rem] p-5">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <h2 className="text-2xl font-semibold tracking-[-0.04em]">Dokumen Terkini</h2>
+                <p className="mt-2 text-sm text-[#aeb6c6]">
+                  Placeholder untuk sejarah dokumen pengguna.
+                </p>
+              </div>
+              <Link className="button-secondary hidden sm:inline-flex" href="/create">
+                Baru
+              </Link>
+            </div>
+            <div className="mt-5 divide-y divide-white/10 overflow-hidden rounded-2xl border border-white/10">
+              {recent.map(([title, status, note]) => (
+                <div className="grid gap-2 bg-white/[0.035] p-4 sm:grid-cols-[1fr_auto_auto] sm:items-center" key={title}>
+                  <p className="font-medium">{title}</p>
+                  <p className="text-sm text-[#aeb6c6]">{status}</p>
+                  <p className="text-xs text-[#7f8899]">{note}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+        </Reveal>
+      </section>
     </AppShell>
   );
 }
