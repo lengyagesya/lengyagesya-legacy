@@ -1,5 +1,5 @@
 {
-  "name": "lengyagesya-legacy",
+  "name": "ly-docs",
   "version": "0.1.0",
   "private": true,
   "engines": {
@@ -12,8 +12,7 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "docx-preview": "^0.3.7",
-    "jszip": "^3.10.1",
+    "framer-motion": "^12.41.0",
     "next": "16.2.6",
     "react": "19.2.4",
     "react-dom": "19.2.4"

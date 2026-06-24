@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "lY Docs",
-  description: "Jana dokumen profesional dalam beberapa minit.",
+  title: "lY Docs | Smart Document Builder",
+  description: "A smart document builder with editable A4 canvases.",
 };
 
 export default function RootLayout({
