@@ -6,5 +6,5 @@ export default async function Page({
   searchParams: Promise<{ type?: string }>;
 }) {
   const params = await searchParams;
-  return <DocumentBuilder initialType={params.type || "formal-letter"} />;
+  return <DocumentBuilder initialType={params.type || ""} />;
 }

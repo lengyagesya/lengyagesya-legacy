@@ -7,15 +7,39 @@ import { ChangeEvent, createContext, useContext, useEffect, useState } from "rea
 type Language = "ms" | "en";
 type DocumentTypeId =
   | "rpa"
+  | "rph"
+  | "rpi"
   | "formal-letter"
   | "meeting-minutes"
   | "report"
+  | "activity-report"
+  | "program-report"
+  | "daily-report"
+  | "weekly-report"
+  | "monthly-report"
+  | "attendance-report"
+  | "progress-report"
+  | "observation-report"
+  | "reflection-report"
+  | "intervention-report"
+  | "visit-report"
+  | "assessment-report"
+  | "performance-report"
+  | "case-report"
+  | "incident-report"
   | "resume"
+  | "biodata"
   | "memo"
   | "assignment"
   | "form"
+  | "application-letter"
   | "proposal"
   | "working-paper"
+  | "lesson-plan"
+  | "therapy-session-plan"
+  | "daily-activity-plan"
+  | "weekly-activity-plan"
+  | "program-plan"
   | "school-document"
   | "ppdk"
   | "taska"
@@ -74,6 +98,16 @@ const copy = {
     uploadLogo: "Upload logo",
     submitLater: "Hantar ke AI nanti",
     logo: "Logo",
+    selectDocumentPlaceholder: "Pilih jenis dokumen",
+    paperReadyHint: "Pilih jenis dokumen di sebelah kiri untuk mula susun item.",
+    itemTools: "Tools item",
+    itemToolsBody: "Tambah item sendiri ke dalam kertas.",
+    itemTitle: "Nama item",
+    itemContent: "Isi item",
+    addToPaper: "Simpan ke kertas",
+    quickItems: "Item pantas",
+    emptyTitle: "Item Baru",
+    emptyContent: "Klik untuk edit kandungan item ini.",
   },
   en: {
     navDocuments: "Documents",
@@ -119,6 +153,16 @@ const copy = {
     uploadLogo: "Upload logo",
     submitLater: "Submit to AI later",
     logo: "Logo",
+    selectDocumentPlaceholder: "Select document type",
+    paperReadyHint: "Select a document type on the left to start arranging items.",
+    itemTools: "Item tools",
+    itemToolsBody: "Add your own item into the paper.",
+    itemTitle: "Item name",
+    itemContent: "Item content",
+    addToPaper: "Save to paper",
+    quickItems: "Quick items",
+    emptyTitle: "New Item",
+    emptyContent: "Click to edit this item content.",
   },
 } satisfies Record<Language, Record<string, string>>;
 
@@ -129,15 +173,39 @@ function useLanguage() {
 
 const documentTypes: DocumentTypeId[] = [
   "rpa",
+  "rph",
+  "rpi",
   "formal-letter",
   "meeting-minutes",
   "report",
+  "activity-report",
+  "program-report",
+  "daily-report",
+  "weekly-report",
+  "monthly-report",
+  "attendance-report",
+  "progress-report",
+  "observation-report",
+  "reflection-report",
+  "intervention-report",
+  "visit-report",
+  "assessment-report",
+  "performance-report",
+  "case-report",
+  "incident-report",
   "resume",
+  "biodata",
   "memo",
   "assignment",
   "form",
+  "application-letter",
   "proposal",
   "working-paper",
+  "lesson-plan",
+  "therapy-session-plan",
+  "daily-activity-plan",
+  "weekly-activity-plan",
+  "program-plan",
   "school-document",
   "ppdk",
   "taska",
@@ -147,15 +215,39 @@ const documentTypes: DocumentTypeId[] = [
 const documentTypeLabels: Record<Language, Record<DocumentTypeId, string>> = {
   ms: {
     rpa: "RPA",
+    rph: "RPH",
+    rpi: "RPI",
     "formal-letter": "Surat rasmi",
     "meeting-minutes": "Minit mesyuarat",
     report: "Laporan",
+    "activity-report": "Laporan aktiviti",
+    "program-report": "Laporan program",
+    "daily-report": "Laporan harian",
+    "weekly-report": "Laporan mingguan",
+    "monthly-report": "Laporan bulanan",
+    "attendance-report": "Laporan kehadiran",
+    "progress-report": "Laporan kemajuan",
+    "observation-report": "Laporan pemerhatian",
+    "reflection-report": "Laporan refleksi",
+    "intervention-report": "Laporan intervensi",
+    "visit-report": "Laporan lawatan",
+    "assessment-report": "Laporan penilaian",
+    "performance-report": "Laporan prestasi",
+    "case-report": "Laporan kes",
+    "incident-report": "Laporan insiden",
     resume: "Resume",
+    biodata: "Biodata",
     memo: "Memo",
     assignment: "Tugasan",
     form: "Borang",
+    "application-letter": "Surat permohonan",
     proposal: "Proposal",
     "working-paper": "Kertas kerja",
+    "lesson-plan": "Lesson plan",
+    "therapy-session-plan": "Pelan sesi terapi",
+    "daily-activity-plan": "Pelan aktiviti harian",
+    "weekly-activity-plan": "Pelan aktiviti mingguan",
+    "program-plan": "Rancangan program",
     "school-document": "Dokumen sekolah",
     ppdk: "PPDK",
     taska: "Taska",
@@ -163,15 +255,39 @@ const documentTypeLabels: Record<Language, Record<DocumentTypeId, string>> = {
   },
   en: {
     rpa: "RPA",
+    rph: "RPH",
+    rpi: "RPI",
     "formal-letter": "Formal letter",
     "meeting-minutes": "Meeting minutes",
     report: "Report",
+    "activity-report": "Activity report",
+    "program-report": "Program report",
+    "daily-report": "Daily report",
+    "weekly-report": "Weekly report",
+    "monthly-report": "Monthly report",
+    "attendance-report": "Attendance report",
+    "progress-report": "Progress report",
+    "observation-report": "Observation report",
+    "reflection-report": "Reflection report",
+    "intervention-report": "Intervention report",
+    "visit-report": "Visit report",
+    "assessment-report": "Assessment report",
+    "performance-report": "Performance report",
+    "case-report": "Case report",
+    "incident-report": "Incident report",
     resume: "Resume",
+    biodata: "Biodata",
     memo: "Memo",
     assignment: "Assignment",
     form: "Form",
+    "application-letter": "Application letter",
     proposal: "Proposal",
     "working-paper": "Working paper",
+    "lesson-plan": "Lesson plan",
+    "therapy-session-plan": "Therapy session plan",
+    "daily-activity-plan": "Daily activity plan",
+    "weekly-activity-plan": "Weekly activity plan",
+    "program-plan": "Program plan",
     "school-document": "School document",
     ppdk: "PPDK",
     taska: "Childcare document",
@@ -182,15 +298,39 @@ const documentTypeLabels: Record<Language, Record<DocumentTypeId, string>> = {
 const templates: Record<Language, Record<DocumentTypeId, string[]>> = {
   ms: {
     rpa: ["Tajuk Aktiviti", "Objektif", "Bahan / Alat", "Langkah Pelaksanaan", "Pemerhatian", "Refleksi"],
+    rph: ["Nama Sekolah", "Mata Pelajaran", "Tahun / Kelas", "Standard Kandungan", "Standard Pembelajaran", "Objektif Pembelajaran", "Aktiviti PdP", "Refleksi"],
+    rpi: ["Maklumat Murid / Klien", "Kategori / Keperluan", "Matlamat Jangka Panjang", "Objektif Jangka Pendek", "Strategi / Intervensi", "Penilaian", "Catatan"],
     "formal-letter": ["Rujukan", "Tarikh", "Penerima", "Perkara", "Isi Surat", "Penutup", "Tandatangan"],
     "meeting-minutes": ["Butiran Mesyuarat", "Kehadiran", "Agenda", "Perbincangan", "Keputusan", "Tindakan Susulan"],
     report: ["Tajuk Laporan", "Objektif", "Ringkasan Aktiviti", "Dapatan", "Rumusan", "Cadangan"],
+    "activity-report": ["Nama Aktiviti", "Tarikh", "Tempat", "Peserta", "Objektif", "Ringkasan Aktiviti", "Pemerhatian", "Rumusan"],
+    "program-report": ["Nama Program", "Penganjur", "Tarikh", "Tempat", "Objektif", "Perjalanan Program", "Pencapaian", "Cadangan"],
+    "daily-report": ["Tarikh", "Ringkasan Harian", "Aktiviti", "Isu", "Tindakan", "Catatan"],
+    "weekly-report": ["Minggu", "Ringkasan Mingguan", "Pencapaian", "Cabaran", "Tindakan Susulan"],
+    "monthly-report": ["Bulan", "Ringkasan Bulanan", "Statistik", "Pencapaian", "Cadangan"],
+    "attendance-report": ["Tempoh", "Jumlah Kehadiran", "Tidak Hadir", "Sebab", "Tindakan"],
+    "progress-report": ["Nama", "Tempoh", "Kemajuan", "Kekuatan", "Perlu Bimbingan", "Cadangan"],
+    "observation-report": ["Subjek Pemerhatian", "Tarikh", "Aspek Pemerhatian", "Dapatan", "Catatan"],
+    "reflection-report": ["Perkara", "Apa Berlaku", "Kekuatan", "Penambahbaikan", "Tindakan Seterusnya"],
+    "intervention-report": ["Nama Klien", "Isu", "Intervensi", "Tempoh", "Perkembangan", "Cadangan"],
+    "visit-report": ["Tempat Lawatan", "Tarikh", "Tujuan", "Dapatan Lawatan", "Tindakan Susulan"],
+    "assessment-report": ["Nama", "Aspek Penilaian", "Skor / Tahap", "Ulasan", "Cadangan"],
+    "performance-report": ["Nama", "Tempoh", "Prestasi", "Pencapaian", "Sasaran Baharu"],
+    "case-report": ["Maklumat Kes", "Latar Belakang", "Isu", "Tindakan", "Status"],
+    "incident-report": ["Tarikh Insiden", "Tempat", "Pihak Terlibat", "Butiran Insiden", "Tindakan"],
     resume: ["Nama & Tajuk", "Ringkasan Profil", "Pengalaman", "Pendidikan", "Kemahiran", "Rujukan"],
+    biodata: ["Nama Penuh", "Maklumat Peribadi", "Pendidikan", "Pengalaman", "Kemahiran", "Rujukan"],
     memo: ["Kepada", "Daripada", "Tarikh", "Perkara", "Isi Memo", "Tindakan"],
     assignment: ["Tajuk", "Arahan", "Isi Utama", "Rujukan", "Kesimpulan"],
     form: ["Nama", "Maklumat Peribadi", "Butiran", "Pengesahan", "Tandatangan"],
+    "application-letter": ["Tarikh", "Penerima", "Perkara", "Tujuan Permohonan", "Maklumat Sokongan", "Penutup", "Tandatangan"],
     proposal: ["Tajuk Proposal", "Latar Belakang", "Objektif", "Cadangan Pelaksanaan", "Kos", "Penutup"],
     "working-paper": ["Tajuk", "Tujuan", "Latar Belakang", "Objektif", "Pelaksanaan", "Anggaran Kos", "Penutup"],
+    "lesson-plan": ["Subject", "Class", "Topic", "Learning Objective", "Activities", "Teaching Aids", "Reflection"],
+    "therapy-session-plan": ["Nama Klien", "Fokus Terapi", "Objektif", "Aktiviti", "Alat Terapi", "Penilaian"],
+    "daily-activity-plan": ["Tarikh", "Aktiviti", "Objektif", "Bahan", "Langkah", "Catatan"],
+    "weekly-activity-plan": ["Minggu", "Tema", "Aktiviti Utama", "Objektif", "Keperluan", "Catatan"],
+    "program-plan": ["Nama Program", "Tujuan", "Objektif", "Sasaran", "Tentatif", "Keperluan", "Penutup"],
     "school-document": ["Nama Sekolah", "Tajuk", "Butiran", "Isi Kandungan", "Pengesahan"],
     ppdk: ["Nama PPDK", "Maklumat Pelatih", "Aktiviti", "Objektif", "Pemerhatian", "Refleksi"],
     taska: ["Nama Taska", "Nama Kanak-kanak", "Aktiviti", "Perkembangan", "Catatan"],
@@ -198,15 +338,39 @@ const templates: Record<Language, Record<DocumentTypeId, string[]>> = {
   },
   en: {
     rpa: ["Activity Title", "Objective", "Materials / Tools", "Implementation Steps", "Observation", "Reflection"],
+    rph: ["School Name", "Subject", "Year / Class", "Content Standard", "Learning Standard", "Learning Objective", "Teaching Activities", "Reflection"],
+    rpi: ["Student / Client Information", "Category / Needs", "Long-term Goal", "Short-term Objective", "Strategy / Intervention", "Assessment", "Notes"],
     "formal-letter": ["Reference", "Date", "Recipient", "Subject", "Letter Content", "Closing", "Signature"],
     "meeting-minutes": ["Meeting Details", "Attendance", "Agenda", "Discussion", "Decision", "Follow-up Action"],
     report: ["Report Title", "Objective", "Activity Summary", "Findings", "Summary", "Recommendation"],
+    "activity-report": ["Activity Name", "Date", "Venue", "Participants", "Objective", "Activity Summary", "Observation", "Conclusion"],
+    "program-report": ["Program Name", "Organizer", "Date", "Venue", "Objective", "Program Flow", "Achievement", "Recommendation"],
+    "daily-report": ["Date", "Daily Summary", "Activities", "Issues", "Action", "Notes"],
+    "weekly-report": ["Week", "Weekly Summary", "Achievement", "Challenges", "Follow-up Action"],
+    "monthly-report": ["Month", "Monthly Summary", "Statistics", "Achievement", "Recommendation"],
+    "attendance-report": ["Period", "Total Attendance", "Absence", "Reason", "Action"],
+    "progress-report": ["Name", "Period", "Progress", "Strengths", "Needs Support", "Recommendation"],
+    "observation-report": ["Observation Subject", "Date", "Observation Aspect", "Findings", "Notes"],
+    "reflection-report": ["Topic", "What Happened", "Strengths", "Improvement", "Next Action"],
+    "intervention-report": ["Client Name", "Issue", "Intervention", "Period", "Progress", "Recommendation"],
+    "visit-report": ["Visit Location", "Date", "Purpose", "Visit Findings", "Follow-up Action"],
+    "assessment-report": ["Name", "Assessment Aspect", "Score / Level", "Comment", "Recommendation"],
+    "performance-report": ["Name", "Period", "Performance", "Achievement", "New Target"],
+    "case-report": ["Case Information", "Background", "Issue", "Action", "Status"],
+    "incident-report": ["Incident Date", "Location", "People Involved", "Incident Details", "Action"],
     resume: ["Name & Title", "Profile Summary", "Experience", "Education", "Skills", "References"],
+    biodata: ["Full Name", "Personal Information", "Education", "Experience", "Skills", "References"],
     memo: ["To", "From", "Date", "Subject", "Memo Content", "Action"],
     assignment: ["Title", "Instruction", "Main Content", "References", "Conclusion"],
     form: ["Name", "Personal Information", "Details", "Confirmation", "Signature"],
+    "application-letter": ["Date", "Recipient", "Subject", "Application Purpose", "Supporting Information", "Closing", "Signature"],
     proposal: ["Proposal Title", "Background", "Objective", "Implementation Plan", "Cost", "Closing"],
     "working-paper": ["Title", "Purpose", "Background", "Objective", "Implementation", "Estimated Cost", "Closing"],
+    "lesson-plan": ["Subject", "Class", "Topic", "Learning Objective", "Activities", "Teaching Aids", "Reflection"],
+    "therapy-session-plan": ["Client Name", "Therapy Focus", "Objective", "Activity", "Therapy Tools", "Assessment"],
+    "daily-activity-plan": ["Date", "Activity", "Objective", "Materials", "Steps", "Notes"],
+    "weekly-activity-plan": ["Week", "Theme", "Main Activities", "Objective", "Requirements", "Notes"],
+    "program-plan": ["Program Name", "Purpose", "Objective", "Target Group", "Tentative", "Requirements", "Closing"],
     "school-document": ["School Name", "Title", "Details", "Content", "Confirmation"],
     ppdk: ["PPDK Name", "Trainee Information", "Activity", "Objective", "Observation", "Reflection"],
     taska: ["Childcare Centre Name", "Child Name", "Activity", "Development", "Notes"],
@@ -434,7 +598,7 @@ function AuthContent({ mode }: { mode: "login" | "register" }) {
               {!isLogin ? <input className="input" placeholder={t.fullName} /> : null}
               <input className="input" placeholder={t.email} />
               <input className="input" placeholder={t.password} type="password" />
-              <Link className="button-primary w-full" href="/create">
+              <Link className="button-primary w-full" href="/builder">
                 {isLogin ? t.loginSubmit : t.registerSubmit}
               </Link>
             </div>
@@ -488,7 +652,7 @@ function CreateDocumentContent() {
   );
 }
 
-export function DocumentBuilder({ initialType = "formal-letter" }: { initialType?: string }) {
+export function DocumentBuilder({ initialType = "" }: { initialType?: string }) {
   return (
     <AppShell>
       <DocumentBuilderContent initialType={initialType} />
@@ -496,21 +660,23 @@ export function DocumentBuilder({ initialType = "formal-letter" }: { initialType
   );
 }
 
-function DocumentBuilderContent({ initialType = "formal-letter" }: { initialType?: string }) {
+function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) {
   const { language, t } = useLanguage();
   const initialDocumentType = normalizeDocumentType(initialType);
-  const [docType, setDocType] = useState<DocumentTypeId>(initialDocumentType);
-  const [blocks, setBlocks] = useState(() => buildBlocks(initialDocumentType, language));
+  const [docType, setDocType] = useState<DocumentTypeId | "">(initialDocumentType);
+  const [blocks, setBlocks] = useState(() => initialDocumentType ? buildBlocks(initialDocumentType, language) : []);
   const [logo, setLogo] = useState("");
+  const [customTitle, setCustomTitle] = useState("");
+  const [customContent, setCustomContent] = useState("");
 
   useEffect(() => {
-    window.setTimeout(() => setBlocks(buildBlocks(docType, language)), 0);
+    window.setTimeout(() => setBlocks(docType ? buildBlocks(docType, language) : []), 0);
   }, [docType, language]);
 
   function changeType(value: string) {
     const nextType = normalizeDocumentType(value);
     setDocType(nextType);
-    setBlocks(buildBlocks(nextType, language));
+    setBlocks(nextType ? buildBlocks(nextType, language) : []);
   }
 
   function uploadLogo(event: ChangeEvent<HTMLInputElement>) {
@@ -519,8 +685,25 @@ function DocumentBuilderContent({ initialType = "formal-letter" }: { initialType
     setLogo(URL.createObjectURL(file));
   }
 
+  function addItemToPaper(title = customTitle, content = customContent) {
+    const cleanTitle = title.trim() || t.emptyTitle;
+    const cleanContent = content.trim() || t.emptyContent;
+    setBlocks((currentBlocks) => [
+      ...currentBlocks,
+      {
+        content: cleanContent,
+        id: `custom-${Date.now()}-${currentBlocks.length}`,
+        title: cleanTitle,
+      },
+    ]);
+    setCustomTitle("");
+    setCustomContent("");
+  }
+
+  const quickItems = docType ? templates[language][docType] : [];
+
   return (
-    <section className="grid gap-5 py-6 lg:grid-cols-[280px_minmax(0,1fr)]">
+    <section className="grid gap-5 py-6 xl:grid-cols-[260px_minmax(0,1fr)_280px]">
         <Reveal>
           <aside className="surface sticky top-5 self-start rounded-[1.5rem] p-4">
             <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#9db4ff]">
@@ -532,6 +715,7 @@ function DocumentBuilderContent({ initialType = "formal-letter" }: { initialType
               onChange={(event) => changeType(event.target.value)}
               value={docType}
             >
+              <option value="">{t.selectDocumentPlaceholder}</option>
               {documentTypes.map((type) => (
                 <option key={type} value={type}>{documentTypeLabels[language][type]}</option>
               ))}
@@ -546,26 +730,28 @@ function DocumentBuilderContent({ initialType = "formal-letter" }: { initialType
         <Reveal delay={0.08}>
           <div className="surface rounded-[2rem] p-4">
             <div className="a4-page mx-auto rounded-xl p-8 sm:p-12">
-              <div className="mb-8 flex items-start justify-between gap-6 border-b border-black/10 pb-6">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.24em] text-black/45">lY Docs</p>
-                  <h1
-                    className="editable-block mt-2 text-3xl font-semibold tracking-[-0.04em]"
-                    contentEditable
-                    suppressContentEditableWarning
-                  >
-                    {documentTypeLabels[language][docType]}
-                  </h1>
+              {docType ? (
+                <div className="mb-8 flex items-start justify-between gap-6 border-b border-black/10 pb-6">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.24em] text-black/45">lY Docs</p>
+                    <h1
+                      className="editable-block mt-2 text-3xl font-semibold tracking-[-0.04em]"
+                      contentEditable
+                      suppressContentEditableWarning
+                    >
+                      {documentTypeLabels[language][docType]}
+                    </h1>
+                  </div>
+                  <div className="grid h-20 w-20 place-items-center rounded-2xl border border-black/10 bg-black/5 text-xs text-black/40">
+                    {logo ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img alt="Uploaded logo" className="h-full w-full rounded-2xl object-contain" src={logo} />
+                    ) : (
+                      t.logo
+                    )}
+                  </div>
                 </div>
-                <div className="grid h-20 w-20 place-items-center rounded-2xl border border-black/10 bg-black/5 text-xs text-black/40">
-                  {logo ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img alt="Uploaded logo" className="h-full w-full rounded-2xl object-contain" src={logo} />
-                  ) : (
-                    t.logo
-                  )}
-                </div>
-              </div>
+              ) : null}
               <Reorder.Group axis="y" className="space-y-4" onReorder={setBlocks} values={blocks}>
                 {blocks.map((block) => (
                   <Reorder.Item
@@ -587,13 +773,62 @@ function DocumentBuilderContent({ initialType = "formal-letter" }: { initialType
                 ))}
               </Reorder.Group>
             </div>
+            {!docType ? (
+              <p className="mt-4 text-center text-sm text-[#aeb6c6]">{t.paperReadyHint}</p>
+            ) : null}
           </div>
+        </Reveal>
+        <Reveal delay={0.12}>
+          <aside className="surface sticky top-5 self-start rounded-[1.5rem] p-4">
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#9db4ff]">
+              {t.itemTools}
+            </p>
+            <p className="mt-3 text-sm leading-6 text-[#aeb6c6]">{t.itemToolsBody}</p>
+            <label className="mt-5 block text-sm text-[#aeb6c6]">{t.itemTitle}</label>
+            <input
+              className="input mt-2"
+              onChange={(event) => setCustomTitle(event.target.value)}
+              placeholder={t.emptyTitle}
+              value={customTitle}
+            />
+            <label className="mt-4 block text-sm text-[#aeb6c6]">{t.itemContent}</label>
+            <textarea
+              className="input mt-2 min-h-28 resize-none"
+              onChange={(event) => setCustomContent(event.target.value)}
+              placeholder={t.emptyContent}
+              value={customContent}
+            />
+            <button className="button-primary mt-4 w-full" onClick={() => addItemToPaper()} type="button">
+              {t.addToPaper}
+            </button>
+            <div className="mt-6 border-t border-white/10 pt-5">
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#9db4ff]">
+                {t.quickItems}
+              </p>
+              <div className="mt-3 flex max-h-72 flex-col gap-2 overflow-auto pr-1">
+                {quickItems.map((item) => (
+                  <button
+                    className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-left text-sm text-[#dce3f1] transition hover:border-[#9db4ff]/50 hover:bg-white/[0.08]"
+                    key={item}
+                    onClick={() => addItemToPaper(item, defaultContent(item, language))}
+                    type="button"
+                  >
+                    {item}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </aside>
         </Reveal>
     </section>
   );
 }
 
-function normalizeDocumentType(type: string): DocumentTypeId {
+function normalizeDocumentType(type: string): DocumentTypeId | "" {
+  if (!type) {
+    return "";
+  }
+
   if (documentTypes.includes(type as DocumentTypeId)) {
     return type as DocumentTypeId;
   }
@@ -602,7 +837,7 @@ function normalizeDocumentType(type: string): DocumentTypeId {
     Object.values(documentTypeLabels).some((labels) => labels[documentType] === type),
   );
 
-  return legacyMatch ?? "formal-letter";
+  return legacyMatch ?? "";
 }
 
 function buildBlocks(type: DocumentTypeId, language: Language) {

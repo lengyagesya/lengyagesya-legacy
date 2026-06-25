@@ -103,7 +103,7 @@ body {
 
 .a4-page {
   aspect-ratio: 210 / 297;
-  width: min(100%, 860px);
+  width: min(100%, 720px);
   background: #fbfaf7;
   color: #171717;
   box-shadow:
