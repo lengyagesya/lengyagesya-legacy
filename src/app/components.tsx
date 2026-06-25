@@ -334,6 +334,14 @@ export function Reveal({ children, delay = 0 }: { children: React.ReactNode; del
 }
 
 export function Landing() {
+  return (
+    <AppShell>
+      <LandingContent />
+    </AppShell>
+  );
+}
+
+function LandingContent() {
   const { t } = useLanguage();
   const features = [
     [t.featureTemplate, t.featureTemplateBody],
@@ -343,8 +351,7 @@ export function Landing() {
   ];
 
   return (
-    <AppShell>
-      <section className="grid min-h-[calc(100vh-7rem)] items-center gap-10 py-10 lg:grid-cols-[1.05fr_0.95fr]">
+    <section className="grid min-h-[calc(100vh-7rem)] items-center gap-10 py-10 lg:grid-cols-[1.05fr_0.95fr]">
         <Reveal>
           <p className="mb-5 text-xs font-bold uppercase tracking-[0.34em] text-[#9db4ff]">
             lY Docs
@@ -395,17 +402,23 @@ export function Landing() {
             </div>
           </div>
         </Reveal>
-      </section>
-    </AppShell>
+    </section>
   );
 }
 
 export function AuthPage({ mode }: { mode: "login" | "register" }) {
+  return (
+    <AppShell>
+      <AuthContent mode={mode} />
+    </AppShell>
+  );
+}
+
+function AuthContent({ mode }: { mode: "login" | "register" }) {
   const { t } = useLanguage();
   const isLogin = mode === "login";
   return (
-    <AppShell>
-      <section className="grid min-h-[calc(100vh-7rem)] place-items-center py-10">
+    <section className="grid min-h-[calc(100vh-7rem)] place-items-center py-10">
         <Reveal>
           <div className="surface w-full max-w-md rounded-[2rem] p-6">
             <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#9db4ff]">
@@ -433,17 +446,23 @@ export function AuthPage({ mode }: { mode: "login" | "register" }) {
             </p>
           </div>
         </Reveal>
-      </section>
-    </AppShell>
+    </section>
   );
 }
 
 export function CreateDocument() {
+  return (
+    <AppShell>
+      <CreateDocumentContent />
+    </AppShell>
+  );
+}
+
+function CreateDocumentContent() {
   const { language, t } = useLanguage();
 
   return (
-    <AppShell>
-      <section className="py-8">
+    <section className="py-8">
         <Reveal>
           <h1 className="text-5xl font-semibold tracking-[-0.06em]">{t.createTitle}</h1>
           <p className="mt-4 max-w-2xl text-[#b8bfcc]">
@@ -465,12 +484,19 @@ export function CreateDocument() {
             </Reveal>
           ))}
         </div>
-      </section>
-    </AppShell>
+    </section>
   );
 }
 
 export function DocumentBuilder({ initialType = "formal-letter" }: { initialType?: string }) {
+  return (
+    <AppShell>
+      <DocumentBuilderContent initialType={initialType} />
+    </AppShell>
+  );
+}
+
+function DocumentBuilderContent({ initialType = "formal-letter" }: { initialType?: string }) {
   const { language, t } = useLanguage();
   const initialDocumentType = normalizeDocumentType(initialType);
   const [docType, setDocType] = useState<DocumentTypeId>(initialDocumentType);
@@ -494,8 +520,7 @@ export function DocumentBuilder({ initialType = "formal-letter" }: { initialType
   }
 
   return (
-    <AppShell>
-      <section className="grid gap-5 py-6 lg:grid-cols-[280px_minmax(0,1fr)]">
+    <section className="grid gap-5 py-6 lg:grid-cols-[280px_minmax(0,1fr)]">
         <Reveal>
           <aside className="surface sticky top-5 self-start rounded-[1.5rem] p-4">
             <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#9db4ff]">
@@ -564,8 +589,7 @@ export function DocumentBuilder({ initialType = "formal-letter" }: { initialType
             </div>
           </div>
         </Reveal>
-      </section>
-    </AppShell>
+    </section>
   );
 }
 
