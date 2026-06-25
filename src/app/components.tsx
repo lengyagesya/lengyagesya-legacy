@@ -1,8 +1,116 @@
-"use client";
+﻿"use client";
 
 import { motion, Reorder } from "framer-motion";
 import Link from "next/link";
-import { ChangeEvent, useState } from "react";
+import { ChangeEvent, createContext, useContext, useEffect, useState } from "react";
+
+type Language = "ms" | "en";
+
+const LanguageContext = createContext<{
+  language: Language;
+  setLanguage: (language: Language) => void;
+}>({
+  language: "ms",
+  setLanguage: () => undefined,
+});
+
+const copy = {
+  ms: {
+    navDocuments: "Dokumen",
+    navBuilder: "Builder",
+    navLogin: "Login",
+    navStart: "Mula",
+    landingHeadline: "Bina dokumen kemas tanpa mula dari kosong.",
+    landingSubheadline: "Pilih jenis dokumen, susun item, isi maklumat, kemudian hantar ke AI untuk hasil akhir.",
+    landingCta: "Mula Buat Dokumen",
+    landingSecondary: "Lihat Contoh",
+    featureTemplate: "Template siap susun",
+    featureTemplateBody: "Pilih struktur awal yang kemas untuk surat, laporan, RPA, resume dan dokumen kerja.",
+    featureDrag: "Drag & edit item",
+    featureDragBody: "Susun semula blok, ubah teks terus pada kertas, dan bina dokumen ikut cara kerja sendiri.",
+    featureToken: "Token AI hanya bila submit",
+    featureTokenBody: "Edit manual dahulu. Token digunakan hanya apabila dokumen dihantar untuk bantuan AI.",
+    featureExport: "Export PDF",
+    featureExportBody: "Sediakan dokumen yang bersih untuk fasa export dan perkongsian profesional.",
+    workDocument: "Dokumen Kerja",
+    readyTemplate: "Template siap",
+    editableBlocks: "Blok boleh edit",
+    aiReady: "Sedia hantar ke AI",
+    previewBody: "Ruang dokumen disusun kemas untuk diisi, disemak dan disiapkan.",
+    authLoginKicker: "Masuk semula",
+    authRegisterKicker: "Daftar akaun",
+    authLoginTitle: "Login lY Docs",
+    authRegisterTitle: "Register lY Docs",
+    authNote: "UI sahaja untuk fasa ini. Butang akan membawa anda terus ke ruang dokumen.",
+    fullName: "Nama penuh",
+    email: "Alamat emel",
+    password: "Kata laluan",
+    register: "Register",
+    login: "Login",
+    loginSubmit: "Login",
+    registerSubmit: "Daftar",
+    noAccount: "Belum ada akaun? ",
+    hasAccount: "Sudah ada akaun? ",
+    createTitle: "Buat Dokumen",
+    createBody: "Pilih jenis dokumen. Fasa 1 membuka canvas yang sudah disusun dengan blok boleh edit.",
+    openBlocks: "Buka blok A4 boleh edit.",
+    builderControls: "Kawalan builder",
+    documentType: "Jenis dokumen",
+    uploadLogo: "Upload logo",
+    submitLater: "Hantar ke AI nanti",
+    logo: "Logo",
+  },
+  en: {
+    navDocuments: "Documents",
+    navBuilder: "Builder",
+    navLogin: "Login",
+    navStart: "Start",
+    landingHeadline: "Build clean documents without starting from scratch.",
+    landingSubheadline: "Choose a document type, arrange items, fill in details, then submit to AI for the final result.",
+    landingCta: "Start Document",
+    landingSecondary: "View Example",
+    featureTemplate: "Ready templates",
+    featureTemplateBody: "Choose a clean starting structure for letters, reports, RPA, resumes and work documents.",
+    featureDrag: "Drag & edit items",
+    featureDragBody: "Reorder blocks, edit directly on paper, and build documents around your workflow.",
+    featureToken: "AI tokens only on submit",
+    featureTokenBody: "Edit manually first. Tokens are used only when the document is submitted for AI help.",
+    featureExport: "Export PDF",
+    featureExportBody: "Prepare clean documents for professional export and sharing.",
+    workDocument: "Work Document",
+    readyTemplate: "Ready template",
+    editableBlocks: "Editable blocks",
+    aiReady: "Ready for AI",
+    previewBody: "The document space is neatly arranged for filling, reviewing and finishing.",
+    authLoginKicker: "Welcome back",
+    authRegisterKicker: "Create account",
+    authLoginTitle: "Login to lY Docs",
+    authRegisterTitle: "Register for lY Docs",
+    authNote: "UI only for this phase. The button takes you straight to the document workspace.",
+    fullName: "Full name",
+    email: "Email address",
+    password: "Password",
+    register: "Register",
+    login: "Login",
+    loginSubmit: "Login",
+    registerSubmit: "Register",
+    noAccount: "No account yet? ",
+    hasAccount: "Already registered? ",
+    createTitle: "Create Document",
+    createBody: "Select a document type. Phase 1 opens a pre-arranged canvas with editable blocks.",
+    openBlocks: "Open editable A4 blocks.",
+    builderControls: "Builder controls",
+    documentType: "Document type",
+    uploadLogo: "Upload logo",
+    submitLater: "Submit to AI later",
+    logo: "Logo",
+  },
+} satisfies Record<Language, Record<string, string>>;
+
+function useLanguage() {
+  const context = useContext(LanguageContext);
+  return { ...context, t: copy[context.language] };
+}
 
 const documentTypes = [
   "RPA",
@@ -39,33 +147,88 @@ const templates: Record<string, string[]> = {
 };
 
 export function AppShell({ children }: { children: React.ReactNode }) {
+  const [language, setLanguageState] = useState<Language>("ms");
+
+  useEffect(() => {
+    const saved = window.localStorage.getItem("ly-docs-language");
+    if (saved === "ms" || saved === "en") {
+      window.setTimeout(() => setLanguageState(saved), 0);
+    }
+  }, []);
+
+  function setLanguage(language: Language) {
+    setLanguageState(language);
+    window.localStorage.setItem("ly-docs-language", language);
+  }
+
   return (
-    <main className="min-h-screen px-4 py-5 text-white sm:px-6 lg:px-8">
-      <div className="pointer-events-none fixed inset-0 bg-[linear-gradient(rgba(255,255,255,0.035)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.035)_1px,transparent_1px)] bg-[size:84px_84px] opacity-20 [mask-image:radial-gradient(circle_at_center,black,transparent_74%)]" />
-      <div className="relative z-10 mx-auto max-w-7xl">
-        <Nav />
-        {children}
-      </div>
-    </main>
+    <LanguageContext.Provider value={{ language, setLanguage }}>
+      <main className="min-h-screen px-4 py-5 text-white sm:px-6 lg:px-8">
+        <div className="pointer-events-none fixed inset-0 bg-[linear-gradient(rgba(255,255,255,0.035)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.035)_1px,transparent_1px)] bg-[size:84px_84px] opacity-20 [mask-image:radial-gradient(circle_at_center,black,transparent_74%)]" />
+        <div className="relative z-10 mx-auto max-w-7xl">
+          <Nav />
+          {children}
+        </div>
+      </main>
+    </LanguageContext.Provider>
   );
 }
 
 function Nav() {
+  const { language, setLanguage, t } = useLanguage();
+
   return (
     <header className="surface mb-6 flex items-center justify-between rounded-[1.5rem] px-4 py-3">
       <Link className="text-lg font-semibold tracking-[-0.04em]" href="/">
         lY Docs
       </Link>
       <nav className="hidden items-center gap-2 text-sm text-[#b7becc] md:flex">
-        <Link className="rounded-full px-3 py-2 hover:text-white" href="/dashboard">Dashboard</Link>
-        <Link className="rounded-full px-3 py-2 hover:text-white" href="/create">Dokumen</Link>
-        <Link className="rounded-full px-3 py-2 hover:text-white" href="/builder">Builder</Link>
+        <Link className="rounded-full px-3 py-2 hover:text-white" href="/create">{t.navDocuments}</Link>
+        <Link className="rounded-full px-3 py-2 hover:text-white" href="/builder">{t.navBuilder}</Link>
       </nav>
       <div className="flex items-center gap-2">
-        <Link className="button-secondary min-h-10 px-4 py-2" href="/login">Login</Link>
-        <Link className="button-primary min-h-10 px-4 py-2" href="/register">Mula</Link>
+        <LanguageButton
+          active={language === "ms"}
+          flag="ðŸ‡²ðŸ‡¾"
+          label="Bahasa Malaysia"
+          onClick={() => setLanguage("ms")}
+        />
+        <LanguageButton
+          active={language === "en"}
+          flag="ðŸ‡¬ðŸ‡§"
+          label="English"
+          onClick={() => setLanguage("en")}
+        />
       </div>
     </header>
+  );
+}
+
+function LanguageButton({
+  active,
+  flag,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  flag: string;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      aria-label={label}
+      aria-pressed={active}
+      className={`grid h-10 w-10 place-items-center rounded-full border text-lg transition hover:-translate-y-0.5 ${
+        active
+          ? "border-[#9db4ff]/80 bg-white text-black shadow-[0_0_28px_rgba(157,180,255,0.28)]"
+          : "border-white/12 bg-white/[0.055] text-white"
+      }`}
+      onClick={onClick}
+      type="button"
+    >
+      <span aria-hidden>{flag}</span>
+    </button>
   );
 }
 
@@ -82,11 +245,12 @@ export function Reveal({ children, delay = 0 }: { children: React.ReactNode; del
 }
 
 export function Landing() {
+  const { t } = useLanguage();
   const features = [
-    ["Template siap susun", "Pilih struktur awal yang kemas untuk surat, laporan, RPA, resume dan dokumen kerja."],
-    ["Drag & edit item", "Susun semula blok, ubah teks terus pada kertas, dan bina dokumen ikut cara kerja sendiri."],
-    ["Token AI hanya bila submit", "Edit manual dahulu. Token digunakan hanya apabila dokumen dihantar untuk bantuan AI."],
-    ["Export PDF", "Sediakan dokumen yang bersih untuk fasa export dan perkongsian profesional."],
+    [t.featureTemplate, t.featureTemplateBody],
+    [t.featureDrag, t.featureDragBody],
+    [t.featureToken, t.featureTokenBody],
+    [t.featureExport, t.featureExportBody],
   ];
 
   return (
@@ -97,15 +261,14 @@ export function Landing() {
             lY Docs
           </p>
           <h1 className="max-w-4xl text-5xl font-semibold tracking-[-0.06em] sm:text-7xl lg:text-8xl">
-            Bina dokumen kemas tanpa mula dari kosong.
+            {t.landingHeadline}
           </h1>
           <p className="mt-6 max-w-2xl text-lg leading-8 text-[#b8bfcc]">
-            Pilih jenis dokumen, susun item, isi maklumat, kemudian hantar ke AI
-            untuk hasil akhir.
+            {t.landingSubheadline}
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
-            <Link className="button-primary" href="/create">Mula Buat Dokumen</Link>
-            <Link className="button-secondary" href="/builder">Lihat Contoh</Link>
+            <Link className="button-primary" href="/create">{t.landingCta}</Link>
+            <Link className="button-secondary" href="/builder">{t.landingSecondary}</Link>
           </div>
           <div className="mt-10 grid gap-3 sm:grid-cols-2">
             {features.map(([title, body], index) => (
@@ -128,15 +291,15 @@ export function Landing() {
               <div className="mb-8 flex items-center justify-between border-b border-black/10 pb-5">
                 <div>
                   <p className="text-xs uppercase tracking-[0.24em] text-black/45">lY Docs</p>
-                  <h2 className="mt-2 text-3xl font-semibold tracking-[-0.04em]">Dokumen Kerja</h2>
+                  <h2 className="mt-2 text-3xl font-semibold tracking-[-0.04em]">{t.workDocument}</h2>
                 </div>
                 <div className="h-14 w-14 rounded-2xl border border-black/10 bg-black/5" />
               </div>
-              {["Template siap", "Blok boleh edit", "Sedia hantar ke AI"].map((item) => (
+              {[t.readyTemplate, t.editableBlocks, t.aiReady].map((item) => (
                 <div className="mb-4 rounded-xl border border-black/10 p-4" key={item}>
                   <p className="text-sm font-semibold">{item}</p>
                   <p className="mt-2 text-xs leading-5 text-black/55">
-                    Ruang dokumen disusun kemas untuk diisi, disemak dan disiapkan.
+                    {t.previewBody}
                   </p>
                 </div>
               ))}
@@ -149,6 +312,7 @@ export function Landing() {
 }
 
 export function AuthPage({ mode }: { mode: "login" | "register" }) {
+  const { t } = useLanguage();
   const isLogin = mode === "login";
   return (
     <AppShell>
@@ -156,104 +320,29 @@ export function AuthPage({ mode }: { mode: "login" | "register" }) {
         <Reveal>
           <div className="surface w-full max-w-md rounded-[2rem] p-6">
             <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#9db4ff]">
-              {isLogin ? "Masuk semula" : "Daftar akaun"}
+              {isLogin ? t.authLoginKicker : t.authRegisterKicker}
             </p>
             <h1 className="mt-4 text-4xl font-semibold tracking-[-0.05em]">
-              {isLogin ? "Login lY Docs" : "Register lY Docs"}
+              {isLogin ? t.authLoginTitle : t.authRegisterTitle}
             </h1>
             <p className="mt-3 text-sm leading-6 text-[#aeb6c6]">
-              UI sahaja untuk fasa ini. Butang akan membawa anda terus ke dashboard.
+              {t.authNote}
             </p>
             <div className="mt-6 space-y-3">
-              {!isLogin ? <input className="input" placeholder="Nama penuh" /> : null}
-              <input className="input" placeholder="Alamat emel" />
-              <input className="input" placeholder="Kata laluan" type="password" />
-              <Link className="button-primary w-full" href="/dashboard">
-                {isLogin ? "Login" : "Daftar"}
+              {!isLogin ? <input className="input" placeholder={t.fullName} /> : null}
+              <input className="input" placeholder={t.email} />
+              <input className="input" placeholder={t.password} type="password" />
+              <Link className="button-primary w-full" href="/create">
+                {isLogin ? t.loginSubmit : t.registerSubmit}
               </Link>
             </div>
             <p className="mt-5 text-sm text-[#aeb6c6]">
-              {isLogin ? "Belum ada akaun? " : "Sudah ada akaun? "}
+              {isLogin ? t.noAccount : t.hasAccount}
               <Link className="text-white underline" href={isLogin ? "/register" : "/login"}>
-                {isLogin ? "Register" : "Login"}
+                {isLogin ? t.register : t.login}
               </Link>
             </p>
           </div>
-        </Reveal>
-      </section>
-    </AppShell>
-  );
-}
-
-export function Dashboard() {
-  const cards = [
-    ["Buat Dokumen Baru", "Pilih template dan buka canvas A4 yang boleh diedit.", "/create"],
-    ["Dokumen Saya", "Ruang simpanan dokumen akan tersedia dalam fasa seterusnya.", "/builder"],
-    ["Beli Token", "Tambah token AI apabila fungsi submit diaktifkan nanti.", "/dashboard"],
-    ["Template Popular", "RPA, surat rasmi, laporan, resume, memo dan proposal.", "/create"],
-  ];
-  const recent = [
-    ["RPA Aktiviti Harian", "Draf terakhir", "Belum disimpan ke cloud"],
-    ["Surat Rasmi", "Contoh dokumen", "Template asas"],
-    ["Laporan Program", "Placeholder", "Akan aktif selepas database"],
-  ];
-
-  return (
-    <AppShell>
-      <section className="py-8">
-        <Reveal>
-          <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.28em] text-[#9db4ff]">
-                lY Docs
-              </p>
-              <h1 className="mt-3 text-5xl font-semibold tracking-[-0.06em]">Dashboard</h1>
-              <p className="mt-4 max-w-2xl text-[#b8bfcc]">
-                Ruang kerja ringkas untuk mula bina dokumen, semak draf dan
-                urus token AI apabila fungsi AI diaktifkan.
-              </p>
-            </div>
-            <div className="surface inline-flex w-fit items-center rounded-full px-4 py-2 text-sm font-semibold">
-              🪙 25 Token
-            </div>
-          </div>
-        </Reveal>
-        <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {cards.map(([title, body, href], index) => (
-            <Reveal delay={index * 0.04} key={title}>
-              <Link
-                className="surface block min-h-40 rounded-[1.5rem] p-5 transition hover:-translate-y-1 hover:border-[#9db4ff]/50"
-                href={href}
-              >
-                <p className="text-xl font-semibold tracking-[-0.03em]">{title}</p>
-                <p className="mt-3 text-sm leading-6 text-[#aeb6c6]">{body}</p>
-              </Link>
-            </Reveal>
-          ))}
-        </div>
-        <Reveal delay={0.18}>
-          <section className="surface mt-8 rounded-[1.75rem] p-5">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <h2 className="text-2xl font-semibold tracking-[-0.04em]">Dokumen Terkini</h2>
-                <p className="mt-2 text-sm text-[#aeb6c6]">
-                  Placeholder untuk sejarah dokumen pengguna.
-                </p>
-              </div>
-              <Link className="button-secondary hidden sm:inline-flex" href="/create">
-                Baru
-              </Link>
-            </div>
-            <div className="mt-5 divide-y divide-white/10 overflow-hidden rounded-2xl border border-white/10">
-              {recent.map(([title, status, note]) => (
-                <div className="grid gap-2 bg-white/[0.035] p-4 sm:grid-cols-[1fr_auto_auto] sm:items-center" key={title}>
-                  <p className="font-medium">{title}</p>
-                  <p className="text-sm text-[#aeb6c6]">{status}</p>
-                  <p className="text-xs text-[#7f8899]">{note}</p>
-                </div>
-              ))}
-            </div>
-          </section>
         </Reveal>
       </section>
     </AppShell>
@@ -261,14 +350,15 @@ export function Dashboard() {
 }
 
 export function CreateDocument() {
+  const { t } = useLanguage();
+
   return (
     <AppShell>
       <section className="py-8">
         <Reveal>
-          <h1 className="text-5xl font-semibold tracking-[-0.06em]">Create Document</h1>
+          <h1 className="text-5xl font-semibold tracking-[-0.06em]">{t.createTitle}</h1>
           <p className="mt-4 max-w-2xl text-[#b8bfcc]">
-            Select a document type. Phase 1 opens a pre-arranged builder canvas
-            with editable blocks.
+            {t.createBody}
           </p>
         </Reveal>
         <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -280,7 +370,7 @@ export function CreateDocument() {
               >
                 <p className="font-semibold">{type}</p>
                 <p className="mt-2 text-xs leading-5 text-[#aeb6c6]">
-                  Open editable A4 blocks.
+                  {t.openBlocks}
                 </p>
               </Link>
             </Reveal>
@@ -292,6 +382,7 @@ export function CreateDocument() {
 }
 
 export function DocumentBuilder({ initialType = "Surat rasmi" }: { initialType?: string }) {
+  const { t } = useLanguage();
   const [docType, setDocType] = useState(initialType);
   const [blocks, setBlocks] = useState(() => buildBlocks(initialType));
   const [logo, setLogo] = useState("");
@@ -313,9 +404,9 @@ export function DocumentBuilder({ initialType = "Surat rasmi" }: { initialType?:
         <Reveal>
           <aside className="surface sticky top-5 self-start rounded-[1.5rem] p-4">
             <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#9db4ff]">
-              Builder controls
+              {t.builderControls}
             </p>
-            <label className="mt-5 block text-sm text-[#aeb6c6]">Document type</label>
+            <label className="mt-5 block text-sm text-[#aeb6c6]">{t.documentType}</label>
             <select
               className="input mt-2"
               onChange={(event) => changeType(event.target.value)}
@@ -325,10 +416,10 @@ export function DocumentBuilder({ initialType = "Surat rasmi" }: { initialType?:
                 <option key={type}>{type}</option>
               ))}
             </select>
-            <label className="mt-4 block text-sm text-[#aeb6c6]">Upload logo</label>
+            <label className="mt-4 block text-sm text-[#aeb6c6]">{t.uploadLogo}</label>
             <input accept="image/*" className="input mt-2" onChange={uploadLogo} type="file" />
             <button className="button-secondary mt-4 w-full" type="button">
-              Submit to AI later
+              {t.submitLater}
             </button>
           </aside>
         </Reveal>
@@ -351,7 +442,7 @@ export function DocumentBuilder({ initialType = "Surat rasmi" }: { initialType?:
                     // eslint-disable-next-line @next/next/no-img-element
                     <img alt="Uploaded logo" className="h-full w-full rounded-2xl object-contain" src={logo} />
                   ) : (
-                    "Logo"
+                    t.logo
                   )}
                 </div>
               </div>

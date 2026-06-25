@@ -24,7 +24,6 @@ Open `http://localhost:3000`.
 - Landing page
 - Login UI
 - Register UI
-- Dashboard
 - Create Document page
 - Document Builder page
 - Editable A4 canvas
