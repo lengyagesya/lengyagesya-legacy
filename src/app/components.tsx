@@ -176,6 +176,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
 function Nav() {
   const { language, setLanguage } = useLanguage();
+  const [languageOpen, setLanguageOpen] = useState(false);
+
+  function chooseLanguage(nextLanguage: Language) {
+    setLanguage(nextLanguage);
+    setLanguageOpen(false);
+  }
 
   return (
     <header className="surface mb-6 flex items-center justify-between rounded-[1.5rem] px-4 py-3">
@@ -183,76 +189,67 @@ function Nav() {
         lY Docs
       </Link>
       <div />
-      <div className="flex items-center gap-2">
-        <LanguageButton
-          active={language === "ms"}
-          country="ms"
-          label="Bahasa Malaysia"
-          onClick={() => setLanguage("ms")}
-        />
-        <LanguageButton
-          active={language === "en"}
-          country="en"
-          label="English"
-          onClick={() => setLanguage("en")}
-        />
+      <div className="relative">
+        <button
+          aria-expanded={languageOpen}
+          aria-label="Tukar bahasa"
+          className="grid h-10 min-w-10 place-items-center rounded-full border border-white/12 bg-white/[0.055] px-3 text-xs font-bold tracking-[0.16em] text-white transition hover:-translate-y-0.5 hover:border-[#9db4ff]/70"
+          onClick={() => setLanguageOpen((current) => !current)}
+          type="button"
+        >
+          {language === "ms" ? "BM" : "EN"}
+        </button>
+        {languageOpen ? (
+          <motion.div
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            className="surface absolute right-0 top-12 z-20 w-44 overflow-hidden rounded-2xl p-1"
+            initial={{ opacity: 0, y: -6, scale: 0.98 }}
+            transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <LanguageOption
+              active={language === "ms"}
+              label="Bahasa Malaysia"
+              shortcut="BM"
+              onClick={() => chooseLanguage("ms")}
+            />
+            <LanguageOption
+              active={language === "en"}
+              label="English"
+              shortcut="EN"
+              onClick={() => chooseLanguage("en")}
+            />
+          </motion.div>
+        ) : null}
       </div>
     </header>
   );
 }
 
-function LanguageButton({
+function LanguageOption({
   active,
-  country,
   label,
+  shortcut,
   onClick,
 }: {
   active: boolean;
-  country: Language;
   label: string;
+  shortcut: string;
   onClick: () => void;
 }) {
   return (
     <button
-      aria-label={label}
       aria-pressed={active}
-      className={`grid h-10 w-10 place-items-center rounded-full border text-lg transition hover:-translate-y-0.5 ${
+      className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm transition ${
         active
-          ? "border-[#9db4ff]/80 bg-white text-black shadow-[0_0_28px_rgba(157,180,255,0.28)]"
-          : "border-white/12 bg-white/[0.055] text-white"
+          ? "bg-white text-black"
+          : "text-[#b8bfcc] hover:bg-white/[0.07] hover:text-white"
       }`}
       onClick={onClick}
       type="button"
     >
-      <MiniFlag country={country} />
+      <span>{label}</span>
+      <span className="text-xs font-bold tracking-[0.16em]">{shortcut}</span>
     </button>
-  );
-}
-
-function MiniFlag({ country }: { country: Language }) {
-  if (country === "ms") {
-    return (
-      <span
-        aria-hidden
-        className="relative block h-5 w-7 overflow-hidden rounded-[0.25rem] border border-black/10 bg-[repeating-linear-gradient(to_bottom,#d91f2d_0_2px,#ffffff_2px_4px)]"
-      >
-        <span className="absolute left-0 top-0 h-[11px] w-[14px] bg-[#102a6b]" />
-        <span className="absolute left-[4px] top-[3px] h-[5px] w-[5px] rounded-full border border-[#ffd34d]" />
-        <span className="absolute left-[8px] top-[3px] text-[6px] leading-none text-[#ffd34d]">*</span>
-      </span>
-    );
-  }
-
-  return (
-    <span
-      aria-hidden
-      className="relative block h-5 w-7 overflow-hidden rounded-[0.25rem] border border-black/10 bg-[#12306f]"
-    >
-      <span className="absolute left-1/2 top-0 h-full w-[4px] -translate-x-1/2 bg-white" />
-      <span className="absolute left-0 top-1/2 h-[4px] w-full -translate-y-1/2 bg-white" />
-      <span className="absolute left-1/2 top-0 h-full w-[2px] -translate-x-1/2 bg-[#d91f2d]" />
-      <span className="absolute left-0 top-1/2 h-[2px] w-full -translate-y-1/2 bg-[#d91f2d]" />
-    </span>
   );
 }
 
