@@ -175,17 +175,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 }
 
 function Nav() {
-  const { language, setLanguage, t } = useLanguage();
+  const { language, setLanguage } = useLanguage();
 
   return (
     <header className="surface mb-6 flex items-center justify-between rounded-[1.5rem] px-4 py-3">
       <Link className="text-lg font-semibold tracking-[-0.04em]" href="/">
         lY Docs
       </Link>
-      <nav className="hidden items-center gap-2 text-sm text-[#b7becc] md:flex">
-        <Link className="rounded-full px-3 py-2 hover:text-white" href="/create">{t.navDocuments}</Link>
-        <Link className="rounded-full px-3 py-2 hover:text-white" href="/builder">{t.navBuilder}</Link>
-      </nav>
+      <div />
       <div className="flex items-center gap-2">
         <LanguageButton
           active={language === "ms"}

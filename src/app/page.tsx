@@ -1,5 +1,5 @@
-import { Landing } from "./components";
+import { AuthPage } from "./components";
 
 export default function Page() {
-  return <Landing />;
+  return <AuthPage mode="login" />;
 }
