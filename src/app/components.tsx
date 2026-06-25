@@ -186,13 +186,13 @@ function Nav() {
       <div className="flex items-center gap-2">
         <LanguageButton
           active={language === "ms"}
-          flag="ðŸ‡²ðŸ‡¾"
+          country="ms"
           label="Bahasa Malaysia"
           onClick={() => setLanguage("ms")}
         />
         <LanguageButton
           active={language === "en"}
-          flag="ðŸ‡¬ðŸ‡§"
+          country="en"
           label="English"
           onClick={() => setLanguage("en")}
         />
@@ -203,12 +203,12 @@ function Nav() {
 
 function LanguageButton({
   active,
-  flag,
+  country,
   label,
   onClick,
 }: {
   active: boolean;
-  flag: string;
+  country: Language;
   label: string;
   onClick: () => void;
 }) {
@@ -224,8 +224,35 @@ function LanguageButton({
       onClick={onClick}
       type="button"
     >
-      <span aria-hidden>{flag}</span>
+      <MiniFlag country={country} />
     </button>
+  );
+}
+
+function MiniFlag({ country }: { country: Language }) {
+  if (country === "ms") {
+    return (
+      <span
+        aria-hidden
+        className="relative block h-5 w-7 overflow-hidden rounded-[0.25rem] border border-black/10 bg-[repeating-linear-gradient(to_bottom,#d91f2d_0_2px,#ffffff_2px_4px)]"
+      >
+        <span className="absolute left-0 top-0 h-[11px] w-[14px] bg-[#102a6b]" />
+        <span className="absolute left-[4px] top-[3px] h-[5px] w-[5px] rounded-full border border-[#ffd34d]" />
+        <span className="absolute left-[8px] top-[3px] text-[6px] leading-none text-[#ffd34d]">*</span>
+      </span>
+    );
+  }
+
+  return (
+    <span
+      aria-hidden
+      className="relative block h-5 w-7 overflow-hidden rounded-[0.25rem] border border-black/10 bg-[#12306f]"
+    >
+      <span className="absolute left-1/2 top-0 h-full w-[4px] -translate-x-1/2 bg-white" />
+      <span className="absolute left-0 top-1/2 h-[4px] w-full -translate-y-1/2 bg-white" />
+      <span className="absolute left-1/2 top-0 h-full w-[2px] -translate-x-1/2 bg-[#d91f2d]" />
+      <span className="absolute left-0 top-1/2 h-[2px] w-full -translate-y-1/2 bg-[#d91f2d]" />
+    </span>
   );
 }
 
