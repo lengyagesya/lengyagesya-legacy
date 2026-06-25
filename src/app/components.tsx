@@ -5,6 +5,21 @@ import Link from "next/link";
 import { ChangeEvent, createContext, useContext, useEffect, useState } from "react";
 
 type Language = "ms" | "en";
+type DocumentTypeId =
+  | "rpa"
+  | "formal-letter"
+  | "meeting-minutes"
+  | "report"
+  | "resume"
+  | "memo"
+  | "assignment"
+  | "form"
+  | "proposal"
+  | "working-paper"
+  | "school-document"
+  | "ppdk"
+  | "taska"
+  | "custom-template";
 
 const LanguageContext = createContext<{
   language: Language;
@@ -112,38 +127,91 @@ function useLanguage() {
   return { ...context, t: copy[context.language] };
 }
 
-const documentTypes = [
-  "RPA",
-  "Surat rasmi",
-  "Minit mesyuarat",
-  "Laporan",
-  "Resume",
-  "Memo",
-  "Tugasan",
-  "Borang",
-  "Proposal",
-  "Kertas kerja",
-  "Dokumen sekolah",
-  "PPDK",
-  "Taska",
-  "Template custom",
+const documentTypes: DocumentTypeId[] = [
+  "rpa",
+  "formal-letter",
+  "meeting-minutes",
+  "report",
+  "resume",
+  "memo",
+  "assignment",
+  "form",
+  "proposal",
+  "working-paper",
+  "school-document",
+  "ppdk",
+  "taska",
+  "custom-template",
 ];
 
-const templates: Record<string, string[]> = {
-  RPA: ["Tajuk Aktiviti", "Objektif", "Bahan / Alat", "Langkah Pelaksanaan", "Pemerhatian", "Refleksi"],
-  "Surat rasmi": ["Rujukan", "Tarikh", "Penerima", "Perkara", "Isi Surat", "Penutup", "Tandatangan"],
-  "Minit mesyuarat": ["Butiran Mesyuarat", "Kehadiran", "Agenda", "Perbincangan", "Keputusan", "Tindakan Susulan"],
-  Laporan: ["Tajuk Laporan", "Objektif", "Ringkasan Aktiviti", "Dapatan", "Rumusan", "Cadangan"],
-  Resume: ["Nama & Tajuk", "Ringkasan Profil", "Pengalaman", "Pendidikan", "Kemahiran", "Rujukan"],
-  Memo: ["Kepada", "Daripada", "Tarikh", "Perkara", "Isi Memo", "Tindakan"],
-  Tugasan: ["Tajuk", "Arahan", "Isi Utama", "Rujukan", "Kesimpulan"],
-  Borang: ["Nama", "Maklumat Peribadi", "Butiran", "Pengesahan", "Tandatangan"],
-  Proposal: ["Tajuk Proposal", "Latar Belakang", "Objektif", "Cadangan Pelaksanaan", "Kos", "Penutup"],
-  "Kertas kerja": ["Tajuk", "Tujuan", "Latar Belakang", "Objektif", "Pelaksanaan", "Anggaran Kos", "Penutup"],
-  "Dokumen sekolah": ["Nama Sekolah", "Tajuk", "Butiran", "Isi Kandungan", "Pengesahan"],
-  PPDK: ["Nama PPDK", "Maklumat Pelatih", "Aktiviti", "Objektif", "Pemerhatian", "Refleksi"],
-  Taska: ["Nama Taska", "Nama Kanak-kanak", "Aktiviti", "Perkembangan", "Catatan"],
-  "Template custom": ["Tajuk Dokumen", "Bahagian 1", "Bahagian 2", "Catatan", "Penutup"],
+const documentTypeLabels: Record<Language, Record<DocumentTypeId, string>> = {
+  ms: {
+    rpa: "RPA",
+    "formal-letter": "Surat rasmi",
+    "meeting-minutes": "Minit mesyuarat",
+    report: "Laporan",
+    resume: "Resume",
+    memo: "Memo",
+    assignment: "Tugasan",
+    form: "Borang",
+    proposal: "Proposal",
+    "working-paper": "Kertas kerja",
+    "school-document": "Dokumen sekolah",
+    ppdk: "PPDK",
+    taska: "Taska",
+    "custom-template": "Template custom",
+  },
+  en: {
+    rpa: "RPA",
+    "formal-letter": "Formal letter",
+    "meeting-minutes": "Meeting minutes",
+    report: "Report",
+    resume: "Resume",
+    memo: "Memo",
+    assignment: "Assignment",
+    form: "Form",
+    proposal: "Proposal",
+    "working-paper": "Working paper",
+    "school-document": "School document",
+    ppdk: "PPDK",
+    taska: "Childcare document",
+    "custom-template": "Custom template",
+  },
+};
+
+const templates: Record<Language, Record<DocumentTypeId, string[]>> = {
+  ms: {
+    rpa: ["Tajuk Aktiviti", "Objektif", "Bahan / Alat", "Langkah Pelaksanaan", "Pemerhatian", "Refleksi"],
+    "formal-letter": ["Rujukan", "Tarikh", "Penerima", "Perkara", "Isi Surat", "Penutup", "Tandatangan"],
+    "meeting-minutes": ["Butiran Mesyuarat", "Kehadiran", "Agenda", "Perbincangan", "Keputusan", "Tindakan Susulan"],
+    report: ["Tajuk Laporan", "Objektif", "Ringkasan Aktiviti", "Dapatan", "Rumusan", "Cadangan"],
+    resume: ["Nama & Tajuk", "Ringkasan Profil", "Pengalaman", "Pendidikan", "Kemahiran", "Rujukan"],
+    memo: ["Kepada", "Daripada", "Tarikh", "Perkara", "Isi Memo", "Tindakan"],
+    assignment: ["Tajuk", "Arahan", "Isi Utama", "Rujukan", "Kesimpulan"],
+    form: ["Nama", "Maklumat Peribadi", "Butiran", "Pengesahan", "Tandatangan"],
+    proposal: ["Tajuk Proposal", "Latar Belakang", "Objektif", "Cadangan Pelaksanaan", "Kos", "Penutup"],
+    "working-paper": ["Tajuk", "Tujuan", "Latar Belakang", "Objektif", "Pelaksanaan", "Anggaran Kos", "Penutup"],
+    "school-document": ["Nama Sekolah", "Tajuk", "Butiran", "Isi Kandungan", "Pengesahan"],
+    ppdk: ["Nama PPDK", "Maklumat Pelatih", "Aktiviti", "Objektif", "Pemerhatian", "Refleksi"],
+    taska: ["Nama Taska", "Nama Kanak-kanak", "Aktiviti", "Perkembangan", "Catatan"],
+    "custom-template": ["Tajuk Dokumen", "Bahagian 1", "Bahagian 2", "Catatan", "Penutup"],
+  },
+  en: {
+    rpa: ["Activity Title", "Objective", "Materials / Tools", "Implementation Steps", "Observation", "Reflection"],
+    "formal-letter": ["Reference", "Date", "Recipient", "Subject", "Letter Content", "Closing", "Signature"],
+    "meeting-minutes": ["Meeting Details", "Attendance", "Agenda", "Discussion", "Decision", "Follow-up Action"],
+    report: ["Report Title", "Objective", "Activity Summary", "Findings", "Summary", "Recommendation"],
+    resume: ["Name & Title", "Profile Summary", "Experience", "Education", "Skills", "References"],
+    memo: ["To", "From", "Date", "Subject", "Memo Content", "Action"],
+    assignment: ["Title", "Instruction", "Main Content", "References", "Conclusion"],
+    form: ["Name", "Personal Information", "Details", "Confirmation", "Signature"],
+    proposal: ["Proposal Title", "Background", "Objective", "Implementation Plan", "Cost", "Closing"],
+    "working-paper": ["Title", "Purpose", "Background", "Objective", "Implementation", "Estimated Cost", "Closing"],
+    "school-document": ["School Name", "Title", "Details", "Content", "Confirmation"],
+    ppdk: ["PPDK Name", "Trainee Information", "Activity", "Objective", "Observation", "Reflection"],
+    taska: ["Childcare Centre Name", "Child Name", "Activity", "Development", "Notes"],
+    "custom-template": ["Document Title", "Section 1", "Section 2", "Notes", "Closing"],
+  },
 };
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -371,7 +439,7 @@ export function AuthPage({ mode }: { mode: "login" | "register" }) {
 }
 
 export function CreateDocument() {
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
 
   return (
     <AppShell>
@@ -389,7 +457,7 @@ export function CreateDocument() {
                 className="surface block rounded-[1.35rem] p-4 transition hover:-translate-y-1 hover:border-[#9db4ff]/50"
                 href={`/builder?type=${encodeURIComponent(type)}`}
               >
-                <p className="font-semibold">{type}</p>
+                <p className="font-semibold">{documentTypeLabels[language][type]}</p>
                 <p className="mt-2 text-xs leading-5 text-[#aeb6c6]">
                   {t.openBlocks}
                 </p>
@@ -402,15 +470,21 @@ export function CreateDocument() {
   );
 }
 
-export function DocumentBuilder({ initialType = "Surat rasmi" }: { initialType?: string }) {
-  const { t } = useLanguage();
-  const [docType, setDocType] = useState(initialType);
-  const [blocks, setBlocks] = useState(() => buildBlocks(initialType));
+export function DocumentBuilder({ initialType = "formal-letter" }: { initialType?: string }) {
+  const { language, t } = useLanguage();
+  const initialDocumentType = normalizeDocumentType(initialType);
+  const [docType, setDocType] = useState<DocumentTypeId>(initialDocumentType);
+  const [blocks, setBlocks] = useState(() => buildBlocks(initialDocumentType, language));
   const [logo, setLogo] = useState("");
 
+  useEffect(() => {
+    window.setTimeout(() => setBlocks(buildBlocks(docType, language)), 0);
+  }, [docType, language]);
+
   function changeType(value: string) {
-    setDocType(value);
-    setBlocks(buildBlocks(value));
+    const nextType = normalizeDocumentType(value);
+    setDocType(nextType);
+    setBlocks(buildBlocks(nextType, language));
   }
 
   function uploadLogo(event: ChangeEvent<HTMLInputElement>) {
@@ -434,7 +508,7 @@ export function DocumentBuilder({ initialType = "Surat rasmi" }: { initialType?:
               value={docType}
             >
               {documentTypes.map((type) => (
-                <option key={type}>{type}</option>
+                <option key={type} value={type}>{documentTypeLabels[language][type]}</option>
               ))}
             </select>
             <label className="mt-4 block text-sm text-[#aeb6c6]">{t.uploadLogo}</label>
@@ -455,7 +529,7 @@ export function DocumentBuilder({ initialType = "Surat rasmi" }: { initialType?:
                     contentEditable
                     suppressContentEditableWarning
                   >
-                    {docType}
+                    {documentTypeLabels[language][docType]}
                   </h1>
                 </div>
                 <div className="grid h-20 w-20 place-items-center rounded-2xl border border-black/10 bg-black/5 text-xs text-black/40">
@@ -495,16 +569,37 @@ export function DocumentBuilder({ initialType = "Surat rasmi" }: { initialType?:
   );
 }
 
-function buildBlocks(type: string) {
-  const selected = templates[type] || templates["Template custom"];
+function normalizeDocumentType(type: string): DocumentTypeId {
+  if (documentTypes.includes(type as DocumentTypeId)) {
+    return type as DocumentTypeId;
+  }
+
+  const legacyMatch = documentTypes.find((documentType) =>
+    Object.values(documentTypeLabels).some((labels) => labels[documentType] === type),
+  );
+
+  return legacyMatch ?? "formal-letter";
+}
+
+function buildBlocks(type: DocumentTypeId, language: Language) {
+  const selected = templates[language][type] || templates[language]["custom-template"];
   return selected.map((title, index) => ({
-    content: defaultContent(title),
+    content: defaultContent(title, language),
     id: `${type}-${title}-${index}`,
     title,
   }));
 }
 
-function defaultContent(title: string) {
+function defaultContent(title: string, language: Language) {
+  if (language === "en") {
+    const lower = title.toLowerCase();
+    if (lower.includes("objective")) return "Write the document or activity objective here.";
+    if (lower.includes("closing")) return "Add a concise and professional closing.";
+    if (lower.includes("signature")) return "Name, position and signature.";
+    if (lower.includes("summary")) return "Main document summary.";
+    return "Click to edit this block.";
+  }
+
   const lower = title.toLowerCase();
   if (lower.includes("objektif")) return "Tuliskan objektif dokumen atau aktiviti di sini.";
   if (lower.includes("penutup")) return "Masukkan penutup yang ringkas dan profesional.";
