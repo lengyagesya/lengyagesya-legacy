@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { type ChangeEvent, type DragEvent, type PointerEvent as ReactPointerEvent, createContext, useContext, useEffect, useState } from "react";
+import { type DragEvent, type PointerEvent as ReactPointerEvent, createContext, useContext, useEffect, useState } from "react";
 
 type Language = "ms" | "en";
 type PaperBlock = {
@@ -115,9 +115,7 @@ const copy = {
     openBlocks: "Buka blok A4 boleh edit.",
     builderControls: "Kawalan builder",
     documentType: "Jenis dokumen",
-    uploadLogo: "Upload logo",
     submitLater: "Hantar ke AI nanti",
-    logo: "Logo",
     selectDocumentPlaceholder: "Pilih jenis dokumen",
     documentBrief: "Penerangan dokumen",
     documentBriefPlaceholder: "Contoh: Saya mahu buat RPA aktiviti mengenal warna untuk kanak-kanak 5 tahun.",
@@ -175,9 +173,7 @@ const copy = {
     openBlocks: "Open editable A4 blocks.",
     builderControls: "Builder controls",
     documentType: "Document type",
-    uploadLogo: "Upload logo",
     submitLater: "Submit to AI later",
-    logo: "Logo",
     selectDocumentPlaceholder: "Select document type",
     documentBrief: "Document brief",
     documentBriefPlaceholder: "Example: I want to create an activity plan about basic colours for 5-year-old children.",
@@ -734,7 +730,6 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
   const initialDocumentType = normalizeDocumentType(initialType);
   const [docType, setDocType] = useState<DocumentTypeId | "">(initialDocumentType);
   const [blocks, setBlocks] = useState<PaperBlock[]>(() => initialDocumentType ? buildBlocks(initialDocumentType, language) : []);
-  const [logo, setLogo] = useState("");
   const [documentBrief, setDocumentBrief] = useState("");
   const [customTitle, setCustomTitle] = useState("");
   const [customContent, setCustomContent] = useState("");
@@ -788,12 +783,6 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
     const nextType = normalizeDocumentType(value);
     setDocType(nextType);
     setBlocks(nextType ? buildBlocks(nextType, language) : []);
-  }
-
-  function uploadLogo(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    setLogo(URL.createObjectURL(file));
   }
 
   function addItemToPaper(title = customTitle, content = customContent, position?: { x: number; y: number }) {
@@ -893,8 +882,6 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
               placeholder={t.documentBriefPlaceholder}
               value={documentBrief}
             />
-            <label className="mt-4 block text-sm text-[#aeb6c6]">{t.uploadLogo}</label>
-            <input accept="image/*" className="input mt-2" onChange={uploadLogo} type="file" />
             <button className="button-secondary mt-4 w-full" type="button">
               {t.submitLater}
             </button>
@@ -907,28 +894,6 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
               onDragOver={(event) => event.preventDefault()}
               onDrop={dropItem}
             >
-              {docType ? (
-                <div className="pointer-events-none absolute left-12 right-12 top-10 flex items-start justify-between gap-6 border-b border-black/10 pb-6">
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.24em] text-black/45">lY Docs</p>
-                    <h1
-                      className="mt-2 text-3xl font-semibold tracking-[-0.04em]"
-                      contentEditable
-                      suppressContentEditableWarning
-                    >
-                      {documentTypeLabels[language][docType]}
-                    </h1>
-                  </div>
-                  <div className="grid h-20 w-20 place-items-center rounded-2xl border border-black/10 bg-black/5 text-xs text-black/40">
-                    {logo ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img alt="Uploaded logo" className="h-full w-full rounded-2xl object-contain" src={logo} />
-                    ) : (
-                      t.logo
-                    )}
-                  </div>
-                </div>
-              ) : null}
               {typeof alignmentGuide.x === "number" ? (
                 <div
                   className="pointer-events-none absolute bottom-0 top-0 z-30 w-px bg-[#4f7dff]/80 shadow-[0_0_16px_rgba(79,125,255,0.75)]"
