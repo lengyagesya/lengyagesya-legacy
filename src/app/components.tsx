@@ -2,7 +2,7 @@
 
 import { motion, Reorder } from "framer-motion";
 import Link from "next/link";
-import { ChangeEvent, createContext, useContext, useEffect, useState } from "react";
+import { type ChangeEvent, type DragEvent, createContext, useContext, useEffect, useState } from "react";
 
 type Language = "ms" | "en";
 type DocumentTypeId =
@@ -101,11 +101,15 @@ const copy = {
     selectDocumentPlaceholder: "Pilih jenis dokumen",
     paperReadyHint: "Pilih jenis dokumen di sebelah kiri untuk mula susun item.",
     itemTools: "Tools item",
-    itemToolsBody: "Tambah item sendiri ke dalam kertas.",
+    itemToolsBody: "Pilih atau drag item masuk ke dalam kertas.",
     itemTitle: "Nama item",
     itemContent: "Isi item",
     addToPaper: "Simpan ke kertas",
     quickItems: "Item pantas",
+    itemShelf: "Item untuk kertas",
+    itemShelfBody: "Klik Pilih atau slide/drag item ke atas kertas.",
+    chooseItem: "Pilih",
+    dropHint: "Drop item di sini atau pilih item di sebelah kanan.",
     emptyTitle: "Item Baru",
     emptyContent: "Klik untuk edit kandungan item ini.",
   },
@@ -156,11 +160,15 @@ const copy = {
     selectDocumentPlaceholder: "Select document type",
     paperReadyHint: "Select a document type on the left to start arranging items.",
     itemTools: "Item tools",
-    itemToolsBody: "Add your own item into the paper.",
+    itemToolsBody: "Choose or drag an item into the paper.",
     itemTitle: "Item name",
     itemContent: "Item content",
     addToPaper: "Save to paper",
     quickItems: "Quick items",
+    itemShelf: "Paper items",
+    itemShelfBody: "Click Choose or slide/drag an item onto the paper.",
+    chooseItem: "Choose",
+    dropHint: "Drop an item here or choose one from the right panel.",
     emptyTitle: "New Item",
     emptyContent: "Click to edit this item content.",
   },
@@ -376,6 +384,11 @@ const templates: Record<Language, Record<DocumentTypeId, string[]>> = {
     taska: ["Childcare Centre Name", "Child Name", "Activity", "Development", "Notes"],
     "custom-template": ["Document Title", "Section 1", "Section 2", "Notes", "Closing"],
   },
+};
+
+const baseItemLibrary: Record<Language, string[]> = {
+  ms: ["Tajuk", "Perenggan", "Maklumat", "Objektif", "Ringkasan", "Catatan", "Tandatangan"],
+  en: ["Title", "Paragraph", "Information", "Objective", "Summary", "Notes", "Signature"],
 };
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -700,7 +713,19 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
     setCustomContent("");
   }
 
-  const quickItems = docType ? templates[language][docType] : [];
+  function dragItem(event: DragEvent<HTMLButtonElement>, title: string) {
+    event.dataTransfer.setData("text/plain", title);
+    event.dataTransfer.effectAllowed = "copy";
+  }
+
+  function dropItem(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    const title = event.dataTransfer.getData("text/plain");
+    if (!title) return;
+    addItemToPaper(title, defaultContent(title, language));
+  }
+
+  const quickItems = docType ? templates[language][docType] : baseItemLibrary[language];
 
   return (
     <section className="grid gap-5 py-6 xl:grid-cols-[260px_minmax(0,1fr)_280px]">
@@ -729,7 +754,11 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
         </Reveal>
         <Reveal delay={0.08}>
           <div className="surface rounded-[2rem] p-4">
-            <div className="a4-page mx-auto rounded-xl p-8 sm:p-12">
+            <div
+              className="a4-page mx-auto rounded-xl p-8 transition sm:p-12"
+              onDragOver={(event) => event.preventDefault()}
+              onDrop={dropItem}
+            >
               {docType ? (
                 <div className="mb-8 flex items-start justify-between gap-6 border-b border-black/10 pb-6">
                   <div>
@@ -772,6 +801,11 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
                   </Reorder.Item>
                 ))}
               </Reorder.Group>
+              {blocks.length === 0 ? (
+                <div className="grid min-h-64 place-items-center rounded-2xl border border-dashed border-black/15 bg-black/[0.025] p-6 text-center">
+                  <p className="max-w-xs text-sm leading-6 text-black/45">{t.dropHint}</p>
+                </div>
+              ) : null}
             </div>
             {!docType ? (
               <p className="mt-4 text-center text-sm text-[#aeb6c6]">{t.paperReadyHint}</p>
@@ -803,17 +837,23 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
             </button>
             <div className="mt-6 border-t border-white/10 pt-5">
               <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#9db4ff]">
-                {t.quickItems}
+                {docType ? t.quickItems : t.itemShelf}
               </p>
+              <p className="mt-2 text-xs leading-5 text-[#8f98aa]">{t.itemShelfBody}</p>
               <div className="mt-3 flex max-h-72 flex-col gap-2 overflow-auto pr-1">
                 {quickItems.map((item) => (
                   <button
-                    className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-left text-sm text-[#dce3f1] transition hover:border-[#9db4ff]/50 hover:bg-white/[0.08]"
+                    className="group cursor-grab rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-left text-sm text-[#dce3f1] transition hover:border-[#9db4ff]/50 hover:bg-white/[0.08] active:cursor-grabbing"
+                    draggable
                     key={item}
+                    onDragStart={(event) => dragItem(event, item)}
                     onClick={() => addItemToPaper(item, defaultContent(item, language))}
                     type="button"
                   >
-                    {item}
+                    <span className="block font-medium">{item}</span>
+                    <span className="mt-1 block text-[0.68rem] font-bold uppercase tracking-[0.16em] text-[#9db4ff] opacity-70 group-hover:opacity-100">
+                      {t.chooseItem}
+                    </span>
                   </button>
                 ))}
               </div>
