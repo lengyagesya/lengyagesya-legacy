@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { motion } from "framer-motion";
+import { motion, type PanInfo } from "framer-motion";
 import Link from "next/link";
 import { type ChangeEvent, type DragEvent, createContext, useContext, useEffect, useState } from "react";
 
@@ -760,6 +760,20 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
     setCustomContent("");
   }
 
+  function movePaperItem(id: string, info: PanInfo) {
+    setBlocks((currentBlocks) =>
+      currentBlocks.map((block) =>
+        block.id === id
+          ? {
+              ...block,
+              x: Math.max(0, block.x + info.offset.x),
+              y: Math.max(0, block.y + info.offset.y),
+            }
+          : block,
+      ),
+    );
+  }
+
   function dragItem(event: DragEvent<HTMLButtonElement>, title: string) {
     event.dataTransfer.setData("text/plain", title);
     event.dataTransfer.effectAllowed = "copy";
@@ -832,7 +846,7 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
                   </div>
                 </div>
               ) : null}
-              <div className="absolute inset-0">
+              <div className="absolute inset-0 z-10">
                 {blocks.map((block) => (
                   <motion.div
                     className="group absolute cursor-grab resize overflow-auto rounded-xl border border-black/10 bg-white/95 p-4 shadow-sm active:cursor-grabbing"
@@ -841,11 +855,12 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
                     dragMomentum={false}
                     initial={{ opacity: 0, scale: 0.98 }}
                     key={block.id}
+                    onDragEnd={(_, info) => movePaperItem(block.id, info)}
                     style={{
                       height: block.height,
+                      left: block.x,
+                      top: block.y,
                       width: block.width,
-                      x: block.x,
-                      y: block.y,
                     }}
                     transition={{ duration: 0.18 }}
                   >
@@ -866,7 +881,7 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
                 ))}
               </div>
               {blocks.length === 0 ? (
-                <div className="absolute inset-x-12 top-44 grid min-h-64 place-items-center rounded-2xl border border-dashed border-black/15 bg-black/[0.025] p-6 text-center">
+                <div className="pointer-events-none absolute inset-x-12 top-44 z-0 grid min-h-64 place-items-center rounded-2xl border border-dashed border-black/15 bg-black/[0.025] p-6 text-center">
                   <p className="max-w-xs text-sm leading-6 text-black/45">{t.dropHint}</p>
                 </div>
               ) : null}
