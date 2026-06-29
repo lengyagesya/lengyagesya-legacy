@@ -1,8 +1,8 @@
 ﻿"use client";
 
-import { motion, type PanInfo } from "framer-motion";
+import { motion } from "framer-motion";
 import Link from "next/link";
-import { type ChangeEvent, type DragEvent, createContext, useContext, useEffect, useState } from "react";
+import { type ChangeEvent, type DragEvent, type PointerEvent as ReactPointerEvent, createContext, useContext, useEffect, useState } from "react";
 
 type Language = "ms" | "en";
 type PaperBlock = {
@@ -14,6 +14,13 @@ type PaperBlock = {
   x: number;
   y: number;
 };
+type PaperDrag = {
+  id: string;
+  originX: number;
+  originY: number;
+  startX: number;
+  startY: number;
+} | null;
 type DocumentTypeId =
   | "rpa"
   | "rph"
@@ -119,6 +126,7 @@ const copy = {
     itemShelfBody: "Klik Pilih atau slide/drag item ke atas kertas.",
     chooseItem: "Pilih",
     dropHint: "Drop item di sini atau pilih item di sebelah kanan.",
+    moveItem: "Gerak",
     emptyTitle: "Item Baru",
     emptyContent: "Klik untuk edit kandungan item ini.",
   },
@@ -178,6 +186,7 @@ const copy = {
     itemShelfBody: "Click Choose or slide/drag an item onto the paper.",
     chooseItem: "Choose",
     dropHint: "Drop an item here or choose one from the right panel.",
+    moveItem: "Move",
     emptyTitle: "New Item",
     emptyContent: "Click to edit this item content.",
   },
@@ -724,10 +733,42 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
   const [logo, setLogo] = useState("");
   const [customTitle, setCustomTitle] = useState("");
   const [customContent, setCustomContent] = useState("");
+  const [activeDrag, setActiveDrag] = useState<PaperDrag>(null);
 
   useEffect(() => {
     window.setTimeout(() => setBlocks(docType ? buildBlocks(docType, language) : []), 0);
   }, [docType, language]);
+
+  useEffect(() => {
+    if (!activeDrag) return;
+    const drag = activeDrag;
+
+    function handlePointerMove(event: PointerEvent) {
+      setBlocks((currentBlocks) =>
+        currentBlocks.map((block) =>
+          block.id === drag.id
+            ? {
+                ...block,
+                x: Math.max(0, drag.originX + event.clientX - drag.startX),
+                y: Math.max(0, drag.originY + event.clientY - drag.startY),
+              }
+            : block,
+        ),
+      );
+    }
+
+    function handlePointerUp() {
+      setActiveDrag(null);
+    }
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+    };
+  }, [activeDrag]);
 
   function changeType(value: string) {
     const nextType = normalizeDocumentType(value);
@@ -760,18 +801,16 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
     setCustomContent("");
   }
 
-  function movePaperItem(id: string, info: PanInfo) {
-    setBlocks((currentBlocks) =>
-      currentBlocks.map((block) =>
-        block.id === id
-          ? {
-              ...block,
-              x: Math.max(0, block.x + info.offset.x),
-              y: Math.max(0, block.y + info.offset.y),
-            }
-          : block,
-      ),
-    );
+  function startPaperItemDrag(event: ReactPointerEvent<HTMLButtonElement>, block: PaperBlock) {
+    event.preventDefault();
+    event.stopPropagation();
+    setActiveDrag({
+      id: block.id,
+      originX: block.x,
+      originY: block.y,
+      startX: event.clientX,
+      startY: event.clientY,
+    });
   }
 
   function dragItem(event: DragEvent<HTMLButtonElement>, title: string) {
@@ -849,14 +888,10 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
               <div className="absolute inset-0 z-10">
                 {blocks.map((block) => (
                   <motion.div
-                    className="group absolute cursor-grab resize overflow-auto rounded-xl border border-black/10 bg-white/95 p-4 shadow-sm active:cursor-grabbing"
+                    className="group absolute resize overflow-auto rounded-xl border border-black/10 bg-white/95 p-4 shadow-sm"
                     animate={{ opacity: 1, scale: 1 }}
-                    drag
-                    dragConstraints={{ bottom: 920, left: 0, right: 590, top: 0 }}
-                    dragMomentum={false}
                     initial={{ opacity: 0, scale: 0.98 }}
                     key={block.id}
-                    onDragEnd={(_, info) => movePaperItem(block.id, info)}
                     style={{
                       height: block.height,
                       left: block.x,
@@ -866,9 +901,18 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
                     }}
                     transition={{ duration: 0.18 }}
                   >
-                    <p className="text-xs font-bold uppercase tracking-[0.18em] text-black/40">
-                      {block.title}
-                    </p>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="min-w-0 truncate text-xs font-bold uppercase tracking-[0.18em] text-black/40">
+                        {block.title}
+                      </p>
+                      <button
+                        className="shrink-0 cursor-move rounded-full border border-black/10 px-2 py-1 text-[0.62rem] font-bold uppercase tracking-[0.12em] text-black/40 transition hover:border-black/25 hover:text-black/70"
+                        onPointerDown={(event) => startPaperItemDrag(event, block)}
+                        type="button"
+                      >
+                        {t.moveItem}
+                      </button>
+                    </div>
                     <div
                       className="editable-block mt-3 min-h-12 text-sm leading-7 text-black/75"
                       contentEditable
