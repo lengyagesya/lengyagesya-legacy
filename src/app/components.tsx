@@ -1046,15 +1046,83 @@ function getAlignmentGuide(activeBlock: PaperBlock, nextX: number, nextY: number
 
 function buildBlocks(type: DocumentTypeId, language: Language) {
   const selected = templates[language][type] || templates[language]["custom-template"];
-  return selected.map((title, index) => ({
-    content: defaultContent(title, language),
+  return selected.map((title, index) => {
+    const layout = getTemplateLayout(type, index);
+    return {
+      content: defaultContent(title, language),
+      height: layout.height,
+      id: `${type}-${title}-${index}`,
+      title,
+      width: layout.width,
+      x: layout.x,
+      y: layout.y,
+    };
+  });
+}
+
+function getTemplateLayout(type: DocumentTypeId, index: number) {
+  const formalLetter = [
+    { height: 70, width: 270, x: 48, y: 58 },
+    { height: 70, width: 190, x: 430, y: 58 },
+    { height: 118, width: 540, x: 48, y: 150 },
+    { height: 74, width: 560, x: 48, y: 292 },
+    { height: 245, width: 560, x: 48, y: 390 },
+    { height: 105, width: 560, x: 48, y: 670 },
+    { height: 118, width: 270, x: 48, y: 815 },
+  ];
+
+  const planningDocument = [
+    { height: 82, width: 560, x: 48, y: 48 },
+    { height: 96, width: 260, x: 48, y: 154 },
+    { height: 96, width: 260, x: 344, y: 154 },
+    { height: 124, width: 560, x: 48, y: 276 },
+    { height: 124, width: 260, x: 48, y: 424 },
+    { height: 124, width: 260, x: 344, y: 424 },
+    { height: 185, width: 560, x: 48, y: 572 },
+    { height: 150, width: 560, x: 48, y: 782 },
+  ];
+
+  const reportDocument = [
+    { height: 84, width: 560, x: 48, y: 48 },
+    { height: 100, width: 260, x: 48, y: 156 },
+    { height: 100, width: 260, x: 344, y: 156 },
+    { height: 145, width: 560, x: 48, y: 282 },
+    { height: 145, width: 260, x: 48, y: 452 },
+    { height: 145, width: 260, x: 344, y: 452 },
+    { height: 165, width: 560, x: 48, y: 622 },
+    { height: 120, width: 560, x: 48, y: 812 },
+  ];
+
+  const resumeDocument = [
+    { height: 96, width: 560, x: 48, y: 48 },
+    { height: 150, width: 560, x: 48, y: 170 },
+    { height: 170, width: 270, x: 48, y: 344 },
+    { height: 170, width: 270, x: 338, y: 344 },
+    { height: 170, width: 270, x: 48, y: 538 },
+    { height: 170, width: 270, x: 338, y: 538 },
+  ];
+
+  const selectedLayout =
+    type === "formal-letter" || type === "application-letter"
+      ? formalLetter
+      : ["rpa", "rph", "rpi", "lesson-plan", "therapy-session-plan", "daily-activity-plan", "weekly-activity-plan", "program-plan"].includes(type)
+        ? planningDocument
+        : type === "resume" || type === "biodata"
+          ? resumeDocument
+          : type.includes("report") || type === "meeting-minutes" || type === "proposal" || type === "working-paper"
+            ? reportDocument
+            : null;
+
+  if (selectedLayout?.[index]) {
+    return selectedLayout[index];
+  }
+
+  return {
     height: index === 0 ? 104 : 132,
-    id: `${type}-${title}-${index}`,
-    title,
     width: index === 0 ? 560 : 260,
     x: index === 0 ? 48 : 48 + ((index - 1) % 2) * 292,
     y: index === 0 ? 150 : 280 + Math.floor((index - 1) / 2) * 160,
-  }));
+  };
 }
 
 function defaultContent(title: string, language: Language) {
