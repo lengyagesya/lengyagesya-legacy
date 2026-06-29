@@ -1016,7 +1016,7 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
               <div className="absolute inset-0 z-10">
                 {page.blocks.map((block) => (
                   <motion.div
-                    className="group absolute cursor-grab resize overflow-auto rounded-xl border border-black/10 bg-white/95 p-4 shadow-sm active:cursor-grabbing"
+                    className="group absolute cursor-grab resize overflow-hidden rounded-xl border border-black/10 bg-white/95 p-4 shadow-sm active:cursor-grabbing"
                     animate={{ opacity: 1, scale: 1 }}
                     initial={{ opacity: 0, scale: 0.98 }}
                     key={block.id}
