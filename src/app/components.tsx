@@ -21,6 +21,10 @@ type PaperDrag = {
   startX: number;
   startY: number;
 } | null;
+type AlignmentGuide = {
+  x?: number;
+  y?: number;
+};
 type DocumentTypeId =
   | "rpa"
   | "rph"
@@ -732,6 +736,7 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
   const [customTitle, setCustomTitle] = useState("");
   const [customContent, setCustomContent] = useState("");
   const [activeDrag, setActiveDrag] = useState<PaperDrag>(null);
+  const [alignmentGuide, setAlignmentGuide] = useState<AlignmentGuide>({});
 
   useEffect(() => {
     window.setTimeout(() => setBlocks(docType ? buildBlocks(docType, language) : []), 0);
@@ -742,13 +747,20 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
     const drag = activeDrag;
 
     function handlePointerMove(event: PointerEvent) {
+      const activeBlock = blocks.find((block) => block.id === drag.id);
+      const nextX = Math.max(0, drag.originX + event.clientX - drag.startX);
+      const nextY = Math.max(0, drag.originY + event.clientY - drag.startY);
+      if (activeBlock) {
+        setAlignmentGuide(getAlignmentGuide(activeBlock, nextX, nextY, blocks));
+      }
+
       setBlocks((currentBlocks) =>
         currentBlocks.map((block) =>
           block.id === drag.id
             ? {
                 ...block,
-                x: Math.max(0, drag.originX + event.clientX - drag.startX),
-                y: Math.max(0, drag.originY + event.clientY - drag.startY),
+                x: nextX,
+                y: nextY,
               }
             : block,
         ),
@@ -757,6 +769,7 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
 
     function handlePointerUp() {
       setActiveDrag(null);
+      window.setTimeout(() => setAlignmentGuide({}), 180);
     }
 
     window.addEventListener("pointermove", handlePointerMove);
@@ -766,7 +779,7 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
       window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerup", handlePointerUp);
     };
-  }, [activeDrag]);
+  }, [activeDrag, blocks]);
 
   function changeType(value: string) {
     const nextType = normalizeDocumentType(value);
@@ -890,6 +903,18 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
                   </div>
                 </div>
               ) : null}
+              {typeof alignmentGuide.x === "number" ? (
+                <div
+                  className="pointer-events-none absolute bottom-0 top-0 z-30 w-px bg-[#4f7dff]/80 shadow-[0_0_16px_rgba(79,125,255,0.75)]"
+                  style={{ left: alignmentGuide.x }}
+                />
+              ) : null}
+              {typeof alignmentGuide.y === "number" ? (
+                <div
+                  className="pointer-events-none absolute left-0 right-0 z-30 h-px bg-[#4f7dff]/80 shadow-[0_0_16px_rgba(79,125,255,0.75)]"
+                  style={{ top: alignmentGuide.y }}
+                />
+              ) : null}
               <div className="absolute inset-0 z-10">
                 {blocks.map((block) => (
                   <motion.div
@@ -1000,6 +1025,38 @@ function normalizeDocumentType(type: string): DocumentTypeId | "" {
   );
 
   return legacyMatch ?? "";
+}
+
+function getAlignmentGuide(activeBlock: PaperBlock, nextX: number, nextY: number, blocks: PaperBlock[]): AlignmentGuide {
+  const threshold = 7;
+  const activeCenterX = nextX + activeBlock.width / 2;
+  const activeCenterY = nextY + activeBlock.height / 2;
+  const verticalTargets = [360, 48, 672];
+  const horizontalTargets = [509, 48, 970];
+
+  blocks.forEach((block) => {
+    if (block.id === activeBlock.id) return;
+    verticalTargets.push(block.x, block.x + block.width / 2, block.x + block.width);
+    horizontalTargets.push(block.y, block.y + block.height / 2, block.y + block.height);
+  });
+
+  const xGuide = verticalTargets.find(
+    (target) =>
+      Math.abs(target - nextX) <= threshold ||
+      Math.abs(target - activeCenterX) <= threshold ||
+      Math.abs(target - (nextX + activeBlock.width)) <= threshold,
+  );
+  const yGuide = horizontalTargets.find(
+    (target) =>
+      Math.abs(target - nextY) <= threshold ||
+      Math.abs(target - activeCenterY) <= threshold ||
+      Math.abs(target - (nextY + activeBlock.height)) <= threshold,
+  );
+
+  return {
+    x: xGuide,
+    y: yGuide,
+  };
 }
 
 function buildBlocks(type: DocumentTypeId, language: Language) {
