@@ -850,7 +850,23 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
     });
   }
 
-  const quickItems = docType ? templates[language][docType] : baseItemLibrary[language];
+  const documentItems = docType ? templates[language][docType] : [];
+  const baseItems = baseItemLibrary[language];
+  const renderItemButton = (item: string) => (
+    <button
+      className="group cursor-grab rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-left text-sm text-[#dce3f1] transition hover:border-[#9db4ff]/50 hover:bg-white/[0.08] active:cursor-grabbing"
+      draggable
+      key={item}
+      onDragStart={(event) => dragItem(event, item)}
+      onClick={() => addItemToPaper(item, defaultContent(item, language))}
+      type="button"
+    >
+      <span className="block font-medium">{item}</span>
+      <span className="mt-1 block text-[0.68rem] font-bold uppercase tracking-[0.16em] text-[#9db4ff] opacity-70 group-hover:opacity-100">
+        {t.chooseItem}
+      </span>
+    </button>
+  );
 
   return (
     <section className="grid gap-5 py-6 xl:grid-cols-[260px_minmax(0,1fr)_280px]">
@@ -990,26 +1006,23 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
               {t.addToPaper}
             </button>
             <div className="mt-6 border-t border-white/10 pt-5">
-              <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#9db4ff]">
-                {docType ? t.quickItems : t.itemShelf}
+              {documentItems.length > 0 ? (
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#9db4ff]">
+                    {t.quickItems}
+                  </p>
+                  <p className="mt-2 text-xs leading-5 text-[#8f98aa]">{t.itemShelfBody}</p>
+                  <div className="mt-3 flex max-h-48 flex-col gap-2 overflow-auto pr-1">
+                    {documentItems.map(renderItemButton)}
+                  </div>
+                </div>
+              ) : null}
+              <p className={`${documentItems.length > 0 ? "mt-6" : ""} text-xs font-bold uppercase tracking-[0.2em] text-[#9db4ff]`}>
+                {t.itemShelf}
               </p>
               <p className="mt-2 text-xs leading-5 text-[#8f98aa]">{t.itemShelfBody}</p>
               <div className="mt-3 flex max-h-72 flex-col gap-2 overflow-auto pr-1">
-                {quickItems.map((item) => (
-                  <button
-                    className="group cursor-grab rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-left text-sm text-[#dce3f1] transition hover:border-[#9db4ff]/50 hover:bg-white/[0.08] active:cursor-grabbing"
-                    draggable
-                    key={item}
-                    onDragStart={(event) => dragItem(event, item)}
-                    onClick={() => addItemToPaper(item, defaultContent(item, language))}
-                    type="button"
-                  >
-                    <span className="block font-medium">{item}</span>
-                    <span className="mt-1 block text-[0.68rem] font-bold uppercase tracking-[0.16em] text-[#9db4ff] opacity-70 group-hover:opacity-100">
-                      {t.chooseItem}
-                    </span>
-                  </button>
-                ))}
+                {baseItems.map(renderItemButton)}
               </div>
             </div>
           </aside>
