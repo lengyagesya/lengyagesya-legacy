@@ -139,6 +139,7 @@ const copy = {
     pageLabel: "Page",
     activePage: "Aktif",
     selectPage: "Pilih",
+    deletePage: "Delete Page",
     chooseItem: "Pilih",
     dropHint: "Drop item di sini atau pilih item di sebelah kanan.",
     emptyTitle: "Item Baru",
@@ -203,6 +204,7 @@ const copy = {
     pageLabel: "Page",
     activePage: "Active",
     selectPage: "Select",
+    deletePage: "Delete Page",
     chooseItem: "Choose",
     dropHint: "Drop an item here or choose one from the right panel.",
     emptyTitle: "New Item",
@@ -863,6 +865,17 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
     });
   }
 
+  function deletePage(pageId: string) {
+    setPages((currentPages) => {
+      if (currentPages.length <= 1) return currentPages;
+      const nextPages = currentPages.filter((page) => page.id !== pageId);
+      if (activePageId === pageId) {
+        setActivePageId(nextPages.at(-1)?.id ?? "page-1");
+      }
+      return nextPages;
+    });
+  }
+
   function startPaperItemDrag(event: ReactPointerEvent<HTMLDivElement>, block: PaperBlock, pageId: string) {
     const target = event.target as HTMLElement;
     const bounds = event.currentTarget.getBoundingClientRect();
@@ -956,21 +969,32 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
             >
               {pages.map((page, pageIndex) => (
                 <div key={page.id}>
-                  <div className="mb-3 flex items-center justify-between px-1">
+                  <div className="mb-3 flex items-center justify-between gap-3 px-1">
                     <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#9db4ff]">
                       {t.pageLabel} {pageIndex + 1}
                     </p>
-                    <button
-                      className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
-                        activePageId === page.id
-                          ? "border-[#9db4ff]/70 bg-[#9db4ff]/15 text-white"
-                          : "border-white/10 bg-white/[0.04] text-[#aeb6c6] hover:border-[#9db4ff]/50"
-                      }`}
-                      onClick={() => setActivePageId(page.id)}
-                      type="button"
-                    >
-                      {activePageId === page.id ? t.activePage : t.selectPage}
-                    </button>
+                    <div className="flex items-center gap-2">
+                      {pageIndex > 0 ? (
+                        <button
+                          className="rounded-full border border-red-400/25 bg-red-500/10 px-3 py-1 text-xs font-semibold text-red-100 transition hover:border-red-300/60"
+                          onClick={() => deletePage(page.id)}
+                          type="button"
+                        >
+                          {t.deletePage}
+                        </button>
+                      ) : null}
+                      <button
+                        className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+                          activePageId === page.id
+                            ? "border-[#9db4ff]/70 bg-[#9db4ff]/15 text-white"
+                            : "border-white/10 bg-white/[0.04] text-[#aeb6c6] hover:border-[#9db4ff]/50"
+                        }`}
+                        onClick={() => setActivePageId(page.id)}
+                        type="button"
+                      >
+                        {activePageId === page.id ? t.activePage : t.selectPage}
+                      </button>
+                    </div>
                   </div>
                   <div
               className="a4-page relative mx-auto overflow-hidden rounded-xl p-8 transition sm:p-12"
