@@ -119,7 +119,8 @@ const copy = {
     submitLater: "Hantar ke AI nanti",
     logo: "Logo",
     selectDocumentPlaceholder: "Pilih jenis dokumen",
-    paperReadyHint: "Pilih jenis dokumen di sebelah kiri untuk mula susun item.",
+    documentBrief: "Penerangan dokumen",
+    documentBriefPlaceholder: "Contoh: Saya mahu buat RPA aktiviti mengenal warna untuk kanak-kanak 5 tahun.",
     itemTools: "Tools item",
     itemToolsBody: "Pilih atau drag item masuk ke dalam kertas.",
     itemTitle: "Nama item",
@@ -178,7 +179,8 @@ const copy = {
     submitLater: "Submit to AI later",
     logo: "Logo",
     selectDocumentPlaceholder: "Select document type",
-    paperReadyHint: "Select a document type on the left to start arranging items.",
+    documentBrief: "Document brief",
+    documentBriefPlaceholder: "Example: I want to create an activity plan about basic colours for 5-year-old children.",
     itemTools: "Item tools",
     itemToolsBody: "Choose or drag an item into the paper.",
     itemTitle: "Item name",
@@ -733,6 +735,7 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
   const [docType, setDocType] = useState<DocumentTypeId | "">(initialDocumentType);
   const [blocks, setBlocks] = useState<PaperBlock[]>(() => initialDocumentType ? buildBlocks(initialDocumentType, language) : []);
   const [logo, setLogo] = useState("");
+  const [documentBrief, setDocumentBrief] = useState("");
   const [customTitle, setCustomTitle] = useState("");
   const [customContent, setCustomContent] = useState("");
   const [activeDrag, setActiveDrag] = useState<PaperDrag>(null);
@@ -867,6 +870,13 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
                 <option key={type} value={type}>{documentTypeLabels[language][type]}</option>
               ))}
             </select>
+            <label className="mt-4 block text-sm text-[#aeb6c6]">{t.documentBrief}</label>
+            <textarea
+              className="input mt-2 min-h-28 resize-none"
+              onChange={(event) => setDocumentBrief(event.target.value)}
+              placeholder={t.documentBriefPlaceholder}
+              value={documentBrief}
+            />
             <label className="mt-4 block text-sm text-[#aeb6c6]">{t.uploadLogo}</label>
             <input accept="image/*" className="input mt-2" onChange={uploadLogo} type="file" />
             <button className="button-secondary mt-4 w-full" type="button">
@@ -954,9 +964,6 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
                 </div>
               ) : null}
             </div>
-            {!docType ? (
-              <p className="mt-4 text-center text-sm text-[#aeb6c6]">{t.paperReadyHint}</p>
-            ) : null}
           </div>
         </Reveal>
         <Reveal delay={0.12}>
