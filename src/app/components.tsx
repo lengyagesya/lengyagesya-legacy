@@ -1,10 +1,19 @@
 ﻿"use client";
 
-import { motion, Reorder } from "framer-motion";
+import { motion } from "framer-motion";
 import Link from "next/link";
 import { type ChangeEvent, type DragEvent, createContext, useContext, useEffect, useState } from "react";
 
 type Language = "ms" | "en";
+type PaperBlock = {
+  content: string;
+  height: number;
+  id: string;
+  title: string;
+  width: number;
+  x: number;
+  y: number;
+};
 type DocumentTypeId =
   | "rpa"
   | "rph"
@@ -387,8 +396,42 @@ const templates: Record<Language, Record<DocumentTypeId, string[]>> = {
 };
 
 const baseItemLibrary: Record<Language, string[]> = {
-  ms: ["Tajuk", "Perenggan", "Maklumat", "Objektif", "Ringkasan", "Catatan", "Tandatangan"],
-  en: ["Title", "Paragraph", "Information", "Objective", "Summary", "Notes", "Signature"],
+  ms: [
+    "Tajuk",
+    "Subtajuk",
+    "Perenggan",
+    "Maklumat",
+    "Objektif",
+    "Senarai bullet",
+    "Jadual ringkas",
+    "Tarikh",
+    "Nama",
+    "Alamat",
+    "Ringkasan",
+    "Catatan",
+    "Rumusan",
+    "Cadangan",
+    "Tandatangan",
+    "Logo / Cop",
+  ],
+  en: [
+    "Title",
+    "Subtitle",
+    "Paragraph",
+    "Information",
+    "Objective",
+    "Bullet list",
+    "Simple table",
+    "Date",
+    "Name",
+    "Address",
+    "Summary",
+    "Notes",
+    "Conclusion",
+    "Recommendation",
+    "Signature",
+    "Logo / Stamp",
+  ],
 };
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -677,7 +720,7 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
   const { language, t } = useLanguage();
   const initialDocumentType = normalizeDocumentType(initialType);
   const [docType, setDocType] = useState<DocumentTypeId | "">(initialDocumentType);
-  const [blocks, setBlocks] = useState(() => initialDocumentType ? buildBlocks(initialDocumentType, language) : []);
+  const [blocks, setBlocks] = useState<PaperBlock[]>(() => initialDocumentType ? buildBlocks(initialDocumentType, language) : []);
   const [logo, setLogo] = useState("");
   const [customTitle, setCustomTitle] = useState("");
   const [customContent, setCustomContent] = useState("");
@@ -698,15 +741,19 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
     setLogo(URL.createObjectURL(file));
   }
 
-  function addItemToPaper(title = customTitle, content = customContent) {
+  function addItemToPaper(title = customTitle, content = customContent, position?: { x: number; y: number }) {
     const cleanTitle = title.trim() || t.emptyTitle;
     const cleanContent = content.trim() || t.emptyContent;
     setBlocks((currentBlocks) => [
       ...currentBlocks,
       {
         content: cleanContent,
+        height: 132,
         id: `custom-${Date.now()}-${currentBlocks.length}`,
         title: cleanTitle,
+        width: 260,
+        x: position?.x ?? 48 + (currentBlocks.length % 2) * 290,
+        y: position?.y ?? 150 + Math.floor(currentBlocks.length / 2) * 160,
       },
     ]);
     setCustomTitle("");
@@ -722,7 +769,11 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
     event.preventDefault();
     const title = event.dataTransfer.getData("text/plain");
     if (!title) return;
-    addItemToPaper(title, defaultContent(title, language));
+    const bounds = event.currentTarget.getBoundingClientRect();
+    addItemToPaper(title, defaultContent(title, language), {
+      x: Math.max(20, event.clientX - bounds.left - 130),
+      y: Math.max(20, event.clientY - bounds.top - 50),
+    });
   }
 
   const quickItems = docType ? templates[language][docType] : baseItemLibrary[language];
@@ -755,16 +806,16 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
         <Reveal delay={0.08}>
           <div className="surface rounded-[2rem] p-4">
             <div
-              className="a4-page mx-auto rounded-xl p-8 transition sm:p-12"
+              className="a4-page relative mx-auto overflow-hidden rounded-xl p-8 transition sm:p-12"
               onDragOver={(event) => event.preventDefault()}
               onDrop={dropItem}
             >
               {docType ? (
-                <div className="mb-8 flex items-start justify-between gap-6 border-b border-black/10 pb-6">
+                <div className="pointer-events-none absolute left-12 right-12 top-10 flex items-start justify-between gap-6 border-b border-black/10 pb-6">
                   <div>
                     <p className="text-xs uppercase tracking-[0.24em] text-black/45">lY Docs</p>
                     <h1
-                      className="editable-block mt-2 text-3xl font-semibold tracking-[-0.04em]"
+                      className="mt-2 text-3xl font-semibold tracking-[-0.04em]"
                       contentEditable
                       suppressContentEditableWarning
                     >
@@ -781,12 +832,22 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
                   </div>
                 </div>
               ) : null}
-              <Reorder.Group axis="y" className="space-y-4" onReorder={setBlocks} values={blocks}>
+              <div className="absolute inset-0">
                 {blocks.map((block) => (
-                  <Reorder.Item
-                    className="cursor-grab rounded-xl border border-black/10 bg-white p-4 shadow-sm active:cursor-grabbing"
+                  <motion.div
+                    className="group absolute cursor-grab resize overflow-auto rounded-xl border border-black/10 bg-white/95 p-4 shadow-sm active:cursor-grabbing"
+                    drag
+                    dragConstraints={{ bottom: 920, left: 0, right: 590, top: 0 }}
+                    dragMomentum={false}
+                    initial={{ opacity: 0, scale: 0.98 }}
                     key={block.id}
-                    value={block}
+                    style={{
+                      height: block.height,
+                      width: block.width,
+                      x: block.x,
+                      y: block.y,
+                    }}
+                    transition={{ duration: 0.18 }}
                   >
                     <p className="text-xs font-bold uppercase tracking-[0.18em] text-black/40">
                       {block.title}
@@ -798,11 +859,14 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
                     >
                       {block.content}
                     </div>
-                  </Reorder.Item>
+                    <span className="pointer-events-none absolute bottom-1 right-2 text-[0.65rem] font-bold uppercase tracking-[0.14em] text-black/25 opacity-0 transition group-hover:opacity-100">
+                      resize
+                    </span>
+                  </motion.div>
                 ))}
-              </Reorder.Group>
+              </div>
               {blocks.length === 0 ? (
-                <div className="grid min-h-64 place-items-center rounded-2xl border border-dashed border-black/15 bg-black/[0.025] p-6 text-center">
+                <div className="absolute inset-x-12 top-44 grid min-h-64 place-items-center rounded-2xl border border-dashed border-black/15 bg-black/[0.025] p-6 text-center">
                   <p className="max-w-xs text-sm leading-6 text-black/45">{t.dropHint}</p>
                 </div>
               ) : null}
@@ -884,8 +948,12 @@ function buildBlocks(type: DocumentTypeId, language: Language) {
   const selected = templates[language][type] || templates[language]["custom-template"];
   return selected.map((title, index) => ({
     content: defaultContent(title, language),
+    height: index === 0 ? 104 : 132,
     id: `${type}-${title}-${index}`,
     title,
+    width: index === 0 ? 560 : 260,
+    x: index === 0 ? 48 : 48 + ((index - 1) % 2) * 292,
+    y: index === 0 ? 150 : 280 + Math.floor((index - 1) / 2) * 160,
   }));
 }
 
