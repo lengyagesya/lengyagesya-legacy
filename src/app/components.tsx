@@ -14,10 +14,16 @@ type PaperBlock = {
   x: number;
   y: number;
 };
+type PaperPage = {
+  blocks: PaperBlock[];
+  id: string;
+  title: string;
+};
 type PaperDrag = {
   id: string;
   originX: number;
   originY: number;
+  pageId: string;
   startX: number;
   startY: number;
 } | null;
@@ -127,6 +133,12 @@ const copy = {
     quickItems: "Item pantas",
     itemShelf: "Item untuk kertas",
     itemShelfBody: "Klik Pilih atau slide/drag item ke atas kertas.",
+    logoTools: "Logo dan cop",
+    logoToolsBody: "Letak logo atau cop sebagai item berasingan pada kertas.",
+    addPage: "Tambah Page",
+    pageLabel: "Page",
+    activePage: "Aktif",
+    selectPage: "Pilih",
     chooseItem: "Pilih",
     dropHint: "Drop item di sini atau pilih item di sebelah kanan.",
     emptyTitle: "Item Baru",
@@ -185,6 +197,12 @@ const copy = {
     quickItems: "Quick items",
     itemShelf: "Paper items",
     itemShelfBody: "Click Choose or slide/drag an item onto the paper.",
+    logoTools: "Logo and stamp",
+    logoToolsBody: "Place logo or stamp as a separate item on the paper.",
+    addPage: "Add Page",
+    pageLabel: "Page",
+    activePage: "Active",
+    selectPage: "Select",
     chooseItem: "Choose",
     dropHint: "Drop an item here or choose one from the right panel.",
     emptyTitle: "New Item",
@@ -421,7 +439,6 @@ const baseItemLibrary: Record<Language, string[]> = {
     "Rumusan",
     "Cadangan",
     "Tandatangan",
-    "Logo / Cop",
   ],
   en: [
     "Title",
@@ -439,7 +456,17 @@ const baseItemLibrary: Record<Language, string[]> = {
     "Conclusion",
     "Recommendation",
     "Signature",
-    "Logo / Stamp",
+  ],
+};
+
+const assetItemLibrary: Record<Language, string[]> = {
+  ms: [
+    "Logo",
+    "Cop",
+  ],
+  en: [
+    "Logo",
+    "Stamp",
   ],
 };
 
@@ -729,7 +756,10 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
   const { language, t } = useLanguage();
   const initialDocumentType = normalizeDocumentType(initialType);
   const [docType, setDocType] = useState<DocumentTypeId | "">(initialDocumentType);
-  const [blocks, setBlocks] = useState<PaperBlock[]>(() => initialDocumentType ? buildBlocks(initialDocumentType, language) : []);
+  const [pages, setPages] = useState<PaperPage[]>(() => [
+    createPaperPage(1, initialDocumentType ? buildBlocks(initialDocumentType, language) : [], initialDocumentType, language),
+  ]);
+  const [activePageId, setActivePageId] = useState("page-1");
   const [documentBrief, setDocumentBrief] = useState("");
   const [customTitle, setCustomTitle] = useState("");
   const [customContent, setCustomContent] = useState("");
@@ -737,7 +767,10 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
   const [alignmentGuide, setAlignmentGuide] = useState<AlignmentGuide>({});
 
   useEffect(() => {
-    window.setTimeout(() => setBlocks(docType ? buildBlocks(docType, language) : []), 0);
+    window.setTimeout(() => {
+      setPages([createPaperPage(1, docType ? buildBlocks(docType, language) : [], docType, language)]);
+      setActivePageId("page-1");
+    }, 0);
   }, [docType, language]);
 
   useEffect(() => {
@@ -745,22 +778,30 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
     const drag = activeDrag;
 
     function handlePointerMove(event: PointerEvent) {
-      const activeBlock = blocks.find((block) => block.id === drag.id);
+      const page = pages.find((currentPage) => currentPage.id === drag.pageId);
+      const activeBlock = page?.blocks.find((block) => block.id === drag.id);
       const nextX = Math.max(0, drag.originX + event.clientX - drag.startX);
       const nextY = Math.max(0, drag.originY + event.clientY - drag.startY);
       if (activeBlock) {
-        setAlignmentGuide(getAlignmentGuide(activeBlock, nextX, nextY, blocks));
+        setAlignmentGuide(getAlignmentGuide(activeBlock, nextX, nextY, page?.blocks ?? []));
       }
 
-      setBlocks((currentBlocks) =>
-        currentBlocks.map((block) =>
-          block.id === drag.id
+      setPages((currentPages) =>
+        currentPages.map((currentPage) =>
+          currentPage.id === drag.pageId
             ? {
-                ...block,
-                x: nextX,
-                y: nextY,
+                ...currentPage,
+                blocks: currentPage.blocks.map((block) =>
+                  block.id === drag.id
+                    ? {
+                        ...block,
+                        x: nextX,
+                        y: nextY,
+                      }
+                    : block,
+                ),
               }
-            : block,
+            : currentPage,
         ),
       );
     }
@@ -777,34 +818,52 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
       window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerup", handlePointerUp);
     };
-  }, [activeDrag, blocks]);
+  }, [activeDrag, pages]);
 
   function changeType(value: string) {
     const nextType = normalizeDocumentType(value);
     setDocType(nextType);
-    setBlocks(nextType ? buildBlocks(nextType, language) : []);
+    setPages([createPaperPage(1, nextType ? buildBlocks(nextType, language) : [], nextType, language)]);
+    setActivePageId("page-1");
   }
 
-  function addItemToPaper(title = customTitle, content = customContent, position?: { x: number; y: number }) {
+  function addItemToPaper(title = customTitle, content = customContent, position?: { x: number; y: number }, pageId = activePageId) {
     const cleanTitle = title.trim() || t.emptyTitle;
     const cleanContent = content.trim() || t.emptyContent;
-    setBlocks((currentBlocks) => [
-      ...currentBlocks,
-      {
-        content: cleanContent,
-        height: 132,
-        id: `custom-${Date.now()}-${currentBlocks.length}`,
-        title: cleanTitle,
-        width: 260,
-        x: position?.x ?? 48 + (currentBlocks.length % 2) * 290,
-        y: position?.y ?? 150 + Math.floor(currentBlocks.length / 2) * 160,
-      },
-    ]);
+    setPages((currentPages) =>
+      currentPages.map((page) => {
+        if (page.id !== pageId) return page;
+        return {
+          ...page,
+          blocks: [
+            ...page.blocks,
+            {
+              content: cleanContent,
+              height: isAssetItem(cleanTitle, language) ? 92 : 132,
+              id: `custom-${Date.now()}-${page.blocks.length}`,
+              title: cleanTitle,
+              width: isAssetItem(cleanTitle, language) ? 150 : 260,
+              x: position?.x ?? 48 + (page.blocks.length % 2) * 290,
+              y: position?.y ?? 150 + Math.floor(page.blocks.length / 2) * 160,
+            },
+          ],
+        };
+      }),
+    );
     setCustomTitle("");
     setCustomContent("");
   }
 
-  function startPaperItemDrag(event: ReactPointerEvent<HTMLDivElement>, block: PaperBlock) {
+  function addPage() {
+    setPages((currentPages) => {
+      const pageNumber = currentPages.length + 1;
+      const nextPage = createPaperPage(pageNumber, [], docType, language);
+      setActivePageId(nextPage.id);
+      return [...currentPages, nextPage];
+    });
+  }
+
+  function startPaperItemDrag(event: ReactPointerEvent<HTMLDivElement>, block: PaperBlock, pageId: string) {
     const target = event.target as HTMLElement;
     const bounds = event.currentTarget.getBoundingClientRect();
     const isResizeCorner = event.clientX > bounds.right - 28 && event.clientY > bounds.bottom - 28;
@@ -818,6 +877,7 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
       id: block.id,
       originX: block.x,
       originY: block.y,
+      pageId,
       startX: event.clientX,
       startY: event.clientY,
     });
@@ -828,7 +888,7 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
     event.dataTransfer.effectAllowed = "copy";
   }
 
-  function dropItem(event: DragEvent<HTMLDivElement>) {
+  function dropItem(event: DragEvent<HTMLDivElement>, pageId: string) {
     event.preventDefault();
     const title = event.dataTransfer.getData("text/plain");
     if (!title) return;
@@ -836,11 +896,13 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
     addItemToPaper(title, defaultContent(title, language), {
       x: Math.max(20, event.clientX - bounds.left - 130),
       y: Math.max(20, event.clientY - bounds.top - 50),
-    });
+    }, pageId);
+    setActivePageId(pageId);
   }
 
   const documentItems = docType ? templates[language][docType] : [];
   const baseItems = baseItemLibrary[language];
+  const assetItems = assetItemLibrary[language];
   const renderItemButton = (item: string) => (
     <button
       className="group cursor-grab rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-left text-sm text-[#dce3f1] transition hover:border-[#9db4ff]/50 hover:bg-white/[0.08] active:cursor-grabbing"
@@ -890,9 +952,30 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
         <Reveal delay={0.08}>
           <div className="surface rounded-[2rem] p-4">
             <div
+              className="flex flex-col gap-8"
+            >
+              {pages.map((page, pageIndex) => (
+                <div key={page.id}>
+                  <div className="mb-3 flex items-center justify-between px-1">
+                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#9db4ff]">
+                      {t.pageLabel} {pageIndex + 1}
+                    </p>
+                    <button
+                      className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+                        activePageId === page.id
+                          ? "border-[#9db4ff]/70 bg-[#9db4ff]/15 text-white"
+                          : "border-white/10 bg-white/[0.04] text-[#aeb6c6] hover:border-[#9db4ff]/50"
+                      }`}
+                      onClick={() => setActivePageId(page.id)}
+                      type="button"
+                    >
+                      {activePageId === page.id ? t.activePage : t.selectPage}
+                    </button>
+                  </div>
+                  <div
               className="a4-page relative mx-auto overflow-hidden rounded-xl p-8 transition sm:p-12"
               onDragOver={(event) => event.preventDefault()}
-              onDrop={dropItem}
+              onDrop={(event) => dropItem(event, page.id)}
             >
               {typeof alignmentGuide.x === "number" ? (
                 <div
@@ -907,13 +990,13 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
                 />
               ) : null}
               <div className="absolute inset-0 z-10">
-                {blocks.map((block) => (
+                {page.blocks.map((block) => (
                   <motion.div
                     className="group absolute cursor-grab resize overflow-auto rounded-xl border border-black/10 bg-white/95 p-4 shadow-sm active:cursor-grabbing"
                     animate={{ opacity: 1, scale: 1 }}
                     initial={{ opacity: 0, scale: 0.98 }}
                     key={block.id}
-                    onPointerDown={(event) => startPaperItemDrag(event, block)}
+                    onPointerDown={(event) => startPaperItemDrag(event, block, page.id)}
                     style={{
                       height: block.height,
                       left: block.x,
@@ -939,12 +1022,18 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
                   </motion.div>
                 ))}
               </div>
-              {blocks.length === 0 ? (
+              {page.blocks.length === 0 ? (
                 <div className="pointer-events-none absolute inset-x-12 top-44 z-0 grid min-h-64 place-items-center rounded-2xl border border-dashed border-black/15 bg-black/[0.025] p-6 text-center">
                   <p className="max-w-xs text-sm leading-6 text-black/45">{t.dropHint}</p>
                 </div>
               ) : null}
             </div>
+                </div>
+              ))}
+              <button className="button-secondary mx-auto w-full max-w-xs" onClick={addPage} type="button">
+                {t.addPage}
+              </button>
+              </div>
           </div>
         </Reveal>
         <Reveal delay={0.12}>
@@ -989,6 +1078,15 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
               <div className="mt-3 flex max-h-72 flex-col gap-2 overflow-auto pr-1">
                 {baseItems.map(renderItemButton)}
               </div>
+              <div className="mt-6 border-t border-white/10 pt-5">
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#9db4ff]">
+                  {t.logoTools}
+                </p>
+                <p className="mt-2 text-xs leading-5 text-[#8f98aa]">{t.logoToolsBody}</p>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  {assetItems.map(renderItemButton)}
+                </div>
+              </div>
             </div>
           </aside>
         </Reveal>
@@ -1010,6 +1108,19 @@ function normalizeDocumentType(type: string): DocumentTypeId | "" {
   );
 
   return legacyMatch ?? "";
+}
+
+function createPaperPage(pageNumber: number, blocks: PaperBlock[], type: DocumentTypeId | "", language: Language): PaperPage {
+  const label = type ? documentTypeLabels[language][type] : language === "ms" ? "Dokumen kosong" : "Blank document";
+  return {
+    blocks,
+    id: `page-${pageNumber}`,
+    title: `${label} ${pageNumber}`,
+  };
+}
+
+function isAssetItem(title: string, language: Language) {
+  return assetItemLibrary[language].some((item) => item.toLowerCase() === title.toLowerCase());
 }
 
 function getAlignmentGuide(activeBlock: PaperBlock, nextX: number, nextY: number, blocks: PaperBlock[]): AlignmentGuide {
