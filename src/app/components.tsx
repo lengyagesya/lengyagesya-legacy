@@ -126,7 +126,6 @@ const copy = {
     itemShelfBody: "Klik Pilih atau slide/drag item ke atas kertas.",
     chooseItem: "Pilih",
     dropHint: "Drop item di sini atau pilih item di sebelah kanan.",
-    moveItem: "Gerak",
     emptyTitle: "Item Baru",
     emptyContent: "Klik untuk edit kandungan item ini.",
   },
@@ -186,7 +185,6 @@ const copy = {
     itemShelfBody: "Click Choose or slide/drag an item onto the paper.",
     chooseItem: "Choose",
     dropHint: "Drop an item here or choose one from the right panel.",
-    moveItem: "Move",
     emptyTitle: "New Item",
     emptyContent: "Click to edit this item content.",
   },
@@ -801,7 +799,14 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
     setCustomContent("");
   }
 
-  function startPaperItemDrag(event: ReactPointerEvent<HTMLButtonElement>, block: PaperBlock) {
+  function startPaperItemDrag(event: ReactPointerEvent<HTMLDivElement>, block: PaperBlock) {
+    const target = event.target as HTMLElement;
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const isResizeCorner = event.clientX > bounds.right - 28 && event.clientY > bounds.bottom - 28;
+    if (target.closest("[contenteditable='true']") || isResizeCorner) {
+      return;
+    }
+
     event.preventDefault();
     event.stopPropagation();
     setActiveDrag({
@@ -888,10 +893,11 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
               <div className="absolute inset-0 z-10">
                 {blocks.map((block) => (
                   <motion.div
-                    className="group absolute resize overflow-auto rounded-xl border border-black/10 bg-white/95 p-4 shadow-sm"
+                    className="group absolute cursor-move resize overflow-auto rounded-xl border border-black/10 bg-white/95 p-4 shadow-sm"
                     animate={{ opacity: 1, scale: 1 }}
                     initial={{ opacity: 0, scale: 0.98 }}
                     key={block.id}
+                    onPointerDown={(event) => startPaperItemDrag(event, block)}
                     style={{
                       height: block.height,
                       left: block.x,
@@ -901,20 +907,11 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
                     }}
                     transition={{ duration: 0.18 }}
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="min-w-0 truncate text-xs font-bold uppercase tracking-[0.18em] text-black/40">
-                        {block.title}
-                      </p>
-                      <button
-                        className="shrink-0 cursor-move rounded-full border border-black/10 px-2 py-1 text-[0.62rem] font-bold uppercase tracking-[0.12em] text-black/40 transition hover:border-black/25 hover:text-black/70"
-                        onPointerDown={(event) => startPaperItemDrag(event, block)}
-                        type="button"
-                      >
-                        {t.moveItem}
-                      </button>
-                    </div>
+                    <p className="truncate text-xs font-bold uppercase tracking-[0.18em] text-black/40">
+                      {block.title}
+                    </p>
                     <div
-                      className="editable-block mt-3 min-h-12 text-sm leading-7 text-black/75"
+                      className="editable-block mt-3 min-h-12 cursor-text text-sm leading-7 text-black/75"
                       contentEditable
                       suppressContentEditableWarning
                     >
