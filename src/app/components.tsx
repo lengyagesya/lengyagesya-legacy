@@ -957,8 +957,7 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
   }
 
   const documentItems = docType ? templates[language][docType] : [];
-  const baseItems = baseItemLibrary[language];
-  const assetItems = assetItemLibrary[language];
+  const baseItems = [...baseItemLibrary[language], ...assetItemLibrary[language]];
   const renderItemButton = (item: string) => (
     <button
       className="group cursor-grab rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-left text-sm text-[#dce3f1] transition hover:border-[#9db4ff]/50 hover:bg-white/[0.08] active:cursor-grabbing"
@@ -1148,15 +1147,6 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
               <p className="mt-2 text-xs leading-5 text-[#8f98aa]">{t.itemShelfBody}</p>
               <div className="mt-3 flex max-h-72 flex-col gap-2 overflow-auto pr-1">
                 {baseItems.map(renderItemButton)}
-              </div>
-              <div className="mt-6 border-t border-white/10 pt-5">
-                <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#9db4ff]">
-                  {t.logoTools}
-                </p>
-                <p className="mt-2 text-xs leading-5 text-[#8f98aa]">{t.logoToolsBody}</p>
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  {assetItems.map(renderItemButton)}
-                </div>
               </div>
             </div>
           </aside>
