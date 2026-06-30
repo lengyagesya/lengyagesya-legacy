@@ -1112,24 +1112,7 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
               {t.itemTools}
             </p>
             <p className="mt-3 text-sm leading-6 text-[#aeb6c6]">{t.itemToolsBody}</p>
-            <label className="mt-5 block text-sm text-[#aeb6c6]">{t.itemTitle}</label>
-            <input
-              className="input mt-2"
-              onChange={(event) => setCustomTitle(event.target.value)}
-              placeholder={t.emptyTitle}
-              value={customTitle}
-            />
-            <label className="mt-4 block text-sm text-[#aeb6c6]">{t.itemContent}</label>
-            <textarea
-              className="input mt-2 min-h-28 resize-none"
-              onChange={(event) => setCustomContent(event.target.value)}
-              placeholder={t.emptyContent}
-              value={customContent}
-            />
-            <button className="button-primary mt-4 w-full" onClick={() => addItemToPaper()} type="button">
-              {t.addToPaper}
-            </button>
-            <div className="mt-6 border-t border-white/10 pt-5">
+            <div className="mt-5 border-t border-white/10 pt-5">
               {documentItems.length > 0 ? (
                 <div>
                   <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#9db4ff]">
@@ -1147,6 +1130,25 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
               <p className="mt-2 text-xs leading-5 text-[#8f98aa]">{t.itemShelfBody}</p>
               <div className="mt-3 flex max-h-72 flex-col gap-2 overflow-auto pr-1">
                 {baseItems.map(renderItemButton)}
+              </div>
+              <div className="mt-6 border-t border-white/10 pt-5">
+                <label className="block text-sm text-[#aeb6c6]">{t.itemTitle}</label>
+                <input
+                  className="input mt-2"
+                  onChange={(event) => setCustomTitle(event.target.value)}
+                  placeholder={t.emptyTitle}
+                  value={customTitle}
+                />
+                <label className="mt-4 block text-sm text-[#aeb6c6]">{t.itemContent}</label>
+                <textarea
+                  className="input mt-2 min-h-28 resize-none"
+                  onChange={(event) => setCustomContent(event.target.value)}
+                  placeholder={t.emptyContent}
+                  value={customContent}
+                />
+                <button className="button-primary mt-4 w-full" onClick={() => addItemToPaper()} type="button">
+                  {t.addToPaper}
+                </button>
               </div>
             </div>
           </aside>
