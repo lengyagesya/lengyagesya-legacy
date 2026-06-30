@@ -9,6 +9,7 @@ type PaperBlock = {
   content: string;
   height: number;
   id: string;
+  slot: string;
   title: string;
   width: number;
   x: number;
@@ -37,6 +38,7 @@ type ActiveBlock = {
 } | null;
 type DocumentBrainSection = {
   content: string;
+  slot?: string;
   type: string;
 };
 type DocumentBrainResult = {
@@ -155,6 +157,8 @@ const copy = {
     submitLater: "Hantar",
     sending: "Sedang jana...",
     downloadPdf: "Download PDF",
+    editLayout: "Edit Layout",
+    previewResult: "Preview Hasil",
     aiResult: "Hasil AI",
     missingFields: "Maklumat belum lengkap",
     selectDocumentPlaceholder: "Pilih jenis dokumen",
@@ -224,6 +228,8 @@ const copy = {
     submitLater: "Send",
     sending: "Generating...",
     downloadPdf: "Download PDF",
+    editLayout: "Edit Layout",
+    previewResult: "Preview Result",
     aiResult: "AI result",
     missingFields: "Missing information",
     selectDocumentPlaceholder: "Select document type",
@@ -843,6 +849,7 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
   const [aiError, setAiError] = useState("");
   const [aiResult, setAiResult] = useState<DocumentBrainResult | null>(null);
   const [isSending, setIsSending] = useState(false);
+  const [viewMode, setViewMode] = useState<"builder" | "preview">("builder");
   const [alignmentGuide, setAlignmentGuide] = useState<AlignmentGuide>({});
 
   function deleteBlock(pageId: string, blockId: string) {
@@ -954,6 +961,7 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
     setActivePageId("page-1");
     setAiResult(null);
     setAiError("");
+    setViewMode("builder");
   }
 
   async function sendToAi() {
@@ -964,6 +972,16 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
       const response = await fetch("/api/document-brain", {
         body: JSON.stringify({
           language,
+          layout: pages.map((page) => ({
+            blocks: page.blocks.map((block) => ({
+              content: block.content,
+              id: block.id,
+              slot: block.slot,
+              title: block.title,
+            })),
+            id: page.id,
+            title: page.title,
+          })),
           prompt: documentBrief,
         }),
         headers: {
@@ -982,9 +1000,10 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
       }
 
       setAiResult(data);
-      setPages([createAiPaperPage(data, language)]);
+      setPages((currentPages) => applyAiResultToPages(currentPages, data, language));
       setActivePageId("page-1");
       setActiveBlock(null);
+      setViewMode("preview");
     } catch (error) {
       setAiError(error instanceof Error ? error.message : "Ralat AI tidak dijangka.");
     } finally {
@@ -997,7 +1016,7 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
     const printablePages = pages.map((page, index) => ({
       blocks: page.blocks.map((block) => ({
         content: block.content,
-        title: block.title,
+        title: aiResult ? "" : block.title,
       })),
       title: aiResult && index === 0 ? aiResult.title : page.title,
     }));
@@ -1024,6 +1043,7 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
               content: cleanContent,
               height: isAssetItem(cleanTitle, language) ? 92 : 132,
               id: `custom-${Date.now()}-${page.blocks.length}`,
+              slot: inferSlot(cleanTitle),
               title: cleanTitle,
               width: isAssetItem(cleanTitle, language) ? 150 : 260,
               x: position?.x ?? 48 + (page.blocks.length % 2) * 290,
@@ -1062,6 +1082,10 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
     setActivePageId(pageId);
 
     const target = event.target as HTMLElement;
+    if (viewMode === "preview") {
+      return;
+    }
+
     const bounds = event.currentTarget.getBoundingClientRect();
     const isResizeCorner = event.clientX > bounds.right - 28 && event.clientY > bounds.bottom - 28;
     if (target.closest("[contenteditable='true']") || isResizeCorner) {
@@ -1174,6 +1198,28 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
         </Reveal>
         <Reveal delay={0.08}>
           <div className="surface rounded-[2rem] p-4">
+            <div className="mb-4 flex justify-center">
+              <div className="flex rounded-full border border-white/10 bg-white/[0.045] p-1">
+                <button
+                  className={`rounded-full px-4 py-2 text-xs font-bold tracking-[0.14em] transition ${
+                    viewMode === "builder" ? "bg-white text-black" : "text-white/55 hover:text-white"
+                  }`}
+                  onClick={() => setViewMode("builder")}
+                  type="button"
+                >
+                  {t.editLayout}
+                </button>
+                <button
+                  className={`rounded-full px-4 py-2 text-xs font-bold tracking-[0.14em] transition ${
+                    viewMode === "preview" ? "bg-white text-black" : "text-white/55 hover:text-white"
+                  }`}
+                  onClick={() => setViewMode("preview")}
+                  type="button"
+                >
+                  {t.previewResult}
+                </button>
+              </div>
+            </div>
             <div
               className="flex flex-col gap-8"
             >
@@ -1226,10 +1272,14 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
               <div className="absolute inset-0 z-10">
                 {page.blocks.map((block) => (
                   <motion.div
-                    className={`group absolute cursor-grab resize overflow-hidden rounded-xl border bg-white/95 p-4 shadow-sm transition active:cursor-grabbing ${
-                      activeBlock?.blockId === block.id && activeBlock.pageId === page.id
-                        ? "border-[#4f7dff]/70 ring-2 ring-[#4f7dff]/25"
-                        : "border-black/10"
+                    className={`group absolute overflow-hidden p-4 transition ${
+                      viewMode === "builder"
+                        ? `cursor-grab resize rounded-xl border bg-white/95 shadow-sm active:cursor-grabbing ${
+                            activeBlock?.blockId === block.id && activeBlock.pageId === page.id
+                              ? "border-[#4f7dff]/70 ring-2 ring-[#4f7dff]/25"
+                              : "border-black/10"
+                          }`
+                        : "bg-transparent"
                     }`}
                     animate={{ opacity: 1, scale: 1 }}
                     initial={{ opacity: 0, scale: 0.98 }}
@@ -1244,20 +1294,27 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
                     }}
                     transition={{ duration: 0.18 }}
                   >
-                    <p className="truncate text-xs font-bold uppercase tracking-[0.18em] text-black/40">
-                      {block.title}
-                    </p>
+                    {viewMode === "builder" ? (
+                      <p className="truncate text-xs font-bold uppercase tracking-[0.18em] text-black/40">
+                        {block.title}
+                      </p>
+                    ) : null}
                     <div
-                      className="editable-block mt-3 min-h-12 cursor-text text-sm leading-7 text-black/75"
+                      className={`editable-block min-h-12 cursor-text whitespace-pre-wrap text-black/80 ${
+                        viewMode === "builder" ? "mt-3" : "mt-0"
+                      } ${viewMode === "preview" && block.content.length > 420 ? "text-xs leading-5" : "text-sm leading-7"
+                      }`}
                       contentEditable
                       onInput={(event) => updateBlockContent(page.id, block.id, event.currentTarget.textContent ?? "")}
                       suppressContentEditableWarning
                     >
                       {block.content}
                     </div>
-                    <span className="pointer-events-none absolute bottom-1 right-2 text-[0.65rem] font-bold uppercase tracking-[0.14em] text-black/25 opacity-0 transition group-hover:opacity-100">
-                      resize
-                    </span>
+                    {viewMode === "builder" ? (
+                      <span className="pointer-events-none absolute bottom-1 right-2 text-[0.65rem] font-bold uppercase tracking-[0.14em] text-black/25 opacity-0 transition group-hover:opacity-100">
+                        resize
+                      </span>
+                    ) : null}
                   </motion.div>
                 ))}
               </div>
@@ -1357,12 +1414,54 @@ function isDocumentBrainResult(value: unknown): value is DocumentBrainResult {
         section &&
         typeof section === "object" &&
         typeof (section as Record<string, unknown>).type === "string" &&
-        typeof (section as Record<string, unknown>).content === "string",
+        typeof (section as Record<string, unknown>).content === "string" &&
+        (typeof (section as Record<string, unknown>).slot === "undefined" ||
+          typeof (section as Record<string, unknown>).slot === "string"),
     ) &&
     Array.isArray(record.missingFields) &&
     record.missingFields.every((field) => typeof field === "string") &&
     typeof record.confidence === "number"
   );
+}
+
+function applyAiResultToPages(pages: PaperPage[], result: DocumentBrainResult, language: Language) {
+  const sections = result.sections.map((section) => ({
+    ...section,
+    slot: normalizeSlot(section.slot || section.type),
+  }));
+
+  const hasBlocks = pages.some((page) => page.blocks.length > 0);
+  if (!hasBlocks) {
+    return [createAiPaperPage(result, language)];
+  }
+
+  return pages.map((page) => ({
+    ...page,
+    blocks: page.blocks.map((block) => {
+      const blockSlot = normalizeSlot(block.slot || block.title);
+      const matchedSection =
+        sections.find((section) => section.slot === blockSlot) ||
+        sections.find((section) => normalizeSlot(section.type) === blockSlot) ||
+        sections.find((section) => blockSlot.includes(section.slot) || section.slot.includes(blockSlot));
+
+      return matchedSection
+        ? {
+            ...block,
+            content: matchedSection.content,
+            slot: blockSlot,
+          }
+        : {
+            ...block,
+            content: isInstructionPlaceholder(block.content) ? `[${block.title.toUpperCase()}]` : block.content,
+            slot: blockSlot,
+          };
+    }),
+  }));
+}
+
+function isInstructionPlaceholder(content: string) {
+  const lower = content.toLowerCase();
+  return lower.includes("klik untuk edit") || lower.includes("click to edit") || lower.includes("tuliskan") || lower.includes("write the");
 }
 
 function createPaperPage(pageNumber: number, blocks: PaperBlock[], type: DocumentTypeId | "", language: Language): PaperPage {
@@ -1380,6 +1479,7 @@ function createAiPaperPage(result: DocumentBrainResult, language: Language): Pap
     content: result.title,
     height: 90,
     id: "ai-title",
+    slot: "title",
     title: language === "ms" ? "Tajuk" : "Title",
     width: 560,
     x: 48,
@@ -1392,6 +1492,7 @@ function createAiPaperPage(result: DocumentBrainResult, language: Language): Pap
       content: section.content,
       height: isWide ? 150 : 132,
       id: `ai-section-${index}`,
+      slot: normalizeSlot(section.slot || section.type),
       title: section.type,
       width: isWide ? 560 : 260,
       x: isWide ? 48 : 48 + ((index - 1) % 2) * 292,
@@ -1404,6 +1505,37 @@ function createAiPaperPage(result: DocumentBrainResult, language: Language): Pap
     id: "page-1",
     title: result.title,
   };
+}
+
+function inferSlot(title: string) {
+  return normalizeSlot(title);
+}
+
+function normalizeSlot(value: string) {
+  const lower = value.toLowerCase();
+
+  if (lower.includes("tajuk") || lower.includes("title") || lower.includes("perkara") || lower.includes("subject")) return "title";
+  if (lower.includes("tarikh") || lower.includes("date")) return "date";
+  if (lower.includes("penerima") || lower.includes("kepada") || lower.includes("recipient") || lower.includes("to")) return "recipient";
+  if (lower.includes("daripada") || lower.includes("pengirim") || lower.includes("from")) return "sender";
+  if (lower.includes("alamat") || lower.includes("address")) return "address";
+  if (lower.includes("rujukan") || lower.includes("reference")) return "reference";
+  if (lower.includes("isi") || lower.includes("body") || lower.includes("content") || lower.includes("perenggan")) return "body";
+  if (lower.includes("penutup") || lower.includes("closing")) return "closing";
+  if (lower.includes("tandatangan") || lower.includes("signature")) return "signature";
+  if (lower.includes("objektif") || lower.includes("objective")) return "objective";
+  if (lower.includes("bahan") || lower.includes("alat") || lower.includes("material")) return "materials";
+  if (lower.includes("langkah") || lower.includes("step")) return "steps";
+  if (lower.includes("pemerhatian") || lower.includes("observation")) return "observation";
+  if (lower.includes("refleksi") || lower.includes("reflection")) return "reflection";
+  if (lower.includes("ringkasan") || lower.includes("summary")) return "summary";
+  if (lower.includes("catatan") || lower.includes("note")) return "notes";
+  if (lower.includes("nama") || lower.includes("name")) return "name";
+
+  return lower
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 48) || "content";
 }
 
 function documentTypeLabelForPdf(type: DocumentTypeId | "", language: Language) {
@@ -1434,8 +1566,10 @@ function createPdfBlob(pages: Array<{ blocks: Array<{ content: string; title: st
     cursorY -= 34;
 
     page.blocks.forEach((block) => {
-      lines.push("/F1 10 Tf", `1 0 0 1 ${margin} ${cursorY} Tm`, `(${escapePdfText(block.title.toUpperCase())}) Tj`);
-      cursorY -= 17;
+      if (block.title) {
+        lines.push("/F1 10 Tf", `1 0 0 1 ${margin} ${cursorY} Tm`, `(${escapePdfText(block.title.toUpperCase())}) Tj`);
+        cursorY -= 17;
+      }
       lines.push("/F1 11 Tf");
 
       wrapPdfText(block.content, 88).forEach((line) => {
@@ -1553,6 +1687,7 @@ function buildBlocks(type: DocumentTypeId, language: Language) {
       content: defaultContent(title, language),
       height: layout.height,
       id: `${type}-${title}-${index}`,
+      slot: inferSlot(title),
       title,
       width: layout.width,
       x: layout.x,

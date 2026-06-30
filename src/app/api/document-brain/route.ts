@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 type DocumentBrainSection = {
   type: string;
   content: string;
+  slot?: string;
 };
 
 type DocumentBrainResponse = {
@@ -21,7 +22,7 @@ const requiredShape: DocumentBrainResponse = {
   layout: "",
   missingFields: [],
   paperSize: "A4",
-  sections: [],
+  sections: [{ content: "", slot: "", type: "" }],
   title: "",
 };
 
@@ -35,7 +36,7 @@ export async function POST(request: Request) {
     );
   }
 
-  let body: { language?: string; prompt?: string };
+  let body: { language?: string; layout?: unknown; prompt?: string };
   try {
     body = await request.json();
   } catch {
@@ -66,9 +67,12 @@ export async function POST(request: Request) {
               "Rules:",
               "- paperSize must be A4.",
               "- confidence must be a number from 0 to 1.",
-              "- sections must contain editable document sections with type and content.",
+              "- sections must contain editable document sections with slot, type and content.",
+              "- Use only slots from the provided current A4 layout when possible.",
+              "- Do not create a new layout. Fill the user's existing layout slots.",
               "- missingFields must list missing important details only.",
               "- content must be ready to place into an A4 preview.",
+              `Current A4 layout slots: ${JSON.stringify(body.layout ?? [])}`,
               `User request: ${prompt}`,
             ].join("\n"),
             role: "user",
@@ -134,7 +138,9 @@ function isDocumentBrainResponse(value: unknown): value is DocumentBrainResponse
         section &&
         typeof section === "object" &&
         typeof (section as Record<string, unknown>).type === "string" &&
-        typeof (section as Record<string, unknown>).content === "string",
+        typeof (section as Record<string, unknown>).content === "string" &&
+        (typeof (section as Record<string, unknown>).slot === "undefined" ||
+          typeof (section as Record<string, unknown>).slot === "string"),
     ) &&
     Array.isArray(record.missingFields) &&
     record.missingFields.every((field) => typeof field === "string") &&
