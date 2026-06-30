@@ -39,6 +39,9 @@ type DocumentTypeId =
   | "rpa"
   | "rph"
   | "rpi"
+  | "agreement"
+  | "appeal-letter"
+  | "appointment-letter"
   | "formal-letter"
   | "meeting-minutes"
   | "report"
@@ -56,14 +59,24 @@ type DocumentTypeId =
   | "assessment-report"
   | "performance-report"
   | "case-report"
+  | "certificate"
+  | "checklist"
+  | "complaint-letter"
+  | "consent-letter"
   | "incident-report"
+  | "invitation-letter"
+  | "invoice"
   | "resume"
   | "biodata"
   | "memo"
+  | "notice-letter"
   | "assignment"
   | "form"
   | "application-letter"
   | "proposal"
+  | "purchase-order"
+  | "quotation"
+  | "receipt"
   | "working-paper"
   | "lesson-plan"
   | "therapy-session-plan"
@@ -71,6 +84,7 @@ type DocumentTypeId =
   | "weekly-activity-plan"
   | "program-plan"
   | "school-document"
+  | "thank-you-letter"
   | "ppdk"
   | "taska"
   | "custom-template";
@@ -128,7 +142,7 @@ const copy = {
     submitLater: "Hantar ke AI nanti",
     selectDocumentPlaceholder: "Pilih jenis dokumen",
     documentBrief: "Penerangan dokumen",
-    documentBriefPlaceholder: "Contoh: Saya mahu buat RPA aktiviti mengenal warna untuk kanak-kanak 5 tahun.",
+    documentBriefPlaceholder: "Contoh: Saya mahu buat surat rasmi memohon kebenaran mengadakan program di sekolah.",
     itemTools: "Tools item",
     itemToolsBody: "Pilih atau drag item masuk ke dalam kertas.",
     itemTitle: "Nama item",
@@ -193,7 +207,7 @@ const copy = {
     submitLater: "Submit to AI later",
     selectDocumentPlaceholder: "Select document type",
     documentBrief: "Document brief",
-    documentBriefPlaceholder: "Example: I want to create an activity plan about basic colours for 5-year-old children.",
+    documentBriefPlaceholder: "Example: I want to create a formal letter requesting permission to run a school programme.",
     itemTools: "Item tools",
     itemToolsBody: "Choose or drag an item into the paper.",
     itemTitle: "Item name",
@@ -221,49 +235,72 @@ function useLanguage() {
   return { ...context, t: copy[context.language] };
 }
 
+function getSortedDocumentTypes(language: Language) {
+  return [...documentTypes].sort((firstType, secondType) =>
+    documentTypeLabels[language][firstType].localeCompare(documentTypeLabels[language][secondType], language),
+  );
+}
+
 const documentTypes: DocumentTypeId[] = [
+  "agreement",
+  "appeal-letter",
+  "appointment-letter",
+  "assessment-report",
+  "attendance-report",
+  "biodata",
+  "case-report",
+  "certificate",
+  "checklist",
+  "complaint-letter",
+  "consent-letter",
+  "custom-template",
+  "daily-activity-plan",
+  "daily-report",
+  "form",
+  "formal-letter",
+  "incident-report",
+  "intervention-report",
+  "invitation-letter",
+  "invoice",
+  "lesson-plan",
+  "meeting-minutes",
+  "memo",
+  "monthly-report",
+  "notice-letter",
+  "observation-report",
+  "performance-report",
+  "ppdk",
+  "program-plan",
+  "program-report",
+  "progress-report",
+  "proposal",
+  "purchase-order",
+  "quotation",
+  "receipt",
+  "reflection-report",
+  "report",
+  "resume",
   "rpa",
   "rph",
   "rpi",
-  "formal-letter",
-  "meeting-minutes",
-  "report",
-  "activity-report",
-  "program-report",
-  "daily-report",
-  "weekly-report",
-  "monthly-report",
-  "attendance-report",
-  "progress-report",
-  "observation-report",
-  "reflection-report",
-  "intervention-report",
-  "visit-report",
-  "assessment-report",
-  "performance-report",
-  "case-report",
-  "incident-report",
-  "resume",
-  "biodata",
-  "memo",
-  "assignment",
-  "form",
-  "application-letter",
-  "proposal",
-  "working-paper",
-  "lesson-plan",
-  "therapy-session-plan",
-  "daily-activity-plan",
-  "weekly-activity-plan",
-  "program-plan",
   "school-document",
-  "ppdk",
   "taska",
-  "custom-template",
+  "thank-you-letter",
+  "therapy-session-plan",
+  "visit-report",
+  "weekly-activity-plan",
+  "weekly-report",
+  "working-paper",
+  "activity-report",
+  "assignment",
+  "application-letter",
 ];
 
 const documentTypeLabels: Record<Language, Record<DocumentTypeId, string>> = {
   ms: {
+    agreement: "Perjanjian",
+    "appeal-letter": "Surat rayuan",
+    "appointment-letter": "Surat lantikan",
     rpa: "RPA",
     rph: "RPH",
     rpi: "RPI",
@@ -284,14 +321,24 @@ const documentTypeLabels: Record<Language, Record<DocumentTypeId, string>> = {
     "assessment-report": "Laporan penilaian",
     "performance-report": "Laporan prestasi",
     "case-report": "Laporan kes",
+    certificate: "Sijil",
+    checklist: "Senarai semak",
+    "complaint-letter": "Surat aduan",
+    "consent-letter": "Surat kebenaran",
     "incident-report": "Laporan insiden",
+    "invitation-letter": "Surat jemputan",
+    invoice: "Invois",
     resume: "Resume",
     biodata: "Biodata",
     memo: "Memo",
+    "notice-letter": "Surat makluman",
     assignment: "Tugasan",
     form: "Borang",
     "application-letter": "Surat permohonan",
     proposal: "Proposal",
+    "purchase-order": "Pesanan belian",
+    quotation: "Sebut harga",
+    receipt: "Resit",
     "working-paper": "Kertas kerja",
     "lesson-plan": "Lesson plan",
     "therapy-session-plan": "Pelan sesi terapi",
@@ -299,11 +346,15 @@ const documentTypeLabels: Record<Language, Record<DocumentTypeId, string>> = {
     "weekly-activity-plan": "Pelan aktiviti mingguan",
     "program-plan": "Rancangan program",
     "school-document": "Dokumen sekolah",
+    "thank-you-letter": "Surat penghargaan",
     ppdk: "PPDK",
     taska: "Taska",
     "custom-template": "Template custom",
   },
   en: {
+    agreement: "Agreement",
+    "appeal-letter": "Appeal letter",
+    "appointment-letter": "Appointment letter",
     rpa: "RPA",
     rph: "RPH",
     rpi: "RPI",
@@ -324,14 +375,24 @@ const documentTypeLabels: Record<Language, Record<DocumentTypeId, string>> = {
     "assessment-report": "Assessment report",
     "performance-report": "Performance report",
     "case-report": "Case report",
+    certificate: "Certificate",
+    checklist: "Checklist",
+    "complaint-letter": "Complaint letter",
+    "consent-letter": "Consent letter",
     "incident-report": "Incident report",
+    "invitation-letter": "Invitation letter",
+    invoice: "Invoice",
     resume: "Resume",
     biodata: "Biodata",
     memo: "Memo",
+    "notice-letter": "Notice letter",
     assignment: "Assignment",
     form: "Form",
     "application-letter": "Application letter",
     proposal: "Proposal",
+    "purchase-order": "Purchase order",
+    quotation: "Quotation",
+    receipt: "Receipt",
     "working-paper": "Working paper",
     "lesson-plan": "Lesson plan",
     "therapy-session-plan": "Therapy session plan",
@@ -339,6 +400,7 @@ const documentTypeLabels: Record<Language, Record<DocumentTypeId, string>> = {
     "weekly-activity-plan": "Weekly activity plan",
     "program-plan": "Program plan",
     "school-document": "School document",
+    "thank-you-letter": "Thank-you letter",
     ppdk: "PPDK",
     taska: "Childcare document",
     "custom-template": "Custom template",
@@ -347,6 +409,9 @@ const documentTypeLabels: Record<Language, Record<DocumentTypeId, string>> = {
 
 const templates: Record<Language, Record<DocumentTypeId, string[]>> = {
   ms: {
+    agreement: ["Tajuk Perjanjian", "Pihak Terlibat", "Tujuan", "Terma Perjanjian", "Tempoh", "Tandatangan"],
+    "appeal-letter": ["Tarikh", "Penerima", "Perkara", "Latar Belakang Rayuan", "Alasan Rayuan", "Penutup", "Tandatangan"],
+    "appointment-letter": ["Tarikh", "Penerima", "Perkara", "Butiran Lantikan", "Tanggungjawab", "Tempoh Lantikan", "Tandatangan"],
     rpa: ["Tajuk Aktiviti", "Objektif", "Bahan / Alat", "Langkah Pelaksanaan", "Pemerhatian", "Refleksi"],
     rph: ["Nama Sekolah", "Mata Pelajaran", "Tahun / Kelas", "Standard Kandungan", "Standard Pembelajaran", "Objektif Pembelajaran", "Aktiviti PdP", "Refleksi"],
     rpi: ["Maklumat Murid / Klien", "Kategori / Keperluan", "Matlamat Jangka Panjang", "Objektif Jangka Pendek", "Strategi / Intervensi", "Penilaian", "Catatan"],
@@ -367,14 +432,24 @@ const templates: Record<Language, Record<DocumentTypeId, string[]>> = {
     "assessment-report": ["Nama", "Aspek Penilaian", "Skor / Tahap", "Ulasan", "Cadangan"],
     "performance-report": ["Nama", "Tempoh", "Prestasi", "Pencapaian", "Sasaran Baharu"],
     "case-report": ["Maklumat Kes", "Latar Belakang", "Isu", "Tindakan", "Status"],
+    certificate: ["Nama Sijil", "Nama Penerima", "Pencapaian / Penghargaan", "Tarikh", "Penganjur", "Tandatangan"],
+    checklist: ["Tajuk Senarai Semak", "Kategori", "Item Semakan", "Status", "Catatan", "Disemak Oleh"],
+    "complaint-letter": ["Tarikh", "Penerima", "Perkara", "Butiran Aduan", "Kesan / Bukti", "Tindakan Dimohon", "Tandatangan"],
+    "consent-letter": ["Tarikh", "Penerima", "Perkara", "Butiran Kebenaran", "Tempoh / Tarikh", "Akuan", "Tandatangan"],
     "incident-report": ["Tarikh Insiden", "Tempat", "Pihak Terlibat", "Butiran Insiden", "Tindakan"],
+    "invitation-letter": ["Tarikh", "Penerima", "Perkara", "Butiran Jemputan", "Tarikh / Masa / Tempat", "Penutup", "Tandatangan"],
+    invoice: ["Nombor Invois", "Maklumat Pelanggan", "Item / Perkhidmatan", "Kuantiti", "Jumlah", "Terma Bayaran"],
     resume: ["Nama & Tajuk", "Ringkasan Profil", "Pengalaman", "Pendidikan", "Kemahiran", "Rujukan"],
     biodata: ["Nama Penuh", "Maklumat Peribadi", "Pendidikan", "Pengalaman", "Kemahiran", "Rujukan"],
     memo: ["Kepada", "Daripada", "Tarikh", "Perkara", "Isi Memo", "Tindakan"],
+    "notice-letter": ["Tarikh", "Penerima", "Perkara", "Makluman Utama", "Butiran", "Tindakan / Catatan", "Tandatangan"],
     assignment: ["Tajuk", "Arahan", "Isi Utama", "Rujukan", "Kesimpulan"],
     form: ["Nama", "Maklumat Peribadi", "Butiran", "Pengesahan", "Tandatangan"],
     "application-letter": ["Tarikh", "Penerima", "Perkara", "Tujuan Permohonan", "Maklumat Sokongan", "Penutup", "Tandatangan"],
     proposal: ["Tajuk Proposal", "Latar Belakang", "Objektif", "Cadangan Pelaksanaan", "Kos", "Penutup"],
+    "purchase-order": ["Nombor Pesanan", "Pembekal", "Item", "Kuantiti", "Harga", "Jumlah", "Pengesahan"],
+    quotation: ["Nombor Sebut Harga", "Maklumat Pelanggan", "Skop / Item", "Harga", "Tempoh Sah", "Terma"],
+    receipt: ["Nombor Resit", "Diterima Daripada", "Tujuan Bayaran", "Jumlah", "Kaedah Bayaran", "Tandatangan"],
     "working-paper": ["Tajuk", "Tujuan", "Latar Belakang", "Objektif", "Pelaksanaan", "Anggaran Kos", "Penutup"],
     "lesson-plan": ["Subject", "Class", "Topic", "Learning Objective", "Activities", "Teaching Aids", "Reflection"],
     "therapy-session-plan": ["Nama Klien", "Fokus Terapi", "Objektif", "Aktiviti", "Alat Terapi", "Penilaian"],
@@ -382,11 +457,15 @@ const templates: Record<Language, Record<DocumentTypeId, string[]>> = {
     "weekly-activity-plan": ["Minggu", "Tema", "Aktiviti Utama", "Objektif", "Keperluan", "Catatan"],
     "program-plan": ["Nama Program", "Tujuan", "Objektif", "Sasaran", "Tentatif", "Keperluan", "Penutup"],
     "school-document": ["Nama Sekolah", "Tajuk", "Butiran", "Isi Kandungan", "Pengesahan"],
+    "thank-you-letter": ["Tarikh", "Penerima", "Perkara", "Ucapan Penghargaan", "Sumbangan / Kerjasama", "Penutup", "Tandatangan"],
     ppdk: ["Nama PPDK", "Maklumat Pelatih", "Aktiviti", "Objektif", "Pemerhatian", "Refleksi"],
     taska: ["Nama Taska", "Nama Kanak-kanak", "Aktiviti", "Perkembangan", "Catatan"],
     "custom-template": ["Tajuk Dokumen", "Bahagian 1", "Bahagian 2", "Catatan", "Penutup"],
   },
   en: {
+    agreement: ["Agreement Title", "Parties Involved", "Purpose", "Agreement Terms", "Duration", "Signature"],
+    "appeal-letter": ["Date", "Recipient", "Subject", "Appeal Background", "Appeal Reason", "Closing", "Signature"],
+    "appointment-letter": ["Date", "Recipient", "Subject", "Appointment Details", "Responsibilities", "Appointment Period", "Signature"],
     rpa: ["Activity Title", "Objective", "Materials / Tools", "Implementation Steps", "Observation", "Reflection"],
     rph: ["School Name", "Subject", "Year / Class", "Content Standard", "Learning Standard", "Learning Objective", "Teaching Activities", "Reflection"],
     rpi: ["Student / Client Information", "Category / Needs", "Long-term Goal", "Short-term Objective", "Strategy / Intervention", "Assessment", "Notes"],
@@ -407,14 +486,24 @@ const templates: Record<Language, Record<DocumentTypeId, string[]>> = {
     "assessment-report": ["Name", "Assessment Aspect", "Score / Level", "Comment", "Recommendation"],
     "performance-report": ["Name", "Period", "Performance", "Achievement", "New Target"],
     "case-report": ["Case Information", "Background", "Issue", "Action", "Status"],
+    certificate: ["Certificate Title", "Recipient Name", "Achievement / Appreciation", "Date", "Organizer", "Signature"],
+    checklist: ["Checklist Title", "Category", "Checklist Items", "Status", "Notes", "Checked By"],
+    "complaint-letter": ["Date", "Recipient", "Subject", "Complaint Details", "Impact / Evidence", "Requested Action", "Signature"],
+    "consent-letter": ["Date", "Recipient", "Subject", "Consent Details", "Period / Date", "Declaration", "Signature"],
     "incident-report": ["Incident Date", "Location", "People Involved", "Incident Details", "Action"],
+    "invitation-letter": ["Date", "Recipient", "Subject", "Invitation Details", "Date / Time / Venue", "Closing", "Signature"],
+    invoice: ["Invoice Number", "Customer Information", "Item / Service", "Quantity", "Amount", "Payment Terms"],
     resume: ["Name & Title", "Profile Summary", "Experience", "Education", "Skills", "References"],
     biodata: ["Full Name", "Personal Information", "Education", "Experience", "Skills", "References"],
     memo: ["To", "From", "Date", "Subject", "Memo Content", "Action"],
+    "notice-letter": ["Date", "Recipient", "Subject", "Main Notice", "Details", "Action / Notes", "Signature"],
     assignment: ["Title", "Instruction", "Main Content", "References", "Conclusion"],
     form: ["Name", "Personal Information", "Details", "Confirmation", "Signature"],
     "application-letter": ["Date", "Recipient", "Subject", "Application Purpose", "Supporting Information", "Closing", "Signature"],
     proposal: ["Proposal Title", "Background", "Objective", "Implementation Plan", "Cost", "Closing"],
+    "purchase-order": ["Order Number", "Supplier", "Items", "Quantity", "Price", "Total", "Approval"],
+    quotation: ["Quotation Number", "Customer Information", "Scope / Items", "Price", "Validity Period", "Terms"],
+    receipt: ["Receipt Number", "Received From", "Payment Purpose", "Amount", "Payment Method", "Signature"],
     "working-paper": ["Title", "Purpose", "Background", "Objective", "Implementation", "Estimated Cost", "Closing"],
     "lesson-plan": ["Subject", "Class", "Topic", "Learning Objective", "Activities", "Teaching Aids", "Reflection"],
     "therapy-session-plan": ["Client Name", "Therapy Focus", "Objective", "Activity", "Therapy Tools", "Assessment"],
@@ -422,6 +511,7 @@ const templates: Record<Language, Record<DocumentTypeId, string[]>> = {
     "weekly-activity-plan": ["Week", "Theme", "Main Activities", "Objective", "Requirements", "Notes"],
     "program-plan": ["Program Name", "Purpose", "Objective", "Target Group", "Tentative", "Requirements", "Closing"],
     "school-document": ["School Name", "Title", "Details", "Content", "Confirmation"],
+    "thank-you-letter": ["Date", "Recipient", "Subject", "Appreciation Message", "Contribution / Cooperation", "Closing", "Signature"],
     ppdk: ["PPDK Name", "Trainee Information", "Activity", "Objective", "Observation", "Reflection"],
     taska: ["Childcare Centre Name", "Child Name", "Activity", "Development", "Notes"],
     "custom-template": ["Document Title", "Section 1", "Section 2", "Notes", "Closing"],
@@ -722,6 +812,7 @@ export function CreateDocument() {
 
 function CreateDocumentContent() {
   const { language, t } = useLanguage();
+  const sortedDocumentTypes = getSortedDocumentTypes(language);
 
   return (
     <section className="py-8">
@@ -732,7 +823,7 @@ function CreateDocumentContent() {
           </p>
         </Reveal>
         <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {documentTypes.map((type, index) => (
+          {sortedDocumentTypes.map((type, index) => (
             <Reveal delay={index * 0.025} key={type}>
               <Link
                 className="surface block rounded-[1.35rem] p-4 transition hover:-translate-y-1 hover:border-[#9db4ff]/50"
@@ -761,6 +852,7 @@ export function DocumentBuilder({ initialType = "" }: { initialType?: string }) 
 function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) {
   const { language, t } = useLanguage();
   const initialDocumentType = normalizeDocumentType(initialType);
+  const sortedDocumentTypes = getSortedDocumentTypes(language);
   const [docType, setDocType] = useState<DocumentTypeId | "">(initialDocumentType);
   const [pages, setPages] = useState<PaperPage[]>(() => [
     createPaperPage(1, initialDocumentType ? buildBlocks(initialDocumentType, language) : [], initialDocumentType, language),
@@ -988,7 +1080,7 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
               value={docType}
             >
               <option value="">{t.selectDocumentPlaceholder}</option>
-              {documentTypes.map((type) => (
+              {sortedDocumentTypes.map((type) => (
                 <option key={type} value={type}>{documentTypeLabels[language][type]}</option>
               ))}
             </select>
@@ -1277,7 +1369,7 @@ function getTemplateLayout(type: DocumentTypeId, index: number) {
   ];
 
   const selectedLayout =
-    type === "formal-letter" || type === "application-letter"
+    type === "formal-letter" || type.endsWith("-letter")
       ? formalLetter
       : ["rpa", "rph", "rpi", "lesson-plan", "therapy-session-plan", "daily-activity-plan", "weekly-activity-plan", "program-plan"].includes(type)
         ? planningDocument
