@@ -596,12 +596,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
 function Nav() {
   const { language, setLanguage } = useLanguage();
-  const [languageOpen, setLanguageOpen] = useState(false);
-
-  function chooseLanguage(nextLanguage: Language) {
-    setLanguage(nextLanguage);
-    setLanguageOpen(false);
-  }
 
   return (
     <header className="surface mb-6 flex items-center justify-between rounded-[1.5rem] px-4 py-3">
@@ -609,69 +603,29 @@ function Nav() {
         lY Docs
       </Link>
       <div />
-      <div className="relative">
+      <div className="flex h-10 items-center overflow-hidden rounded-full border border-white/12 bg-white/[0.055] p-1">
         <button
-          aria-expanded={languageOpen}
-          aria-label="Tukar bahasa"
-          className="flex h-10 min-w-20 items-center justify-center gap-2 rounded-full border border-white/12 bg-white/[0.055] px-3 text-xs font-bold tracking-[0.16em] text-white transition hover:-translate-y-0.5 hover:border-[#9db4ff]/70"
-          onClick={() => setLanguageOpen((current) => !current)}
+          aria-pressed={language === "ms"}
+          className={`h-8 rounded-full px-3 text-xs font-bold tracking-[0.16em] transition ${
+            language === "ms" ? "bg-white text-black" : "text-white/50 hover:text-white"
+          }`}
+          onClick={() => setLanguage("ms")}
           type="button"
         >
-          <span className={language === "ms" ? "text-white" : "text-white/45"}>BM</span>
-          <span className="text-white/25">|</span>
-          <span className={language === "en" ? "text-white" : "text-white/45"}>EN</span>
+          BM
         </button>
-        {languageOpen ? (
-          <motion.div
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            className="surface absolute right-0 top-12 z-20 w-44 overflow-hidden rounded-2xl p-1"
-            initial={{ opacity: 0, y: -6, scale: 0.98 }}
-            transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-          >
-            <LanguageOption
-              active={language === "ms"}
-              label="Bahasa Malaysia"
-              shortcut="BM"
-              onClick={() => chooseLanguage("ms")}
-            />
-            <LanguageOption
-              active={language === "en"}
-              label="English"
-              shortcut="EN"
-              onClick={() => chooseLanguage("en")}
-            />
-          </motion.div>
-        ) : null}
+        <button
+          aria-pressed={language === "en"}
+          className={`h-8 rounded-full px-3 text-xs font-bold tracking-[0.16em] transition ${
+            language === "en" ? "bg-white text-black" : "text-white/50 hover:text-white"
+          }`}
+          onClick={() => setLanguage("en")}
+          type="button"
+        >
+          EN
+        </button>
       </div>
     </header>
-  );
-}
-
-function LanguageOption({
-  active,
-  label,
-  shortcut,
-  onClick,
-}: {
-  active: boolean;
-  label: string;
-  shortcut: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      aria-pressed={active}
-      className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm transition ${
-        active
-          ? "bg-white text-black"
-          : "text-[#b8bfcc] hover:bg-white/[0.07] hover:text-white"
-      }`}
-      onClick={onClick}
-      type="button"
-    >
-      <span>{label}</span>
-      <span className="text-xs font-bold tracking-[0.16em]">{shortcut}</span>
-    </button>
   );
 }
 
