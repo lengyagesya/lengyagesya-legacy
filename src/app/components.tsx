@@ -613,11 +613,13 @@ function Nav() {
         <button
           aria-expanded={languageOpen}
           aria-label="Tukar bahasa"
-          className="grid h-10 min-w-10 place-items-center rounded-full border border-white/12 bg-white/[0.055] px-3 text-xs font-bold tracking-[0.16em] text-white transition hover:-translate-y-0.5 hover:border-[#9db4ff]/70"
+          className="flex h-10 min-w-20 items-center justify-center gap-2 rounded-full border border-white/12 bg-white/[0.055] px-3 text-xs font-bold tracking-[0.16em] text-white transition hover:-translate-y-0.5 hover:border-[#9db4ff]/70"
           onClick={() => setLanguageOpen((current) => !current)}
           type="button"
         >
-          {language === "ms" ? "BM" : "EN"}
+          <span className={language === "ms" ? "text-white" : "text-white/45"}>BM</span>
+          <span className="text-white/25">|</span>
+          <span className={language === "en" ? "text-white" : "text-white/45"}>EN</span>
         </button>
         {languageOpen ? (
           <motion.div
