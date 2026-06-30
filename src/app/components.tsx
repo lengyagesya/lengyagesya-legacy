@@ -35,6 +35,19 @@ type ActiveBlock = {
   blockId: string;
   pageId: string;
 } | null;
+type DocumentBrainSection = {
+  content: string;
+  type: string;
+};
+type DocumentBrainResult = {
+  confidence: number;
+  documentType: string;
+  layout: string;
+  missingFields: string[];
+  paperSize: "A4";
+  sections: DocumentBrainSection[];
+  title: string;
+};
 type DocumentTypeId =
   | "rpa"
   | "rph"
@@ -140,6 +153,10 @@ const copy = {
     builderControls: "Kawalan builder",
     documentType: "Jenis dokumen",
     submitLater: "Hantar",
+    sending: "Sedang jana...",
+    downloadPdf: "Download PDF",
+    aiResult: "Hasil AI",
+    missingFields: "Maklumat belum lengkap",
     selectDocumentPlaceholder: "Pilih jenis dokumen",
     documentBrief: "Penerangan dokumen",
     documentBriefPlaceholder: "Contoh: Saya mahu buat surat rasmi memohon kebenaran mengadakan program di sekolah.",
@@ -205,6 +222,10 @@ const copy = {
     builderControls: "Builder controls",
     documentType: "Document type",
     submitLater: "Send",
+    sending: "Generating...",
+    downloadPdf: "Download PDF",
+    aiResult: "AI result",
+    missingFields: "Missing information",
     selectDocumentPlaceholder: "Select document type",
     documentBrief: "Document brief",
     documentBriefPlaceholder: "Example: I want to create a formal letter requesting permission to run a school programme.",
@@ -819,6 +840,9 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
   const [customContent, setCustomContent] = useState("");
   const [activeDrag, setActiveDrag] = useState<PaperDrag>(null);
   const [activeBlock, setActiveBlock] = useState<ActiveBlock>(null);
+  const [aiError, setAiError] = useState("");
+  const [aiResult, setAiResult] = useState<DocumentBrainResult | null>(null);
+  const [isSending, setIsSending] = useState(false);
   const [alignmentGuide, setAlignmentGuide] = useState<AlignmentGuide>({});
 
   function deleteBlock(pageId: string, blockId: string) {
@@ -833,6 +857,19 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
       ),
     );
     setActiveBlock(null);
+  }
+
+  function updateBlockContent(pageId: string, blockId: string, content: string) {
+    setPages((currentPages) =>
+      currentPages.map((page) =>
+        page.id === pageId
+          ? {
+              ...page,
+              blocks: page.blocks.map((block) => (block.id === blockId ? { ...block, content } : block)),
+            }
+          : page,
+      ),
+    );
   }
 
   useEffect(() => {
@@ -915,6 +952,62 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
     setDocType(nextType);
     setPages([createPaperPage(1, nextType ? buildBlocks(nextType, language) : [], nextType, language)]);
     setActivePageId("page-1");
+    setAiResult(null);
+    setAiError("");
+  }
+
+  async function sendToAi() {
+    setAiError("");
+    setIsSending(true);
+
+    try {
+      const response = await fetch("/api/document-brain", {
+        body: JSON.stringify({
+          language,
+          prompt: documentBrief,
+        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.error || "AI request failed.");
+      }
+
+      if (!isDocumentBrainResult(data)) {
+        throw new Error(language === "ms" ? "AI tidak memulangkan JSON yang sah." : "AI returned invalid JSON.");
+      }
+
+      setAiResult(data);
+      setPages([createAiPaperPage(data, language)]);
+      setActivePageId("page-1");
+      setActiveBlock(null);
+    } catch (error) {
+      setAiError(error instanceof Error ? error.message : "Ralat AI tidak dijangka.");
+    } finally {
+      setIsSending(false);
+    }
+  }
+
+  function downloadPdf() {
+    const filename = sanitizeFileName(aiResult?.title || documentTypeLabelForPdf(docType, language));
+    const printablePages = pages.map((page, index) => ({
+      blocks: page.blocks.map((block) => ({
+        content: block.content,
+        title: block.title,
+      })),
+      title: aiResult && index === 0 ? aiResult.title : page.title,
+    }));
+    const pdfBlob = createPdfBlob(printablePages);
+    const url = URL.createObjectURL(pdfBlob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${filename}.pdf`;
+    link.click();
+    URL.revokeObjectURL(url);
   }
 
   function addItemToPaper(title = customTitle, content = customContent, position?: { x: number; y: number }, pageId = activePageId) {
@@ -1047,9 +1140,36 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
               placeholder={t.documentBriefPlaceholder}
               value={documentBrief}
             />
-            <button className="button-secondary mt-4 w-full" type="button">
-              {t.submitLater}
+            <button
+              className="button-secondary mt-4 w-full disabled:cursor-not-allowed disabled:opacity-55"
+              disabled={isSending}
+              onClick={sendToAi}
+              type="button"
+            >
+              {isSending ? t.sending : t.submitLater}
             </button>
+            {aiError ? (
+              <p className="mt-3 rounded-2xl border border-red-400/25 bg-red-500/10 p-3 text-xs leading-5 text-red-100">
+                {aiError}
+              </p>
+            ) : null}
+            {aiResult ? (
+              <div className="mt-3 rounded-2xl border border-[#9db4ff]/20 bg-[#9db4ff]/10 p-3">
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#9db4ff]">{t.aiResult}</p>
+                <p className="mt-2 text-sm font-semibold text-white">{aiResult.title}</p>
+                <p className="mt-1 text-xs leading-5 text-[#aeb6c6]">
+                  {aiResult.documentType} · {aiResult.layout} · {Math.round(aiResult.confidence * 100)}%
+                </p>
+                {aiResult.missingFields.length > 0 ? (
+                  <p className="mt-2 text-xs leading-5 text-[#d8def0]">
+                    {t.missingFields}: {aiResult.missingFields.join(", ")}
+                  </p>
+                ) : null}
+                <button className="button-primary mt-3 w-full" onClick={downloadPdf} type="button">
+                  {t.downloadPdf}
+                </button>
+              </div>
+            ) : null}
           </aside>
         </Reveal>
         <Reveal delay={0.08}>
@@ -1130,6 +1250,7 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
                     <div
                       className="editable-block mt-3 min-h-12 cursor-text text-sm leading-7 text-black/75"
                       contentEditable
+                      onInput={(event) => updateBlockContent(page.id, block.id, event.currentTarget.textContent ?? "")}
                       suppressContentEditableWarning
                     >
                       {block.content}
@@ -1221,6 +1342,29 @@ function normalizeDocumentType(type: string): DocumentTypeId | "" {
   return legacyMatch ?? "";
 }
 
+function isDocumentBrainResult(value: unknown): value is DocumentBrainResult {
+  if (!value || typeof value !== "object") return false;
+  const record = value as Record<string, unknown>;
+
+  return (
+    typeof record.documentType === "string" &&
+    typeof record.layout === "string" &&
+    record.paperSize === "A4" &&
+    typeof record.title === "string" &&
+    Array.isArray(record.sections) &&
+    record.sections.every(
+      (section) =>
+        section &&
+        typeof section === "object" &&
+        typeof (section as Record<string, unknown>).type === "string" &&
+        typeof (section as Record<string, unknown>).content === "string",
+    ) &&
+    Array.isArray(record.missingFields) &&
+    record.missingFields.every((field) => typeof field === "string") &&
+    typeof record.confidence === "number"
+  );
+}
+
 function createPaperPage(pageNumber: number, blocks: PaperBlock[], type: DocumentTypeId | "", language: Language): PaperPage {
   const label = type ? documentTypeLabels[language][type] : language === "ms" ? "Dokumen kosong" : "Blank document";
   return {
@@ -1228,6 +1372,141 @@ function createPaperPage(pageNumber: number, blocks: PaperBlock[], type: Documen
     id: `page-${pageNumber}`,
     title: `${label} ${pageNumber}`,
   };
+}
+
+function createAiPaperPage(result: DocumentBrainResult, language: Language): PaperPage {
+  const sections = result.sections.length > 0 ? result.sections : [{ content: result.title, type: result.documentType }];
+  const titleBlock: PaperBlock = {
+    content: result.title,
+    height: 90,
+    id: "ai-title",
+    title: language === "ms" ? "Tajuk" : "Title",
+    width: 560,
+    x: 48,
+    y: 48,
+  };
+
+  const sectionBlocks = sections.map((section, index) => {
+    const isWide = index % 3 === 0;
+    return {
+      content: section.content,
+      height: isWide ? 150 : 132,
+      id: `ai-section-${index}`,
+      title: section.type,
+      width: isWide ? 560 : 260,
+      x: isWide ? 48 : 48 + ((index - 1) % 2) * 292,
+      y: 166 + Math.floor(index / 2) * 165,
+    };
+  });
+
+  return {
+    blocks: [titleBlock, ...sectionBlocks],
+    id: "page-1",
+    title: result.title,
+  };
+}
+
+function documentTypeLabelForPdf(type: DocumentTypeId | "", language: Language) {
+  return type ? documentTypeLabels[language][type] : language === "ms" ? "Dokumen" : "Document";
+}
+
+function sanitizeFileName(value: string) {
+  return (value || "lY Docs").replace(/[<>:"/\\|?*\u0000-\u001F]/g, "").trim() || "lY Docs";
+}
+
+function createPdfBlob(pages: Array<{ blocks: Array<{ content: string; title: string }>; title: string }>) {
+  const pageWidth = 595.28;
+  const pageHeight = 841.89;
+  const margin = 56;
+  const objects: string[] = [];
+  const pageRefs: number[] = [];
+
+  function addObject(content: string) {
+    objects.push(content);
+    return objects.length;
+  }
+
+  const fontObject = addObject("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>");
+
+  pages.forEach((page) => {
+    let cursorY = pageHeight - margin;
+    const lines: string[] = ["BT", "/F1 16 Tf", `1 0 0 1 ${margin} ${cursorY} Tm`, `(${escapePdfText(page.title)}) Tj`];
+    cursorY -= 34;
+
+    page.blocks.forEach((block) => {
+      lines.push("/F1 10 Tf", `1 0 0 1 ${margin} ${cursorY} Tm`, `(${escapePdfText(block.title.toUpperCase())}) Tj`);
+      cursorY -= 17;
+      lines.push("/F1 11 Tf");
+
+      wrapPdfText(block.content, 88).forEach((line) => {
+        if (cursorY < margin) return;
+        lines.push(`1 0 0 1 ${margin} ${cursorY} Tm`, `(${escapePdfText(line)}) Tj`);
+        cursorY -= 15;
+      });
+      cursorY -= 12;
+    });
+
+    lines.push("ET");
+    const stream = lines.join("\n");
+    const contentObject = addObject(`<< /Length ${new TextEncoder().encode(stream).length} >>\nstream\n${stream}\nendstream`);
+    const pageObject = addObject(
+      `<< /Type /Page /Parent 0 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Resources << /Font << /F1 ${fontObject} 0 R >> >> /Contents ${contentObject} 0 R >>`,
+    );
+    pageRefs.push(pageObject);
+  });
+
+  const pagesObject = addObject(`<< /Type /Pages /Kids [${pageRefs.map((ref) => `${ref} 0 R`).join(" ")}] /Count ${pageRefs.length} >>`);
+  const catalogObject = addObject(`<< /Type /Catalog /Pages ${pagesObject} 0 R >>`);
+  const patchedObjects = objects.map((object) => object.replace("/Parent 0 0 R", `/Parent ${pagesObject} 0 R`));
+  const header = "%PDF-1.4\n";
+  let body = "";
+  const offsets = [0];
+
+  patchedObjects.forEach((object, index) => {
+    offsets.push(header.length + body.length);
+    body += `${index + 1} 0 obj\n${object}\nendobj\n`;
+  });
+
+  const xrefOffset = header.length + body.length;
+  const xref = [
+    "xref",
+    `0 ${patchedObjects.length + 1}`,
+    "0000000000 65535 f ",
+    ...offsets.slice(1).map((offset) => `${String(offset).padStart(10, "0")} 00000 n `),
+    "trailer",
+    `<< /Size ${patchedObjects.length + 1} /Root ${catalogObject} 0 R >>`,
+    "startxref",
+    String(xrefOffset),
+    "%%EOF",
+  ].join("\n");
+
+  return new Blob([header, body, xref], { type: "application/pdf" });
+}
+
+function wrapPdfText(text: string, maxLength: number) {
+  const paragraphs = text.split(/\n+/);
+  return paragraphs.flatMap((paragraph) => {
+    const words = paragraph.split(/\s+/).filter(Boolean);
+    const lines: string[] = [];
+    let line = "";
+
+    words.forEach((word) => {
+      const nextLine = line ? `${line} ${word}` : word;
+      if (nextLine.length > maxLength) {
+        if (line) lines.push(line);
+        line = word;
+      } else {
+        line = nextLine;
+      }
+    });
+
+    if (line) lines.push(line);
+    return lines.length > 0 ? lines : [""];
+  });
+}
+
+function escapePdfText(value: string) {
+  return value.replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
 }
 
 function isAssetItem(title: string, language: Language) {
