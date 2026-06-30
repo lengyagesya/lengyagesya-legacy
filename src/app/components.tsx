@@ -31,6 +31,10 @@ type AlignmentGuide = {
   x?: number;
   y?: number;
 };
+type ActiveBlock = {
+  blockId: string;
+  pageId: string;
+} | null;
 type DocumentTypeId =
   | "rpa"
   | "rph"
@@ -766,7 +770,22 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
   const [customTitle, setCustomTitle] = useState("");
   const [customContent, setCustomContent] = useState("");
   const [activeDrag, setActiveDrag] = useState<PaperDrag>(null);
+  const [activeBlock, setActiveBlock] = useState<ActiveBlock>(null);
   const [alignmentGuide, setAlignmentGuide] = useState<AlignmentGuide>({});
+
+  function deleteBlock(pageId: string, blockId: string) {
+    setPages((currentPages) =>
+      currentPages.map((page) =>
+        page.id === pageId
+          ? {
+              ...page,
+              blocks: page.blocks.filter((block) => block.id !== blockId),
+            }
+          : page,
+      ),
+    );
+    setActiveBlock(null);
+  }
 
   useEffect(() => {
     window.setTimeout(() => {
@@ -821,6 +840,27 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
       window.removeEventListener("pointerup", handlePointerUp);
     };
   }, [activeDrag, pages]);
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (!activeBlock || (event.key !== "Backspace" && event.key !== "Delete")) return;
+
+      const target = event.target as HTMLElement | null;
+      const isTyping =
+        target?.closest("input, textarea, select, [contenteditable='true']") ||
+        target?.isContentEditable;
+      if (isTyping) return;
+
+      event.preventDefault();
+      deleteBlock(activeBlock.pageId, activeBlock.blockId);
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [activeBlock]);
 
   function changeType(value: string) {
     const nextType = normalizeDocumentType(value);
@@ -877,6 +917,9 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
   }
 
   function startPaperItemDrag(event: ReactPointerEvent<HTMLDivElement>, block: PaperBlock, pageId: string) {
+    setActiveBlock({ blockId: block.id, pageId });
+    setActivePageId(pageId);
+
     const target = event.target as HTMLElement;
     const bounds = event.currentTarget.getBoundingClientRect();
     const isResizeCorner = event.clientX > bounds.right - 28 && event.clientY > bounds.bottom - 28;
@@ -1016,7 +1059,11 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
               <div className="absolute inset-0 z-10">
                 {page.blocks.map((block) => (
                   <motion.div
-                    className="group absolute cursor-grab resize overflow-hidden rounded-xl border border-black/10 bg-white/95 p-4 shadow-sm active:cursor-grabbing"
+                    className={`group absolute cursor-grab resize overflow-hidden rounded-xl border bg-white/95 p-4 shadow-sm transition active:cursor-grabbing ${
+                      activeBlock?.blockId === block.id && activeBlock.pageId === page.id
+                        ? "border-[#4f7dff]/70 ring-2 ring-[#4f7dff]/25"
+                        : "border-black/10"
+                    }`}
                     animate={{ opacity: 1, scale: 1 }}
                     initial={{ opacity: 0, scale: 0.98 }}
                     key={block.id}
