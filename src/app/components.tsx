@@ -6,11 +6,16 @@ import { type DragEvent, type PointerEvent as ReactPointerEvent, createContext, 
 
 type Language = "ms" | "en";
 type PaperBlock = {
+  align: "center" | "left" | "right";
   content: string;
+  fontSize: number;
+  fontWeight: "bold" | "normal";
   height: number;
   id: string;
+  lineHeight: number;
   slot: string;
   title: string;
+  underline: boolean;
   width: number;
   x: number;
   y: number;
@@ -169,6 +174,14 @@ const copy = {
     itemTitle: "Nama item",
     itemContent: "Isi item",
     addToPaper: "Simpan ke kertas",
+    formatTools: "Format item",
+    boldText: "Tebal",
+    underlineText: "Garisan",
+    alignLeft: "Kiri",
+    alignCenter: "Tengah",
+    alignRight: "Kanan",
+    fontSize: "Saiz teks",
+    lineSpacing: "Jarak tulisan",
     quickItems: "Item pantas",
     itemShelf: "Item untuk kertas",
     itemShelfBody: "Klik Pilih atau slide/drag item ke atas kertas.",
@@ -240,6 +253,14 @@ const copy = {
     itemTitle: "Item name",
     itemContent: "Item content",
     addToPaper: "Save to paper",
+    formatTools: "Item format",
+    boldText: "Bold",
+    underlineText: "Line",
+    alignLeft: "Left",
+    alignCenter: "Center",
+    alignRight: "Right",
+    fontSize: "Text size",
+    lineSpacing: "Line spacing",
     quickItems: "Quick items",
     itemShelf: "Paper items",
     itemShelfBody: "Click Choose or slide/drag an item onto the paper.",
@@ -879,6 +900,19 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
     );
   }
 
+  function updateBlockFormat(pageId: string, blockId: string, patch: Partial<Pick<PaperBlock, "align" | "fontSize" | "fontWeight" | "lineHeight" | "underline">>) {
+    setPages((currentPages) =>
+      currentPages.map((page) =>
+        page.id === pageId
+          ? {
+              ...page,
+              blocks: page.blocks.map((block) => (block.id === blockId ? { ...block, ...patch } : block)),
+            }
+          : page,
+      ),
+    );
+  }
+
   useEffect(() => {
     window.setTimeout(() => {
       setPages([createPaperPage(1, docType ? buildBlocks(docType, language) : [], docType, language)]);
@@ -1015,8 +1049,17 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
     const filename = sanitizeFileName(aiResult?.title || documentTypeLabelForPdf(docType, language));
     const printablePages = pages.map((page, index) => ({
       blocks: page.blocks.map((block) => ({
+        align: block.align,
         content: block.content,
+        fontSize: block.fontSize,
+        fontWeight: block.fontWeight,
+        height: block.height,
+        lineHeight: block.lineHeight,
         title: aiResult ? "" : block.title,
+        underline: block.underline,
+        width: block.width,
+        x: block.x,
+        y: block.y,
       })),
       title: aiResult && index === 0 ? aiResult.title : page.title,
     }));
@@ -1032,6 +1075,7 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
   function addItemToPaper(title = customTitle, content = customContent, position?: { x: number; y: number }, pageId = activePageId) {
     const cleanTitle = title.trim() || t.emptyTitle;
     const cleanContent = content.trim() || t.emptyContent;
+    const blockFormat = getDefaultBlockFormat(cleanTitle);
     setPages((currentPages) =>
       currentPages.map((page) => {
         if (page.id !== pageId) return page;
@@ -1040,6 +1084,7 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
           blocks: [
             ...page.blocks,
             {
+              ...blockFormat,
               content: cleanContent,
               height: isAssetItem(cleanTitle, language) ? 92 : 132,
               id: `custom-${Date.now()}-${page.blocks.length}`,
@@ -1123,6 +1168,9 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
 
   const documentItems = docType ? templates[language][docType] : [];
   const baseItems = [...baseItemLibrary[language], ...assetItemLibrary[language]];
+  const selectedBlock = activeBlock
+    ? pages.find((page) => page.id === activeBlock.pageId)?.blocks.find((block) => block.id === activeBlock.blockId)
+    : null;
   const renderItemButton = (item: string) => (
     <button
       className="group cursor-grab rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-left text-sm text-[#dce3f1] transition hover:border-[#9db4ff]/50 hover:bg-white/[0.08] active:cursor-grabbing"
@@ -1302,10 +1350,16 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
                     <div
                       className={`editable-block min-h-12 cursor-text whitespace-pre-wrap text-black/80 ${
                         viewMode === "builder" ? "mt-3" : "mt-0"
-                      } ${viewMode === "preview" && block.content.length > 420 ? "text-xs leading-5" : "text-sm leading-7"
                       }`}
                       contentEditable
                       onInput={(event) => updateBlockContent(page.id, block.id, event.currentTarget.textContent ?? "")}
+                      style={{
+                        fontSize: viewMode === "preview" && block.content.length > 420 ? Math.max(10, block.fontSize - 2) : block.fontSize,
+                        fontWeight: block.fontWeight,
+                        lineHeight: block.lineHeight,
+                        textAlign: block.align,
+                        textDecoration: block.underline ? "underline" : "none",
+                      }}
                       suppressContentEditableWarning
                     >
                       {block.content}
@@ -1357,6 +1411,69 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
               <div className="mt-3 flex max-h-72 flex-col gap-2 overflow-auto pr-1">
                 {baseItems.map(renderItemButton)}
               </div>
+              {selectedBlock && activeBlock ? (
+                <div className="mt-6 border-t border-white/10 pt-5">
+                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#9db4ff]">{t.formatTools}</p>
+                  <p className="mt-2 truncate text-sm font-semibold text-white">{selectedBlock.title}</p>
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <button
+                      className={`rounded-xl border px-3 py-2 text-sm font-semibold transition ${
+                        selectedBlock.fontWeight === "bold" ? "border-white bg-white text-black" : "border-white/10 bg-white/[0.04] text-[#dce3f1]"
+                      }`}
+                      onClick={() =>
+                        updateBlockFormat(activeBlock.pageId, activeBlock.blockId, {
+                          fontWeight: selectedBlock.fontWeight === "bold" ? "normal" : "bold",
+                        })
+                      }
+                      type="button"
+                    >
+                      {t.boldText}
+                    </button>
+                    <button
+                      className={`rounded-xl border px-3 py-2 text-sm font-semibold transition ${
+                        selectedBlock.underline ? "border-white bg-white text-black" : "border-white/10 bg-white/[0.04] text-[#dce3f1]"
+                      }`}
+                      onClick={() => updateBlockFormat(activeBlock.pageId, activeBlock.blockId, { underline: !selectedBlock.underline })}
+                      type="button"
+                    >
+                      {t.underlineText}
+                    </button>
+                  </div>
+                  <div className="mt-3 grid grid-cols-3 gap-2">
+                    {(["left", "center", "right"] as const).map((align) => (
+                      <button
+                        className={`rounded-xl border px-2 py-2 text-xs font-bold transition ${
+                          selectedBlock.align === align ? "border-white bg-white text-black" : "border-white/10 bg-white/[0.04] text-[#dce3f1]"
+                        }`}
+                        key={align}
+                        onClick={() => updateBlockFormat(activeBlock.pageId, activeBlock.blockId, { align })}
+                        type="button"
+                      >
+                        {align === "left" ? t.alignLeft : align === "center" ? t.alignCenter : t.alignRight}
+                      </button>
+                    ))}
+                  </div>
+                  <label className="mt-4 block text-sm text-[#aeb6c6]">{t.fontSize}</label>
+                  <input
+                    className="mt-2 w-full accent-[#9db4ff]"
+                    max={22}
+                    min={10}
+                    onChange={(event) => updateBlockFormat(activeBlock.pageId, activeBlock.blockId, { fontSize: Number(event.target.value) })}
+                    type="range"
+                    value={selectedBlock.fontSize}
+                  />
+                  <label className="mt-4 block text-sm text-[#aeb6c6]">{t.lineSpacing}</label>
+                  <input
+                    className="mt-2 w-full accent-[#9db4ff]"
+                    max={2.2}
+                    min={1}
+                    onChange={(event) => updateBlockFormat(activeBlock.pageId, activeBlock.blockId, { lineHeight: Number(event.target.value) })}
+                    step={0.05}
+                    type="range"
+                    value={selectedBlock.lineHeight}
+                  />
+                </div>
+              ) : null}
               <div className="mt-6 border-t border-white/10 pt-5">
                 <label className="block text-sm text-[#aeb6c6]">{t.itemTitle}</label>
                 <input
@@ -1476,6 +1593,7 @@ function createPaperPage(pageNumber: number, blocks: PaperBlock[], type: Documen
 function createAiPaperPage(result: DocumentBrainResult, language: Language): PaperPage {
   const sections = result.sections.length > 0 ? result.sections : [{ content: result.title, type: result.documentType }];
   const titleBlock: PaperBlock = {
+    ...getDefaultBlockFormat(language === "ms" ? "Tajuk" : "Title"),
     content: result.title,
     height: 90,
     id: "ai-title",
@@ -1489,6 +1607,7 @@ function createAiPaperPage(result: DocumentBrainResult, language: Language): Pap
   const sectionBlocks = sections.map((section, index) => {
     const isWide = index % 3 === 0;
     return {
+      ...getDefaultBlockFormat(section.type),
       content: section.content,
       height: isWide ? 150 : 132,
       id: `ai-section-${index}`,
@@ -1509,6 +1628,20 @@ function createAiPaperPage(result: DocumentBrainResult, language: Language): Pap
 
 function inferSlot(title: string) {
   return normalizeSlot(title);
+}
+
+function getDefaultBlockFormat(title: string): Pick<PaperBlock, "align" | "fontSize" | "fontWeight" | "lineHeight" | "underline"> {
+  const slot = inferSlot(title);
+  const isTitle = slot === "title";
+  const isRightAligned = slot === "date" || slot === "reference";
+
+  return {
+    align: isTitle ? "center" : isRightAligned ? "right" : "left",
+    fontSize: isTitle ? 16 : 13,
+    fontWeight: isTitle || slot === "reference" ? "bold" : "normal",
+    lineHeight: 1.55,
+    underline: slot === "signature",
+  };
 }
 
 function normalizeSlot(value: string) {
@@ -1546,10 +1679,30 @@ function sanitizeFileName(value: string) {
   return (value || "lY Docs").replace(/[<>:"/\\|?*\u0000-\u001F]/g, "").trim() || "lY Docs";
 }
 
-function createPdfBlob(pages: Array<{ blocks: Array<{ content: string; title: string }>; title: string }>) {
+function createPdfBlob(
+  pages: Array<{
+    blocks: Array<{
+      align: "center" | "left" | "right";
+      content: string;
+      fontSize: number;
+      fontWeight: "bold" | "normal";
+      height: number;
+      lineHeight: number;
+      title: string;
+      underline: boolean;
+      width: number;
+      x: number;
+      y: number;
+    }>;
+    title: string;
+  }>,
+) {
   const pageWidth = 595.28;
   const pageHeight = 841.89;
-  const margin = 56;
+  const canvasWidth = 720;
+  const canvasHeight = (canvasWidth * 297) / 210;
+  const scaleX = pageWidth / canvasWidth;
+  const scaleY = pageHeight / canvasHeight;
   const objects: string[] = [];
   const pageRefs: number[] = [];
 
@@ -1558,33 +1711,72 @@ function createPdfBlob(pages: Array<{ blocks: Array<{ content: string; title: st
     return objects.length;
   }
 
-  const fontObject = addObject("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>");
+  const regularFontObject = addObject("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>");
+  const boldFontObject = addObject("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>");
 
   pages.forEach((page) => {
-    let cursorY = pageHeight - margin;
-    const lines: string[] = ["BT", "/F1 16 Tf", `1 0 0 1 ${margin} ${cursorY} Tm`, `(${escapePdfText(page.title)}) Tj`];
-    cursorY -= 34;
+    const lines: string[] = [];
 
     page.blocks.forEach((block) => {
-      if (block.title) {
-        lines.push("/F1 10 Tf", `1 0 0 1 ${margin} ${cursorY} Tm`, `(${escapePdfText(block.title.toUpperCase())}) Tj`);
-        cursorY -= 17;
-      }
-      lines.push("/F1 11 Tf");
+      const blockX = block.x * scaleX;
+      const blockTop = pageHeight - block.y * scaleY;
+      const blockWidth = block.width * scaleX;
+      const blockHeight = block.height * scaleY;
+      const fontSize = Math.max(8, block.fontSize * scaleY);
+      const lineStep = fontSize * block.lineHeight;
+      const maxLines = Math.max(1, Math.floor(blockHeight / lineStep));
+      const maxChars = Math.max(16, Math.floor(block.width / Math.max(6.5, block.fontSize * 0.54)));
+      const contentLines = wrapPdfText(block.content || "", maxChars).slice(0, maxLines);
+      const fontName = block.fontWeight === "bold" ? "F2" : "F1";
+      let cursorY = blockTop - fontSize;
 
-      wrapPdfText(block.content, 88).forEach((line) => {
-        if (cursorY < margin) return;
-        lines.push(`1 0 0 1 ${margin} ${cursorY} Tm`, `(${escapePdfText(line)}) Tj`);
-        cursorY -= 15;
+      if (block.title) {
+        lines.push(
+          "BT",
+          "/F2 7 Tf",
+          `1 0 0 1 ${formatPdfNumber(blockX)} ${formatPdfNumber(cursorY)} Tm`,
+          `(${escapePdfText(block.title.toUpperCase())}) Tj`,
+          "ET",
+        );
+        cursorY -= 12;
+      }
+
+      contentLines.forEach((line) => {
+        const estimatedWidth = Math.min(blockWidth, line.length * fontSize * 0.49);
+        const textX =
+          block.align === "center"
+            ? blockX + (blockWidth - estimatedWidth) / 2
+            : block.align === "right"
+              ? blockX + blockWidth - estimatedWidth
+              : blockX;
+
+        lines.push(
+          "BT",
+          `/${fontName} ${formatPdfNumber(fontSize)} Tf`,
+          `1 0 0 1 ${formatPdfNumber(textX)} ${formatPdfNumber(cursorY)} Tm`,
+          `(${escapePdfText(line)}) Tj`,
+          "ET",
+        );
+        cursorY -= lineStep;
       });
-      cursorY -= 12;
+
+      if (block.underline) {
+        const underlineY = Math.max(blockTop - blockHeight + 8, blockTop - Math.max(fontSize * 1.35, 18));
+        lines.push(
+          "q",
+          "0.8 w",
+          `${formatPdfNumber(blockX)} ${formatPdfNumber(underlineY)} m`,
+          `${formatPdfNumber(blockX + blockWidth)} ${formatPdfNumber(underlineY)} l`,
+          "S",
+          "Q",
+        );
+      }
     });
 
-    lines.push("ET");
     const stream = lines.join("\n");
     const contentObject = addObject(`<< /Length ${new TextEncoder().encode(stream).length} >>\nstream\n${stream}\nendstream`);
     const pageObject = addObject(
-      `<< /Type /Page /Parent 0 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Resources << /Font << /F1 ${fontObject} 0 R >> >> /Contents ${contentObject} 0 R >>`,
+      `<< /Type /Page /Parent 0 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Resources << /Font << /F1 ${regularFontObject} 0 R /F2 ${boldFontObject} 0 R >> >> /Contents ${contentObject} 0 R >>`,
     );
     pageRefs.push(pageObject);
   });
@@ -1639,6 +1831,10 @@ function wrapPdfText(text: string, maxLength: number) {
   });
 }
 
+function formatPdfNumber(value: number) {
+  return Number.isFinite(value) ? value.toFixed(2).replace(/\.?0+$/, "") : "0";
+}
+
 function escapePdfText(value: string) {
   return value.replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
 }
@@ -1684,6 +1880,7 @@ function buildBlocks(type: DocumentTypeId, language: Language) {
   return selected.map((title, index) => {
     const layout = getTemplateLayout(type, index);
     return {
+      ...getDefaultBlockFormat(title),
       content: defaultContent(title, language),
       height: layout.height,
       id: `${type}-${title}-${index}`,
