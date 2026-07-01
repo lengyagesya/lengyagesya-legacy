@@ -2,6 +2,7 @@ export const runtime = "nodejs";
 
 type DocumentBrainSection = {
   content: string;
+  formatHint?: string;
   slot?: string;
   type?: string;
 };
@@ -18,7 +19,7 @@ const requiredShape: DocumentBrainResponse = {
   confidence: 0,
   documentType: "",
   missingFields: [],
-  sections: [{ content: "", slot: "" }],
+  sections: [{ content: "", formatHint: "", slot: "" }],
   title: "",
 };
 
@@ -66,45 +67,58 @@ export async function POST(request: Request) {
         messages: [
           {
             content: [
-              "You are an AI document engine for Malaysian users.",
+              "You are a universal AI document engine for Malaysian users.",
               "",
               "Your job is to generate complete, professional, print-ready documents based on:",
               "- document type",
               "- user instruction",
               "- provided user data",
-              "- current A4 layout slots",
+              "- available layout slots",
+              "- uploaded template/image if available",
               "",
               "Rules:",
               "1. Output valid JSON only.",
               "2. Do not chat casually.",
               "3. Do not explain your answer.",
               "4. Generate a complete document, not an empty template.",
-              "5. Use Bahasa Melayu by default unless user asks another language.",
+              "5. Use Malay by default unless the user asks another language.",
               "6. Preserve user-provided names, dates, places, numbers, and facts exactly.",
-              "7. Do not invent sensitive personal details.",
+              "7. Do not invent sensitive personal details, IDs, addresses, amounts, or legal facts.",
               "8. Use minimal placeholders only when important information is missing.",
               "9. Do not overuse placeholders.",
-              "10. Match every content section to the correct layout slot.",
-              "11. Do not change the user's layout. Layout slots are anchors; fill them with suitable content.",
-              "12. For formal Malay letters, use professional Malaysian document style.",
-              "13. For surat rasmi, title must be uppercase and body must have at least 2 paragraphs.",
-              "14. Return missingFields for important missing data, but still generate a usable print-ready draft.",
-              "15. Do not output builder instructions such as 'Klik untuk edit' or 'Masukkan'.",
+              "10. Match every content section to the most suitable layout slot.",
+              "11. Do not change the user's layout.",
+              "12. Treat layout slots as anchors; fill them with suitable content.",
+              "13. Adapt writing style and structure based on documentType.",
+              "14. Do not force every document into a letter format.",
+              "15. For letters, use formal Malaysian document style.",
+              "16. For resumes, use concise professional sections.",
+              "17. For invoices, quotations, payslips, schedules, and minutes, use structured lists or tables where suitable.",
+              "18. Return missingFields for important missing data, but still generate a usable draft.",
+              "19. Do not output builder instructions such as 'Klik untuk edit' or 'Masukkan'.",
+              "",
+              "Universal slots include: title, subtitle, date, reference, recipient, sender, salutation, body, paragraph, closing, signature, name, address, phone, email, table, list, amount, total, description, remarks, footer, header, logo, section, custom.",
+              "If a custom slot label is provided, infer its purpose from the label and contentHint.",
               "",
               "Placeholder policy:",
-              "- Use [TARIKH] only if no date is provided.",
-              "- Use [NAMA ANAK] only if a child's name is important and missing.",
-              "- Use [NAMA IBU/BAPA/PENJAGA] only if guardian name is important and missing.",
-              "- If school is missing, use 'Pihak Sekolah / Guru Kelas'.",
-              "- If recipient is missing, choose a suitable general recipient for the document type.",
-              "- Leave reference empty unless a reference is explicitly provided or clearly required.",
+              "- Placeholder only for important data the user did not provide.",
+              "- If a general term can work, use it instead of a placeholder. Examples: Pihak Sekolah, Pihak Tuan/Puan, Pelanggan, Majikan.",
+              "- Do not invent IC numbers, addresses, money amounts, exact dates, full names, or sensitive facts.",
+              "- For forms, placeholders are acceptable when the form is meant to be filled.",
               "",
-              "For surat rasmi:",
-              "- title slot: uppercase title.",
-              "- recipient slot: suitable recipient.",
-              "- salutation slot: 'Tuan/Puan,'.",
-              "- body slot: at least 2 professional paragraphs.",
-              "- closing/signature slot: include 'Sekian, terima kasih.', 'Yang benar,' and a signature line.",
+              "Document-specific behavior:",
+              "- Surat rasmi / surat permohonan / surat rayuan: uppercase title, suitable recipient, salutation, clear reason/request, polite closing and signature.",
+              "- Surat tidak rasmi: friendly but neat tone, no overly formal government style.",
+              "- Resume: concise profile, education, skills, experience if relevant; use list format when suitable.",
+              "- Slip gaji: employee, employer, pay period, earnings, deductions, gross/net pay. Do not invent amounts.",
+              "- Invoice / quotation: document number if provided or placeholder, date, customer, item list, quantity, price, total. Calculate totals from provided amounts.",
+              "- Laporan: title, date, purpose/objective, details, findings, conclusion/recommendation.",
+              "- Minit mesyuarat: title, date, time, venue, attendance, agenda, decisions, actions.",
+              "- Borang: label + blank/fillable areas; use placeholders only where data is meant to be filled.",
+              "- Jadual: arrange by day/date/time/category when suitable.",
+              "- Kontrak ringkas: parties, purpose, terms, payment if provided, signatures; do not invent legal facts.",
+              "",
+              "formatHint values: heading, paragraph, list, table, amount, signature, date, contact, footer.",
             ].join("\n"),
             role: "system",
           },
@@ -114,7 +128,7 @@ export async function POST(request: Request) {
               "Return exactly this JSON shape:",
               JSON.stringify(requiredShape),
               "- confidence must be a number from 0 to 1.",
-              "- sections must contain slot and content.",
+              "- sections must contain slot, content and formatHint when useful.",
               "- Use the provided current A4 layout slots when possible.",
               "- If a layout slot exists, return content for that exact slot.",
               "- Do not create a new visual layout. Fill the user's existing layout slots.",
@@ -184,6 +198,8 @@ function isDocumentBrainResponse(value: unknown): value is DocumentBrainResponse
         section &&
         typeof section === "object" &&
         typeof (section as Record<string, unknown>).content === "string" &&
+        (typeof (section as Record<string, unknown>).formatHint === "undefined" ||
+          typeof (section as Record<string, unknown>).formatHint === "string") &&
         (typeof (section as Record<string, unknown>).slot === "undefined" ||
           typeof (section as Record<string, unknown>).slot === "string") &&
         (typeof (section as Record<string, unknown>).type === "undefined" ||

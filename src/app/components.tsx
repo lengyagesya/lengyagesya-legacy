@@ -43,6 +43,7 @@ type ActiveBlock = {
 } | null;
 type DocumentBrainSection = {
   content: string;
+  formatHint?: string;
   slot?: string;
   type?: string;
 };
@@ -1568,6 +1569,8 @@ function isDocumentBrainResult(value: unknown): value is DocumentBrainResult {
         section &&
         typeof section === "object" &&
         typeof (section as Record<string, unknown>).content === "string" &&
+        (typeof (section as Record<string, unknown>).formatHint === "undefined" ||
+          typeof (section as Record<string, unknown>).formatHint === "string") &&
         (typeof (section as Record<string, unknown>).slot === "undefined" ||
           typeof (section as Record<string, unknown>).slot === "string") &&
         (typeof (section as Record<string, unknown>).type === "undefined" ||
@@ -1696,17 +1699,30 @@ function normalizeSlot(value: string) {
   if (lower.includes("salam") || lower.includes("salutation") || lower.includes("greeting")) return "salutation";
   if (lower.includes("daripada") || lower.includes("pengirim") || lower.includes("from")) return "sender";
   if (lower.includes("alamat") || lower.includes("address")) return "address";
+  if (lower.includes("telefon") || lower.includes("phone") || lower.includes("tel")) return "phone";
+  if (lower.includes("emel") || lower.includes("email") || lower.includes("e-mel")) return "email";
   if (lower.includes("rujukan") || lower.includes("reference")) return "reference";
+  if (lower.includes("subtajuk") || lower.includes("subtitle")) return "subtitle";
+  if (lower.includes("kepala") || lower.includes("header")) return "header";
+  if (lower.includes("kaki") || lower.includes("footer")) return "footer";
+  if (lower.includes("logo")) return "logo";
   if (lower.includes("isi") || lower.includes("body") || lower.includes("content") || lower.includes("perenggan")) return "body";
+  if (lower.includes("paragraph") || lower.includes("para")) return "paragraph";
   if (lower.includes("penutup") || lower.includes("closing")) return "closing";
   if (lower.includes("tandatangan") || lower.includes("signature")) return "signature";
+  if (lower.includes("jadual") || lower.includes("table") || lower.includes("item") || lower.includes("senarai barang")) return "table";
+  if (lower.includes("senarai") || lower.includes("list") || lower.includes("agenda") || lower.includes("kemahiran") || lower.includes("skills")) return "list";
+  if (lower.includes("jumlah") || lower.includes("total") || lower.includes("bersih")) return "total";
+  if (lower.includes("amaun") || lower.includes("amount") || lower.includes("harga") || lower.includes("gaji") || lower.includes("bayaran")) return "amount";
+  if (lower.includes("butiran") || lower.includes("description") || lower.includes("deskripsi")) return "description";
+  if (lower.includes("catatan") || lower.includes("note") || lower.includes("remarks")) return "remarks";
+  if (lower.includes("seksyen") || lower.includes("section") || lower.includes("pendidikan") || lower.includes("pengalaman")) return "section";
   if (lower.includes("objektif") || lower.includes("objective")) return "objective";
   if (lower.includes("bahan") || lower.includes("alat") || lower.includes("material")) return "materials";
   if (lower.includes("langkah") || lower.includes("step")) return "steps";
   if (lower.includes("pemerhatian") || lower.includes("observation")) return "observation";
   if (lower.includes("refleksi") || lower.includes("reflection")) return "reflection";
   if (lower.includes("ringkasan") || lower.includes("summary")) return "summary";
-  if (lower.includes("catatan") || lower.includes("note")) return "notes";
   if (lower.includes("nama") || lower.includes("name")) return "name";
 
   return lower
