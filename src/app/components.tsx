@@ -44,14 +44,14 @@ type ActiveBlock = {
 type DocumentBrainSection = {
   content: string;
   slot?: string;
-  type: string;
+  type?: string;
 };
 type DocumentBrainResult = {
   confidence: number;
   documentType: string;
-  layout: string;
   missingFields: string[];
-  paperSize: "A4";
+  layout?: string;
+  paperSize?: "A4";
   sections: DocumentBrainSection[];
   title: string;
 };
@@ -1057,7 +1057,7 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
     const printablePages = pages.map((page, index) => ({
       blocks: page.blocks.map((block) => ({
         align: block.align,
-        content: block.content,
+        content: isInstructionPlaceholder(block.content) ? "" : block.content,
         fontSize: block.fontSize,
         fontWeight: block.fontWeight,
         height: block.height,
@@ -1239,7 +1239,7 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
                 <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#9db4ff]">{t.aiResult}</p>
                 <p className="mt-2 text-sm font-semibold text-white">{aiResult.title}</p>
                 <p className="mt-1 text-xs leading-5 text-[#aeb6c6]">
-                  {aiResult.documentType} · {aiResult.layout} · {Math.round(aiResult.confidence * 100)}%
+                  {aiResult.documentType} · {Math.round(aiResult.confidence * 100)}%
                 </p>
                 {aiResult.missingFields.length > 0 ? (
                   <p className="mt-2 text-xs leading-5 text-[#d8def0]">
@@ -1559,18 +1559,19 @@ function isDocumentBrainResult(value: unknown): value is DocumentBrainResult {
 
   return (
     typeof record.documentType === "string" &&
-    typeof record.layout === "string" &&
-    record.paperSize === "A4" &&
+    (typeof record.layout === "undefined" || typeof record.layout === "string") &&
+    (typeof record.paperSize === "undefined" || record.paperSize === "A4") &&
     typeof record.title === "string" &&
     Array.isArray(record.sections) &&
     record.sections.every(
       (section) =>
         section &&
         typeof section === "object" &&
-        typeof (section as Record<string, unknown>).type === "string" &&
         typeof (section as Record<string, unknown>).content === "string" &&
         (typeof (section as Record<string, unknown>).slot === "undefined" ||
-          typeof (section as Record<string, unknown>).slot === "string"),
+          typeof (section as Record<string, unknown>).slot === "string") &&
+        (typeof (section as Record<string, unknown>).type === "undefined" ||
+          typeof (section as Record<string, unknown>).type === "string"),
     ) &&
     Array.isArray(record.missingFields) &&
     record.missingFields.every((field) => typeof field === "string") &&
@@ -1581,7 +1582,7 @@ function isDocumentBrainResult(value: unknown): value is DocumentBrainResult {
 function applyAiResultToPages(pages: PaperPage[], result: DocumentBrainResult, language: Language) {
   const sections = result.sections.map((section) => ({
     ...section,
-    slot: normalizeSlot(section.slot || section.type),
+    slot: normalizeSlot(section.slot || section.type || "content"),
   }));
 
   const hasBlocks = pages.some((page) => page.blocks.length > 0);
@@ -1595,7 +1596,7 @@ function applyAiResultToPages(pages: PaperPage[], result: DocumentBrainResult, l
       const blockSlot = normalizeSlot(block.slot || block.title);
       const matchedSection =
         sections.find((section) => section.slot === blockSlot) ||
-        sections.find((section) => normalizeSlot(section.type) === blockSlot) ||
+        sections.find((section) => normalizeSlot(section.type || section.slot || "") === blockSlot) ||
         sections.find((section) => blockSlot.includes(section.slot) || section.slot.includes(blockSlot));
 
       return matchedSection
@@ -1606,7 +1607,7 @@ function applyAiResultToPages(pages: PaperPage[], result: DocumentBrainResult, l
           }
         : {
             ...block,
-            content: isInstructionPlaceholder(block.content) ? `[${block.title.toUpperCase()}]` : block.content,
+            content: isInstructionPlaceholder(block.content) ? "" : block.content,
             slot: blockSlot,
           };
     }),
@@ -1647,13 +1648,14 @@ function createAiPaperPage(result: DocumentBrainResult, language: Language): Pap
 
   const sectionBlocks = sections.map((section, index) => {
     const isWide = index % 3 === 0;
+    const sectionTitle = section.type || section.slot || "Content";
     return {
-      ...getDefaultBlockFormat(section.type),
+      ...getDefaultBlockFormat(sectionTitle),
       content: section.content,
       height: isWide ? 150 : 132,
       id: `ai-section-${index}`,
-      slot: normalizeSlot(section.slot || section.type),
-      title: section.type,
+      slot: normalizeSlot(section.slot || section.type || "content"),
+      title: sectionTitle,
       width: isWide ? 560 : 260,
       x: isWide ? 48 : 48 + ((index - 1) % 2) * 292,
       y: 166 + Math.floor(index / 2) * 165,
@@ -1691,6 +1693,7 @@ function normalizeSlot(value: string) {
   if (lower.includes("tajuk") || lower.includes("title") || lower.includes("perkara") || lower.includes("subject")) return "title";
   if (lower.includes("tarikh") || lower.includes("date")) return "date";
   if (lower.includes("penerima") || lower.includes("kepada") || lower.includes("recipient") || lower.includes("to")) return "recipient";
+  if (lower.includes("salam") || lower.includes("salutation") || lower.includes("greeting")) return "salutation";
   if (lower.includes("daripada") || lower.includes("pengirim") || lower.includes("from")) return "sender";
   if (lower.includes("alamat") || lower.includes("address")) return "address";
   if (lower.includes("rujukan") || lower.includes("reference")) return "reference";
