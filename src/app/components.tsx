@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { type DragEvent, type PointerEvent as ReactPointerEvent, createContext, useContext, useEffect, useState } from "react";
+import { type DragEvent, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, createContext, useContext, useEffect, useRef, useState } from "react";
 
 type Language = "ms" | "en";
 type PaperBlock = {
@@ -872,6 +872,12 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
   const [isSending, setIsSending] = useState(false);
   const [viewMode, setViewMode] = useState<"builder" | "preview">("builder");
   const [alignmentGuide, setAlignmentGuide] = useState<AlignmentGuide>({});
+  const blockIdCounter = useRef(0);
+
+  function createBlockId(prefix: string) {
+    blockIdCounter.current += 1;
+    return `${prefix}-${blockIdCounter.current}`;
+  }
 
   function deleteBlock(pageId: string, blockId: string) {
     setPages((currentPages) =>
@@ -1076,6 +1082,7 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
     const cleanTitle = title.trim() || t.emptyTitle;
     const cleanContent = content.trim() || t.emptyContent;
     const blockFormat = getDefaultBlockFormat(cleanTitle);
+    const blockId = createBlockId("custom");
     setPages((currentPages) =>
       currentPages.map((page) => {
         if (page.id !== pageId) return page;
@@ -1087,7 +1094,7 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
               ...blockFormat,
               content: cleanContent,
               height: isAssetItem(cleanTitle, language) ? 92 : 132,
-              id: `custom-${Date.now()}-${page.blocks.length}`,
+              id: `${blockId}-${page.blocks.length}`,
               slot: inferSlot(cleanTitle),
               title: cleanTitle,
               width: isAssetItem(cleanTitle, language) ? 150 : 260,
@@ -1100,6 +1107,54 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
     );
     setCustomTitle("");
     setCustomContent("");
+  }
+
+  function addPreviewTextAt(event: ReactMouseEvent<HTMLDivElement>, pageId: string) {
+    if (viewMode !== "preview") return;
+
+    const target = event.target as HTMLElement;
+    if (target.closest("textarea, input, button, select, [contenteditable='true']")) return;
+
+    const pageBounds = event.currentTarget.getBoundingClientRect();
+    const pageWidth = 720;
+    const pageHeight = (pageWidth * 297) / 210;
+    const blockWidth = 260;
+    const blockHeight = 82;
+    const x = clamp(((event.clientX - pageBounds.left) / pageBounds.width) * pageWidth, 30, pageWidth - blockWidth - 30);
+    const y = clamp(((event.clientY - pageBounds.top) / pageBounds.height) * pageHeight, 30, pageHeight - blockHeight - 30);
+    const title = language === "ms" ? "Teks tambahan" : "Additional text";
+    const blockId = createBlockId("preview-text");
+
+    setActivePageId(pageId);
+    setActiveBlock({ blockId, pageId });
+    setPages((currentPages) =>
+      currentPages.map((page) =>
+        page.id === pageId
+          ? {
+              ...page,
+              blocks: [
+                ...page.blocks,
+                {
+                  ...getDefaultBlockFormat(title),
+                  content: "",
+                  height: blockHeight,
+                  id: blockId,
+                  lineHeight: 1.45,
+                  slot: inferSlot(title),
+                  title,
+                  width: blockWidth,
+                  x,
+                  y,
+                },
+              ],
+            }
+          : page,
+      ),
+    );
+
+    window.setTimeout(() => {
+      document.querySelector<HTMLTextAreaElement>(`textarea[data-block-id="${blockId}"]`)?.focus();
+    }, 0);
   }
 
   function addPage() {
@@ -1302,6 +1357,7 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
                   </div>
                   <div
               className="a4-page relative mx-auto overflow-hidden rounded-xl p-8 transition sm:p-12"
+              onClick={(event) => addPreviewTextAt(event, page.id)}
               onDragOver={(event) => event.preventDefault()}
               onDrop={(event) => dropItem(event, page.id)}
             >
@@ -1365,6 +1421,7 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
                       </div>
                     ) : (
                       <textarea
+                        data-block-id={block.id}
                         className="preview-editable block h-full w-full resize-none overflow-hidden border-0 bg-transparent p-0 text-black/80 outline-none"
                         onChange={(event) => updateBlockContent(page.id, block.id, event.target.value)}
                         spellCheck
@@ -1593,6 +1650,10 @@ function applyAiResultToPages(pages: PaperPage[], result: DocumentBrainResult, l
 function isInstructionPlaceholder(content: string) {
   const lower = content.toLowerCase();
   return lower.includes("klik untuk edit") || lower.includes("click to edit") || lower.includes("tuliskan") || lower.includes("write the");
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
 }
 
 function createPaperPage(pageNumber: number, blocks: PaperBlock[], type: DocumentTypeId | "", language: Language): PaperPage {
