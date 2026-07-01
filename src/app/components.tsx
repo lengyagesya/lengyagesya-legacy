@@ -5,6 +5,15 @@ import Link from "next/link";
 import { type DragEvent, type PointerEvent as ReactPointerEvent, createContext, useContext, useEffect, useRef, useState } from "react";
 
 type Language = "ms" | "en";
+type DocumentBlockStyle = {
+  border?: boolean;
+  box?: boolean;
+  boxType?: string;
+  divider?: boolean;
+  signatureLine?: boolean;
+  tableBorder?: boolean;
+  underline?: boolean;
+};
 type PaperBlock = {
   align: "center" | "left" | "right";
   content: string;
@@ -14,6 +23,7 @@ type PaperBlock = {
   id: string;
   lineHeight: number;
   slot: string;
+  style?: DocumentBlockStyle;
   title: string;
   underline: boolean;
   width: number;
@@ -46,6 +56,7 @@ type DocumentBrainSection = {
   content: string;
   formatHint?: string;
   slot?: string;
+  styleHint?: DocumentBlockStyle;
   type?: string;
 };
 type DocumentBrainResult = {
@@ -1050,7 +1061,7 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
       }
 
       setAiResult(data);
-      const nextPages = layoutMode === "auto" && isReportDocument(data) ? createAutoLayoutPages(data, language) : applyAiResultToPages(pages, data, language);
+      const nextPages = layoutMode === "auto" ? createAutoLayoutPages(data, language) : applyAiResultToPages(pages, data, language);
       setPages(nextPages);
       setActivePageId("page-1");
       setActiveBlock(null);
@@ -1065,17 +1076,18 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
   function downloadPdf() {
     const filename = sanitizeFileName(aiResult?.title || documentTypeLabelForPdf(docType, language));
     const printablePages = pages.map((page, index) => ({
-      blocks: page.blocks.map((block) => ({
-        align: block.align,
-        content: isInstructionPlaceholder(block.content) ? "" : block.content,
-        fontSize: block.fontSize,
-        fontWeight: block.fontWeight,
+        blocks: page.blocks.map((block) => ({
+          align: block.align,
+          content: isInstructionPlaceholder(block.content) ? "" : block.content,
+          fontSize: block.fontSize,
+          fontWeight: block.fontWeight,
         height: block.height,
-        lineHeight: block.lineHeight,
-        title: viewMode === "preview" || aiResult ? "" : block.title,
-        underline: block.underline,
-        width: block.width,
-        x: block.x,
+          lineHeight: block.lineHeight,
+          style: block.style,
+          title: viewMode === "preview" || aiResult ? "" : block.title,
+          underline: block.underline,
+          width: block.width,
+          x: block.x,
         y: block.y,
       })),
       title: aiResult && index === 0 ? aiResult.title : page.title,
@@ -1350,7 +1362,7 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
                 <div className="absolute inset-0 z-20">
                   {page.blocks.map((block) => (
                     <div
-                      className="absolute overflow-visible bg-transparent p-0"
+                      className={`absolute overflow-visible ${getPreviewBlockFrameClass(block)}`}
                       key={block.id}
                       style={{
                         height: block.height,
@@ -1369,12 +1381,14 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
                           fontWeight: block.fontWeight,
                           lineHeight: block.lineHeight,
                           textAlign: block.align,
-                          textDecoration: block.underline ? "underline" : "none",
+                          textDecoration: block.underline || block.style?.underline ? "underline" : "none",
                         }}
                         suppressContentEditableWarning
                       >
                         {block.content}
                       </div>
+                      {block.style?.divider ? <div className="pointer-events-none mt-2 h-px w-full bg-black/25" /> : null}
+                      {block.style?.signatureLine ? <div className="pointer-events-none mt-3 h-px w-48 bg-black/70" /> : null}
                     </div>
                   ))}
                 </div>
@@ -1602,6 +1616,8 @@ function isDocumentBrainResult(value: unknown): value is DocumentBrainResult {
           typeof (section as Record<string, unknown>).formatHint === "string") &&
         (typeof (section as Record<string, unknown>).slot === "undefined" ||
           typeof (section as Record<string, unknown>).slot === "string") &&
+        (typeof (section as Record<string, unknown>).styleHint === "undefined" ||
+          typeof (section as Record<string, unknown>).styleHint === "object") &&
         (typeof (section as Record<string, unknown>).type === "undefined" ||
           typeof (section as Record<string, unknown>).type === "string"),
     ) &&
@@ -1635,7 +1651,10 @@ function applyAiResultToPages(pages: PaperPage[], result: DocumentBrainResult, l
         ? {
             ...block,
             content: matchedSection.content,
+            fontWeight: getFontWeightForSection(matchedSection, block.fontWeight),
             slot: blockSlot,
+            style: normalizeStyleHint(matchedSection.styleHint),
+            underline: block.underline || Boolean(matchedSection.styleHint?.underline || matchedSection.styleHint?.signatureLine),
           }
         : {
             ...block,
@@ -1647,92 +1666,98 @@ function applyAiResultToPages(pages: PaperPage[], result: DocumentBrainResult, l
 }
 
 function createAutoLayoutPages(result: DocumentBrainResult, language: Language): PaperPage[] {
-  if (!isReportDocument(result)) {
-    return [createAiPaperPage(result, language)];
-  }
-
   const normalizedSections = result.sections.map((section) => ({
     ...section,
     slot: normalizeSlot(section.slot || section.type || "section"),
+    styleHint: normalizeStyleHint(section.styleHint),
   }));
-  const orderedSections = orderReportSections(ensureReportSections(result, normalizedSections));
+  const kind = detectAutoLayoutKind(result);
+  const orderedSections = orderAutoLayoutSections(kind, ensureDocumentSections(result, normalizedSections));
   const blocks: PaperBlock[] = [];
   let y = 52;
   let pageNumber = 1;
   const pages: PaperPage[] = [];
+  const titleContent = orderedSections.find((section) => section.slot === "title")?.content || result.title || defaultAutoLayoutTitle(kind, language);
 
   function pushPage() {
     pages.push({
       blocks: [...blocks],
       id: `page-${pageNumber}`,
-      title: `${result.title || (language === "ms" ? "Laporan" : "Report")} ${pageNumber}`,
+      title: `${titleContent || result.title || defaultAutoLayoutTitle(kind, language)} ${pageNumber}`,
     });
     blocks.length = 0;
     pageNumber += 1;
     y = 52;
   }
 
-  const titleContent = normalizedSections.find((section) => section.slot === "title")?.content || result.title || (language === "ms" ? "LAPORAN" : "REPORT");
-  blocks.push({
-    align: "center",
-    content: titleContent.toUpperCase(),
-    fontSize: 17,
-    fontWeight: "bold",
-    height: 54,
-    id: `auto-title-${pageNumber}`,
-    lineHeight: 1.25,
-    slot: "title",
-    title: language === "ms" ? "Tajuk" : "Title",
-    underline: false,
-    width: 604,
-    x: 58,
-    y,
-  });
+  blocks.push(
+    createAutoBlock({
+      align: kind === "resume" ? "left" : "center",
+      content: titleContent.toUpperCase(),
+      fontSize: kind === "resume" ? 20 : 17,
+      fontWeight: "bold",
+      height: kind === "resume" ? 62 : 54,
+      id: `auto-title-${pageNumber}`,
+      lineHeight: 1.25,
+      slot: "title",
+      style: kind === "letter" ? {} : { divider: true },
+      title: language === "ms" ? "Tajuk" : "Title",
+      width: 604,
+      x: 58,
+      y,
+    }),
+  );
   y += 72;
 
   orderedSections
     .filter((section) => section.slot !== "title" && section.content.trim())
     .forEach((section, index) => {
-      const heading = reportSectionHeading(section.slot, section.type, language);
-      const contentHeight = estimateReportBlockHeight(section.content);
-      const neededHeight = 28 + contentHeight + 18;
+      const sectionStyle = getAutoSectionStyle(kind, section);
+      const heading = autoSectionHeading(section.slot, section.type, language);
+      const headingHeight = sectionStyle.showHeading ? 24 : 0;
+      const contentHeight = estimateAutoBlockHeight(section.content, sectionStyle.width, sectionStyle.fontSize);
+      const neededHeight = headingHeight + contentHeight + sectionStyle.gap;
       if (y + neededHeight > 950 && blocks.length > 1) {
         pushPage();
       }
 
-      blocks.push({
-        align: "left",
-        content: heading,
-        fontSize: 12,
-        fontWeight: "bold",
-        height: 24,
-        id: `auto-heading-${pageNumber}-${index}`,
-        lineHeight: 1.25,
-        slot: `${section.slot}-heading`,
-        title: heading,
-        underline: false,
-        width: 604,
-        x: 58,
-        y,
-      });
-      y += 28;
+      if (sectionStyle.showHeading) {
+        blocks.push(
+          createAutoBlock({
+            content: heading,
+            fontSize: 12,
+            fontWeight: "bold",
+            height: 24,
+            id: `auto-heading-${pageNumber}-${index}`,
+            lineHeight: 1.25,
+            slot: `${section.slot}-heading`,
+            style: sectionStyle.headingStyle,
+            title: heading,
+            width: sectionStyle.width,
+            x: sectionStyle.x,
+            y,
+          }),
+        );
+        y += 28;
+      }
 
-      blocks.push({
-        align: "left",
-        content: section.content,
-        fontSize: 11.5,
-        fontWeight: "normal",
-        height: contentHeight,
-        id: `auto-section-${pageNumber}-${index}`,
-        lineHeight: 1.45,
-        slot: section.slot,
-        title: heading,
-        underline: false,
-        width: 604,
-        x: 58,
-        y,
-      });
-      y += contentHeight + 18;
+      blocks.push(
+        createAutoBlock({
+          content: section.content,
+          fontSize: sectionStyle.fontSize,
+          fontWeight: getFontWeightForSection(section, sectionStyle.fontWeight),
+          height: contentHeight,
+          id: `auto-section-${pageNumber}-${index}`,
+          lineHeight: sectionStyle.lineHeight,
+          slot: section.slot,
+          style: { ...sectionStyle.contentStyle, ...normalizeStyleHint(section.styleHint) },
+          title: heading,
+          width: sectionStyle.width,
+          x: sectionStyle.x,
+          y,
+        }),
+      );
+      y += contentHeight + sectionStyle.gap;
     });
 
   if (blocks.length > 0) {
@@ -1740,6 +1765,154 @@ function createAutoLayoutPages(result: DocumentBrainResult, language: Language):
   }
 
   return pages;
+}
+
+type AutoLayoutKind = "form" | "generic" | "invoice" | "letter" | "minutes" | "payroll" | "report" | "resume";
+
+function createAutoBlock(block: Omit<PaperBlock, "align" | "underline"> & { align?: PaperBlock["align"]; underline?: boolean }): PaperBlock {
+  return {
+    ...block,
+    align: block.align ?? "left",
+    underline: block.underline ?? Boolean(block.style?.underline || block.style?.signatureLine),
+  };
+}
+
+function detectAutoLayoutKind(result: DocumentBrainResult): AutoLayoutKind {
+  const value = `${result.documentType} ${result.title}`.toLowerCase();
+  if (value.includes("resume") || value.includes("cv")) return "resume";
+  if (value.includes("slip") || value.includes("gaji") || value.includes("payslip") || value.includes("payroll")) return "payroll";
+  if (value.includes("invoice") || value.includes("quotation") || value.includes("resit") || value.includes("receipt") || value.includes("sebut harga")) return "invoice";
+  if (value.includes("minit") || value.includes("mesyuarat") || value.includes("meeting")) return "minutes";
+  if (value.includes("borang") || value.includes("form") || value.includes("pendaftaran")) return "form";
+  if (isReportDocument(result)) return "report";
+  if (value.includes("surat") || value.includes("letter") || value.includes("permohonan") || value.includes("rayuan")) return "letter";
+  return "generic";
+}
+
+function defaultAutoLayoutTitle(kind: AutoLayoutKind, language: Language) {
+  const titles: Record<AutoLayoutKind, string> = {
+    form: language === "ms" ? "BORANG" : "FORM",
+    generic: language === "ms" ? "DOKUMEN" : "DOCUMENT",
+    invoice: "INVOICE",
+    letter: language === "ms" ? "SURAT RASMI" : "FORMAL LETTER",
+    minutes: language === "ms" ? "MINIT MESYUARAT" : "MEETING MINUTES",
+    payroll: language === "ms" ? "SLIP GAJI" : "PAYSLIP",
+    report: language === "ms" ? "LAPORAN" : "REPORT",
+    resume: "RESUME",
+  };
+  return titles[kind];
+}
+
+function ensureDocumentSections(result: DocumentBrainResult, sections: Array<DocumentBrainSection & { slot: string }>) {
+  const kind = detectAutoLayoutKind(result);
+  if (kind === "report") {
+    return ensureReportSections(result, sections);
+  }
+
+  const defaults: Record<AutoLayoutKind, Array<DocumentBrainSection & { slot: string }>> = {
+    form: [
+      { content: "Nama: ________________________________\nTarikh: _______________________________\nNo. Telefon: ___________________________", formatHint: "form", slot: "section", styleHint: { box: true, boxType: "formBox", underline: true } },
+      { content: "Pengakuan: Saya mengesahkan bahawa maklumat yang diberikan adalah benar.", formatHint: "paragraph", slot: "declaration", styleHint: { divider: true } },
+      { content: "Tandatangan: _________________________", formatHint: "signature", slot: "signature", styleHint: { signatureLine: true } },
+    ],
+    generic: [],
+    invoice: [
+      { content: "Pelanggan: [PELANGGAN]\nTarikh: [TARIKH]", formatHint: "section", slot: "customer_info", styleHint: { box: true, boxType: "infoBox" } },
+      { content: "Item | Kuantiti | Harga | Jumlah\nPerkhidmatan / Produk | 1 | RM0.00 | RM0.00", formatHint: "table", slot: "item_table", styleHint: { box: true, boxType: "tableBox", tableBorder: true } },
+      { content: "Jumlah: RM0.00", formatHint: "total", slot: "total", styleHint: { box: true, boxType: "totalBox", border: true } },
+      { content: "Nota: Bayaran boleh dibuat mengikut kaedah yang dipersetujui.", formatHint: "footer", slot: "payment_info" },
+    ],
+    letter: [
+      { content: "Tuan/Puan,", formatHint: "paragraph", slot: "salutation" },
+      { content: "Merujuk kepada perkara di atas, saya ingin mengemukakan permohonan ini untuk perhatian pihak tuan/puan.", formatHint: "paragraph", slot: "body" },
+      { content: "Sekian, terima kasih.\n\nYang benar,\n\n____________________\n[NAMA]", formatHint: "signature", slot: "signature", styleHint: { signatureLine: true } },
+    ],
+    minutes: [
+      { content: "Tarikh: [TARIKH]\nMasa: [MASA]\nTempat: [TEMPAT]\nPengerusi: [PENGERUSI]\nSetiausaha: [SETIAUSAHA]", formatHint: "section", slot: "meeting_info", styleHint: { box: true, boxType: "infoBox" } },
+      { content: "Senarai kehadiran perlu direkodkan mengikut maklumat mesyuarat.", formatHint: "list", slot: "attendees", styleHint: { divider: true } },
+      { content: "Agenda mesyuarat disusun mengikut keutamaan perbincangan.", formatHint: "list", slot: "agenda", styleHint: { divider: true } },
+      { content: "Perbincangan utama direkodkan secara ringkas dan jelas.", formatHint: "paragraph", slot: "discussion", styleHint: { divider: true } },
+      { content: "Keputusan mesyuarat perlu dinyatakan bersama tindakan susulan.", formatHint: "paragraph", slot: "decision", styleHint: { divider: true } },
+      { content: "Mesyuarat ditangguhkan dengan ucapan terima kasih.", formatHint: "paragraph", slot: "closing" },
+    ],
+    payroll: [
+      { content: "Pekerja: [NAMA PEKERJA]\nJawatan: [JAWATAN]\nTempoh Gaji: [TEMPOH]", formatHint: "section", slot: "employee_info", styleHint: { box: true, boxType: "infoBox" } },
+      { content: "Majikan: [NAMA MAJIKAN]", formatHint: "section", slot: "employer_info", styleHint: { box: true, boxType: "infoBox" } },
+      { content: "Butiran | Amaun\nGaji Pokok | RM0.00\nPotongan | RM0.00", formatHint: "table", slot: "table", styleHint: { box: true, boxType: "tableBox", tableBorder: true } },
+      { content: "Gaji Bersih: RM0.00", formatHint: "total", slot: "total", styleHint: { box: true, boxType: "totalBox", border: true } },
+    ],
+    report: [],
+    resume: [
+      { content: "Profil ringkas calon perlu ditulis dengan kemas dan profesional.", formatHint: "summary", slot: "summary", styleHint: { divider: true } },
+      { content: "Pendidikan\n- SPM / kelayakan berkaitan", formatHint: "list", slot: "education", styleHint: { divider: true } },
+      { content: "Kemahiran\n- Komunikasi baik\n- Boleh bekerja dalam pasukan\n- Cepat belajar", formatHint: "list", slot: "skills", styleHint: { divider: true } },
+      { content: "Pengalaman\n- Sedia belajar dan menerima latihan kerja", formatHint: "list", slot: "experience", styleHint: { divider: true } },
+    ],
+  };
+
+  const existingSlots = new Set(sections.map((section) => section.slot));
+  return [...sections, ...defaults[kind].filter((section) => !existingSlots.has(section.slot))];
+}
+
+function orderAutoLayoutSections(kind: AutoLayoutKind, sections: Array<DocumentBrainSection & { slot: string }>) {
+  const orders: Record<AutoLayoutKind, string[]> = {
+    form: ["title", "section", "name", "date", "description", "declaration", "signature", "footer"],
+    generic: ["title", "subtitle", "date", "section", "body", "paragraph", "summary", "remarks", "signature", "footer"],
+    invoice: ["title", "date", "reference", "customer_info", "recipient", "item_table", "table", "amount", "total", "payment_info", "remarks", "signature", "footer"],
+    letter: ["sender", "address", "date", "recipient", "title", "salutation", "body", "paragraph", "closing", "signature"],
+    minutes: ["title", "meeting_info", "date", "attendees", "agenda", "discussion", "decision", "follow_up", "closing", "signature"],
+    payroll: ["title", "employee_info", "employer_info", "date", "table", "amount", "total", "remarks", "signature"],
+    report: ["title", "case_info", "background", "issue", "objective", "observation", "action_taken", "current_status", "recommendation", "conclusion", "body", "summary", "remarks", "signature"],
+    resume: ["title", "name", "contact", "phone", "email", "summary", "education", "skills", "experience", "section", "references"],
+  };
+  const order = orders[kind];
+
+  return [...sections].sort((first, second) => {
+    const firstIndex = order.indexOf(first.slot);
+    const secondIndex = order.indexOf(second.slot);
+    return (firstIndex === -1 ? 999 : firstIndex) - (secondIndex === -1 ? 999 : secondIndex);
+  });
+}
+
+function getAutoSectionStyle(kind: AutoLayoutKind, section: DocumentBrainSection & { slot: string }) {
+  const styleHint = normalizeStyleHint(section.styleHint);
+  const formatHint = section.formatHint || "";
+  const slot = section.slot;
+  const boxed = Boolean(styleHint.box || styleHint.border || styleHint.tableBorder || ["invoice", "payroll", "form"].includes(kind));
+  const tableLike = styleHint.tableBorder || formatHint === "table" || slot.includes("table");
+  const totalLike = styleHint.boxType === "totalBox" || formatHint === "total" || slot === "total";
+  const signatureLike = styleHint.signatureLine || formatHint === "signature" || slot === "signature";
+  const showHeading = kind !== "letter" && !["date", "subtitle", "footer"].includes(slot);
+
+  return {
+    contentStyle: {
+      border: boxed || totalLike,
+      box: boxed || totalLike,
+      boxType: totalLike ? "totalBox" : styleHint.boxType,
+      divider: styleHint.divider || ["report", "minutes", "resume"].includes(kind),
+      signatureLine: signatureLike,
+      tableBorder: tableLike,
+      underline: styleHint.underline,
+    },
+    fontSize: totalLike ? 13 : 11.5,
+    fontWeight: totalLike ? "bold" as const : "normal" as const,
+    gap: kind === "letter" ? 20 : 18,
+    headingStyle: ["report", "minutes", "resume"].includes(kind) ? { divider: true } : {},
+    lineHeight: tableLike ? 1.65 : 1.45,
+    showHeading,
+    width: 604,
+    x: 58,
+  };
+}
+
+function autoSectionHeading(slot: string, type: string | undefined, language: Language) {
+  return reportSectionHeading(slot, type, language);
+}
+
+function estimateAutoBlockHeight(content: string, width: number, fontSize: number) {
+  const maxChars = Math.max(28, Math.floor(width / Math.max(6, fontSize * 0.52)));
+  const lineCount = content.split("\n").reduce((count, line) => count + Math.max(1, Math.ceil(line.length / maxChars)), 0);
+  return Math.min(250, Math.max(42, lineCount * fontSize * 1.65 + 14));
 }
 
 function isReportDocument(result: DocumentBrainResult) {
@@ -1810,33 +1983,6 @@ function ensureReportSections(result: DocumentBrainResult, sections: Array<Docum
   return [...sections, ...requiredCaseSections.filter((section) => !existingSlots.has(section.slot))];
 }
 
-function orderReportSections(sections: Array<DocumentBrainSection & { slot: string }>) {
-  const order = [
-    "title",
-    "case-info",
-    "case_info",
-    "background",
-    "issue",
-    "observation",
-    "action-taken",
-    "action_taken",
-    "current-status",
-    "current_status",
-    "recommendation",
-    "conclusion",
-    "objective",
-    "body",
-    "summary",
-    "remarks",
-  ];
-
-  return [...sections].sort((first, second) => {
-    const firstIndex = order.indexOf(first.slot);
-    const secondIndex = order.indexOf(second.slot);
-    return (firstIndex === -1 ? 999 : firstIndex) - (secondIndex === -1 ? 999 : secondIndex);
-  });
-}
-
 function reportSectionHeading(slot: string, type: string | undefined, language: Language) {
   const headings: Record<string, string> = {
     "action-taken": "Tindakan Diambil",
@@ -1845,23 +1991,32 @@ function reportSectionHeading(slot: string, type: string | undefined, language: 
     body: language === "ms" ? "Butiran Laporan" : "Report Details",
     "case-info": "Maklumat Kes",
     case_info: "Maklumat Kes",
+    customer_info: language === "ms" ? "Maklumat Pelanggan" : "Customer Information",
     conclusion: "Kesimpulan",
     "current-status": "Status Terkini",
     current_status: "Status Terkini",
+    decision: language === "ms" ? "Keputusan Mesyuarat" : "Meeting Decisions",
+    declaration: language === "ms" ? "Pengakuan" : "Declaration",
+    discussion: language === "ms" ? "Perbincangan" : "Discussion",
+    education: language === "ms" ? "Pendidikan" : "Education",
+    employee_info: language === "ms" ? "Maklumat Pekerja" : "Employee Information",
+    employer_info: language === "ms" ? "Maklumat Majikan" : "Employer Information",
+    experience: language === "ms" ? "Pengalaman" : "Experience",
+    follow_up: language === "ms" ? "Tindakan Susulan" : "Follow Up",
     issue: "Isu / Masalah",
+    item_table: language === "ms" ? "Jadual Item" : "Item Table",
+    meeting_info: language === "ms" ? "Maklumat Mesyuarat" : "Meeting Information",
     objective: language === "ms" ? "Objektif / Tujuan" : "Objective / Purpose",
     observation: "Pemerhatian",
+    payment_info: language === "ms" ? "Maklumat Bayaran" : "Payment Information",
     recommendation: "Cadangan / Syor",
+    references: language === "ms" ? "Rujukan" : "References",
     remarks: language === "ms" ? "Catatan" : "Remarks",
     summary: language === "ms" ? "Ringkasan" : "Summary",
+    table: language === "ms" ? "Jadual" : "Table",
   };
 
   return headings[slot] || type || slot.replace(/[-_]+/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
-}
-
-function estimateReportBlockHeight(content: string) {
-  const lineCount = content.split("\n").reduce((count, line) => count + Math.max(1, Math.ceil(line.length / 82)), 0);
-  return Math.min(220, Math.max(48, lineCount * 18 + 10));
 }
 
 function isInstructionPlaceholder(content: string) {
@@ -1905,6 +2060,7 @@ function createAiPaperPage(result: DocumentBrainResult, language: Language): Pap
       height: isWide ? 150 : 132,
       id: `ai-section-${index}`,
       slot: normalizeSlot(section.slot || section.type || "content"),
+      style: normalizeStyleHint(section.styleHint),
       title: sectionTitle,
       width: isWide ? 560 : 260,
       x: isWide ? 48 : 48 + ((index - 1) % 2) * 292,
@@ -1937,6 +2093,50 @@ function getDefaultBlockFormat(title: string): Pick<PaperBlock, "align" | "fontS
   };
 }
 
+function normalizeStyleHint(styleHint: unknown): DocumentBlockStyle {
+  if (!styleHint || typeof styleHint !== "object") {
+    return {};
+  }
+
+  const record = styleHint as Record<string, unknown>;
+  return {
+    border: typeof record.border === "boolean" ? record.border : undefined,
+    box: typeof record.box === "boolean" ? record.box : undefined,
+    boxType: typeof record.boxType === "string" ? record.boxType : undefined,
+    divider: typeof record.divider === "boolean" ? record.divider : undefined,
+    signatureLine: typeof record.signatureLine === "boolean" ? record.signatureLine : undefined,
+    tableBorder: typeof record.tableBorder === "boolean" ? record.tableBorder : undefined,
+    underline: typeof record.underline === "boolean" ? record.underline : undefined,
+  };
+}
+
+function getFontWeightForSection(section: DocumentBrainSection, fallback: PaperBlock["fontWeight"]) {
+  const formatHint = section.formatHint?.toLowerCase();
+  if (formatHint === "heading" || formatHint === "subheading" || formatHint === "amount" || formatHint === "total") {
+    return "bold";
+  }
+  return fallback;
+}
+
+function getPreviewBlockFrameClass(block: PaperBlock) {
+  const style = block.style;
+  if (!style) return "bg-transparent p-0";
+
+  if (style.boxType === "totalBox") {
+    return "rounded-sm border border-black/50 bg-black/[0.03] p-3";
+  }
+
+  if (style.tableBorder) {
+    return "rounded-sm border border-black/45 bg-white p-3";
+  }
+
+  if (style.box || style.border) {
+    return "rounded-sm border border-black/25 bg-black/[0.015] p-3";
+  }
+
+  return "bg-transparent p-0";
+}
+
 function normalizeSlot(value: string) {
   const lower = value.toLowerCase();
 
@@ -1953,6 +2153,21 @@ function normalizeSlot(value: string) {
   if (lower.includes("kepala") || lower.includes("header")) return "header";
   if (lower.includes("kaki") || lower.includes("footer")) return "footer";
   if (lower.includes("logo")) return "logo";
+  if (lower.includes("maklumat mesyuarat") || lower.includes("meeting info") || lower.includes("meeting_info")) return "meeting_info";
+  if (lower.includes("kehadiran") || lower.includes("attendees") || lower.includes("attendance")) return "attendees";
+  if (lower.includes("agenda")) return "agenda";
+  if (lower.includes("perbincangan") || lower.includes("discussion")) return "discussion";
+  if (lower.includes("keputusan") || lower.includes("decision")) return "decision";
+  if (lower.includes("susulan") || lower.includes("follow up") || lower.includes("follow_up")) return "follow_up";
+  if (lower.includes("maklumat pekerja") || lower.includes("employee info") || lower.includes("employee_info")) return "employee_info";
+  if (lower.includes("maklumat majikan") || lower.includes("employer info") || lower.includes("employer_info")) return "employer_info";
+  if (lower.includes("maklumat pelanggan") || lower.includes("customer info") || lower.includes("customer_info")) return "customer_info";
+  if (lower.includes("jadual item") || lower.includes("item table") || lower.includes("item_table")) return "item_table";
+  if (lower.includes("bayaran") || lower.includes("payment info") || lower.includes("payment_info")) return "payment_info";
+  if (lower.includes("pendidikan") || lower.includes("education")) return "education";
+  if (lower.includes("pengalaman") || lower.includes("experience")) return "experience";
+  if (lower.includes("rujukan") || lower.includes("references")) return "references";
+  if (lower.includes("pengakuan") || lower.includes("declaration")) return "declaration";
   if (lower.includes("maklumat kes") || lower.includes("case info") || lower.includes("case_info")) return "case_info";
   if (lower.includes("latar belakang") || lower.includes("background")) return "background";
   if (lower.includes("isu") || lower.includes("masalah") || lower.includes("issue")) return "issue";
@@ -2002,6 +2217,7 @@ function createPdfBlob(
       fontWeight: "bold" | "normal";
       height: number;
       lineHeight: number;
+      style?: DocumentBlockStyle;
       title: string;
       underline: boolean;
       width: number;
@@ -2036,13 +2252,26 @@ function createPdfBlob(
       const blockTop = pageHeight - block.y * scaleY;
       const blockWidth = block.width * scaleX;
       const blockHeight = block.height * scaleY;
+      const textInset = block.style?.box || block.style?.border || block.style?.tableBorder ? 7 : 0;
       const fontSize = Math.max(8, block.fontSize * scaleY);
       const lineStep = fontSize * block.lineHeight;
       const maxLines = Math.max(1, Math.floor(blockHeight / lineStep));
-      const maxChars = Math.max(16, Math.floor(block.width / Math.max(6.5, block.fontSize * 0.54)));
+      const maxChars = Math.max(16, Math.floor((block.width - textInset * 2) / Math.max(6.5, block.fontSize * 0.54)));
       const contentLines = wrapPdfText(block.content || "", maxChars).slice(0, maxLines);
       const fontName = block.fontWeight === "bold" ? "F2" : "F1";
       let cursorY = blockTop - fontSize;
+
+      if (block.style?.box || block.style?.border || block.style?.tableBorder) {
+        const lineWidth = block.style.tableBorder ? 0.9 : 0.55;
+        lines.push(
+          "q",
+          `${formatPdfNumber(lineWidth)} w`,
+          `${formatPdfNumber(blockX)} ${formatPdfNumber(blockTop - blockHeight)} ${formatPdfNumber(blockWidth)} ${formatPdfNumber(blockHeight)} re`,
+          "S",
+          "Q",
+        );
+        cursorY -= 7;
+      }
 
       if (block.title) {
         lines.push(
@@ -2061,8 +2290,8 @@ function createPdfBlob(
           block.align === "center"
             ? blockX + (blockWidth - estimatedWidth) / 2
             : block.align === "right"
-              ? blockX + blockWidth - estimatedWidth
-              : blockX;
+              ? blockX + blockWidth - estimatedWidth - textInset
+              : blockX + textInset;
 
         lines.push(
           "BT",
@@ -2081,6 +2310,30 @@ function createPdfBlob(
           "0.8 w",
           `${formatPdfNumber(blockX)} ${formatPdfNumber(underlineY)} m`,
           `${formatPdfNumber(blockX + blockWidth)} ${formatPdfNumber(underlineY)} l`,
+          "S",
+          "Q",
+        );
+      }
+
+      if (block.style?.divider) {
+        const dividerY = blockTop - blockHeight + 4;
+        lines.push(
+          "q",
+          "0.35 w",
+          `${formatPdfNumber(blockX)} ${formatPdfNumber(dividerY)} m`,
+          `${formatPdfNumber(blockX + blockWidth)} ${formatPdfNumber(dividerY)} l`,
+          "S",
+          "Q",
+        );
+      }
+
+      if (block.style?.signatureLine) {
+        const signatureY = Math.max(blockTop - blockHeight + 12, blockTop - Math.max(fontSize * 2.6, 32));
+        lines.push(
+          "q",
+          "0.65 w",
+          `${formatPdfNumber(blockX)} ${formatPdfNumber(signatureY)} m`,
+          `${formatPdfNumber(blockX + Math.min(blockWidth, 165))} ${formatPdfNumber(signatureY)} l`,
           "S",
           "Q",
         );

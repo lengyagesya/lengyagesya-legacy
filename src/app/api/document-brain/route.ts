@@ -4,6 +4,15 @@ type DocumentBrainSection = {
   content: string;
   formatHint?: string;
   slot?: string;
+  styleHint?: {
+    border?: boolean;
+    box?: boolean;
+    boxType?: string;
+    divider?: boolean;
+    signatureLine?: boolean;
+    tableBorder?: boolean;
+    underline?: boolean;
+  };
   type?: string;
 };
 
@@ -19,7 +28,22 @@ const requiredShape: DocumentBrainResponse = {
   confidence: 0,
   documentType: "",
   missingFields: [],
-  sections: [{ content: "", formatHint: "", slot: "" }],
+  sections: [
+    {
+      content: "",
+      formatHint: "",
+      slot: "",
+      styleHint: {
+        border: false,
+        box: false,
+        boxType: "",
+        divider: false,
+        signatureLine: false,
+        tableBorder: false,
+        underline: false,
+      },
+    },
+  ],
   title: "",
 };
 
@@ -87,17 +111,18 @@ export async function POST(request: Request) {
               "8. Use minimal placeholders only when important information is missing.",
               "9. Do not overuse placeholders.",
               "10. Match every content section to the most suitable layout slot.",
-              "11. Do not change the user's layout.",
-              "12. Treat layout slots as anchors; fill them with suitable content.",
-              "13. Adapt writing style and structure based on documentType.",
-              "14. Do not force every document into a letter format.",
-              "15. For letters, use formal Malaysian document style.",
-              "16. For resumes, use concise professional sections.",
-              "17. For invoices, quotations, payslips, schedules, and minutes, use structured lists or tables where suitable.",
-              "18. Return missingFields for important missing data, but still generate a usable draft.",
-              "19. Do not output builder instructions such as 'Klik untuk edit' or 'Masukkan'.",
+              "11. If Auto Layout is selected, choose a professional layout based on documentType.",
+              "12. If User Layout is selected, do not change the user's layout; fill available slots.",
+              "13. Treat layout slots as anchors.",
+              "14. Adapt writing style, structure, and styling based on documentType.",
+              "15. Use document styling such as divider, table, border, box, underline, and signature line only when appropriate.",
+              "16. For formal letters, avoid excessive boxes and use signature line only where needed.",
+              "17. For invoices, quotations, payslips, forms, schedules, and statements, use tables, boxes, totals, and clear lines.",
+              "18. For reports and minutes, use section headings, dividers, and one-column structure by default.",
+              "19. Return missingFields for important missing data, but still generate a usable draft.",
+              "20. Do not output builder instructions such as 'Klik untuk edit' or 'Masukkan'.",
               "",
-              "Universal slots include: title, subtitle, date, reference, recipient, sender, salutation, body, paragraph, closing, signature, name, address, phone, email, table, list, amount, total, description, remarks, footer, header, logo, section, custom.",
+              "Universal slots include: title, subtitle, date, reference, recipient, sender, salutation, body, paragraph, closing, signature, name, address, phone, email, table, list, amount, total, description, remarks, footer, header, logo, section, case_info, background, issue, observation, action_taken, current_status, recommendation, conclusion, meeting_info, attendees, agenda, discussion, decision, follow_up, employee_info, employer_info, customer_info, item_table, payment_info, custom.",
               "If a custom slot label is provided, infer its purpose from the label and contentHint.",
               "",
               "Placeholder policy:",
@@ -122,7 +147,16 @@ export async function POST(request: Request) {
               "- Jadual: arrange by day/date/time/category when suitable.",
               "- Kontrak ringkas: parties, purpose, terms, payment if provided, signatures; do not invent legal facts.",
               "",
-              "formatHint values: heading, paragraph, list, table, amount, signature, date, contact, footer.",
+              "Styling rules:",
+              "- Letters: usually no boxes; use signatureLine for signature sections.",
+              "- Resume: use divider lines between sections.",
+              "- Invoice, quotation, receipt: use tableBorder for item tables and totalBox for totals.",
+              "- Payslip: use infoBox, tableBox and totalBox.",
+              "- Reports and minutes: use divider lines and one-column section flow.",
+              "- Forms: use formBox, underline and simple input lines.",
+              "",
+              "formatHint values: heading, subheading, paragraph, list, table, amount, total, signature, date, contact, footer, form, section, summary.",
+              "boxType values: infoBox, tableBox, totalBox, signatureBox, formBox, summaryBox, warningBox, plainBox.",
             ].join("\n"),
             role: "system",
           },
@@ -132,7 +166,7 @@ export async function POST(request: Request) {
               "Return exactly this JSON shape:",
               JSON.stringify(requiredShape),
               "- confidence must be a number from 0 to 1.",
-              "- sections must contain slot, content and formatHint when useful.",
+              "- sections must contain slot, content, formatHint and styleHint when useful.",
               "- Use the provided current A4 layout slots when possible.",
               "- If a layout slot exists, return content for that exact slot.",
               "- Do not create a new visual layout. Fill the user's existing layout slots.",
@@ -140,7 +174,7 @@ export async function POST(request: Request) {
               "- content must be ready to print in an A4 preview.",
               `Layout mode: ${body.layoutMode === "auto" ? "Auto Layout Dokumen" : "Guna Layout Saya"}`,
               body.layoutMode === "auto"
-                ? "- Auto Layout Dokumen is active. For reports/laporan/laporan kes, ignore unsuitable letter-style slots and return one-column report sections from top to bottom."
+                ? "- Auto Layout Dokumen is active. Return professional document-specific slots and styleHint. Ignore unsuitable letter-style slots when the document is not a letter."
                 : "- Guna Layout Saya is active. Respect the user's existing slot positions.",
               `Current A4 layout slots: ${JSON.stringify(layoutSlots)}`,
               `User request: ${prompt}`,
@@ -210,6 +244,8 @@ function isDocumentBrainResponse(value: unknown): value is DocumentBrainResponse
           typeof (section as Record<string, unknown>).formatHint === "string") &&
         (typeof (section as Record<string, unknown>).slot === "undefined" ||
           typeof (section as Record<string, unknown>).slot === "string") &&
+        (typeof (section as Record<string, unknown>).styleHint === "undefined" ||
+          typeof (section as Record<string, unknown>).styleHint === "object") &&
         (typeof (section as Record<string, unknown>).type === "undefined" ||
           typeof (section as Record<string, unknown>).type === "string"),
     ) &&
