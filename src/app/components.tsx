@@ -1118,10 +1118,12 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
     const pageBounds = event.currentTarget.getBoundingClientRect();
     const pageWidth = 720;
     const pageHeight = (pageWidth * 297) / 210;
-    const blockWidth = 260;
-    const blockHeight = 82;
-    const x = clamp(((event.clientX - pageBounds.left) / pageBounds.width) * pageWidth, 30, pageWidth - blockWidth - 30);
-    const y = clamp(((event.clientY - pageBounds.top) / pageBounds.height) * pageHeight, 30, pageHeight - blockHeight - 30);
+    const clickX = ((event.clientX - pageBounds.left) / pageBounds.width) * pageWidth;
+    const clickY = ((event.clientY - pageBounds.top) / pageBounds.height) * pageHeight;
+    const blockWidth = Math.max(220, pageWidth - clickX - 48);
+    const blockHeight = 120;
+    const x = clamp(clickX, 30, pageWidth - blockWidth - 30);
+    const y = clamp(clickY, 30, pageHeight - blockHeight - 30);
     const title = language === "ms" ? "Teks tambahan" : "Additional text";
     const blockId = createBlockId("preview-text");
 
@@ -1152,9 +1154,11 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
       ),
     );
 
-    window.setTimeout(() => {
-      document.querySelector<HTMLTextAreaElement>(`textarea[data-block-id="${blockId}"]`)?.focus();
-    }, 0);
+    requestAnimationFrame(() => {
+      const field = document.querySelector<HTMLTextAreaElement>(`textarea[data-block-id="${blockId}"]`);
+      field?.focus();
+      field?.setSelectionRange(field.value.length, field.value.length);
+    });
   }
 
   function addPage() {
@@ -1359,9 +1363,9 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
               className={`a4-page relative mx-auto overflow-hidden rounded-xl p-8 transition sm:p-12 ${
                 viewMode === "preview" ? "cursor-text" : ""
               }`}
-              onClick={(event) => addPreviewTextAt(event, page.id)}
               onDragOver={(event) => event.preventDefault()}
               onDrop={(event) => dropItem(event, page.id)}
+              onMouseDown={(event) => addPreviewTextAt(event, page.id)}
             >
               {typeof alignmentGuide.x === "number" ? (
                 <div
@@ -1378,17 +1382,17 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
               <div className={`absolute inset-0 z-10 ${viewMode === "preview" ? "cursor-text" : ""}`}>
                 {page.blocks.map((block) => (
                   <motion.div
-                    className={`group absolute transition ${
+                    className={`group absolute ${
                       viewMode === "builder"
-                        ? `cursor-grab resize overflow-hidden rounded-xl border bg-white/95 p-4 shadow-sm active:cursor-grabbing ${
+                        ? `cursor-grab resize overflow-hidden rounded-xl border bg-white/95 p-4 shadow-sm transition active:cursor-grabbing ${
                             activeBlock?.blockId === block.id && activeBlock.pageId === page.id
                               ? "border-[#4f7dff]/70 ring-2 ring-[#4f7dff]/25"
                               : "border-black/10"
                           }`
-                        : "overflow-visible bg-transparent p-0"
+                        : "cursor-text overflow-visible bg-transparent p-0"
                     }`}
-                    animate={{ opacity: 1, scale: 1 }}
-                    initial={{ opacity: 0, scale: 0.98 }}
+                    animate={viewMode === "builder" ? { opacity: 1, scale: 1 } : undefined}
+                    initial={viewMode === "builder" ? { opacity: 0, scale: 0.98 } : false}
                     key={block.id}
                     onPointerDown={(event) => startPaperItemDrag(event, block, page.id)}
                     style={{
@@ -1398,7 +1402,7 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
                       width: block.width,
                       zIndex: 20,
                     }}
-                    transition={{ duration: 0.18 }}
+                    transition={viewMode === "builder" ? { duration: 0.18 } : { duration: 0 }}
                   >
                     {viewMode === "builder" ? (
                       <p className="truncate text-xs font-bold uppercase tracking-[0.18em] text-black/40">

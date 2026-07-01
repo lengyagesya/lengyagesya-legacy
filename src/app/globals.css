@@ -117,7 +117,13 @@ body {
 }
 
 .preview-editable:focus {
+  caret-color: #111111;
   outline: none;
+}
+
+.preview-editable {
+  appearance: none;
+  border-radius: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {
