@@ -1356,7 +1356,9 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
                     </div>
                   </div>
                   <div
-              className="a4-page relative mx-auto overflow-hidden rounded-xl p-8 transition sm:p-12"
+              className={`a4-page relative mx-auto overflow-hidden rounded-xl p-8 transition sm:p-12 ${
+                viewMode === "preview" ? "cursor-text" : ""
+              }`}
               onClick={(event) => addPreviewTextAt(event, page.id)}
               onDragOver={(event) => event.preventDefault()}
               onDrop={(event) => dropItem(event, page.id)}
@@ -1373,7 +1375,7 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
                   style={{ top: alignmentGuide.y }}
                 />
               ) : null}
-              <div className="absolute inset-0 z-10">
+              <div className={`absolute inset-0 z-10 ${viewMode === "preview" ? "cursor-text" : ""}`}>
                 {page.blocks.map((block) => (
                   <motion.div
                     className={`group absolute transition ${
@@ -1422,7 +1424,7 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
                     ) : (
                       <textarea
                         data-block-id={block.id}
-                        className="preview-editable block h-full w-full resize-none overflow-hidden border-0 bg-transparent p-0 text-black/80 outline-none"
+                        className="preview-editable block h-full w-full cursor-text resize-none overflow-hidden border-0 bg-transparent p-0 text-black/80 outline-none"
                         onChange={(event) => updateBlockContent(page.id, block.id, event.target.value)}
                         spellCheck
                         style={{
