@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { type DragEvent, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, createContext, useContext, useEffect, useRef, useState } from "react";
+import { type DragEvent, type PointerEvent as ReactPointerEvent, createContext, useContext, useEffect, useRef, useState } from "react";
 
 type Language = "ms" | "en";
 type PaperBlock = {
@@ -1109,11 +1109,13 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
     setCustomContent("");
   }
 
-  function addPreviewTextAt(event: ReactMouseEvent<HTMLDivElement>, pageId: string) {
+  function addPreviewTextAt(event: ReactPointerEvent<HTMLDivElement>, pageId: string) {
     if (viewMode !== "preview") return;
+    if (event.pointerType === "mouse" && event.button !== 0) return;
 
     const target = event.target as HTMLElement;
-    if (target.closest("textarea, input, button, select, [contenteditable='true']")) return;
+    if (target.closest("textarea, input, button, select, [contenteditable='true'], [data-preview-block='true']")) return;
+    event.preventDefault();
 
     const pageBounds = event.currentTarget.getBoundingClientRect();
     const pageWidth = 720;
@@ -1365,7 +1367,7 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
               }`}
               onDragOver={(event) => event.preventDefault()}
               onDrop={(event) => dropItem(event, page.id)}
-              onMouseDown={(event) => addPreviewTextAt(event, page.id)}
+              onPointerDown={(event) => addPreviewTextAt(event, page.id)}
             >
               {typeof alignmentGuide.x === "number" ? (
                 <div
@@ -1394,6 +1396,7 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
                     animate={viewMode === "builder" ? { opacity: 1, scale: 1 } : undefined}
                     initial={viewMode === "builder" ? { opacity: 0, scale: 0.98 } : false}
                     key={block.id}
+                    data-preview-block={viewMode === "preview" ? "true" : undefined}
                     onPointerDown={(event) => startPaperItemDrag(event, block, page.id)}
                     style={{
                       height: block.height,
