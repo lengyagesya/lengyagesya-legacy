@@ -872,6 +872,7 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
   const [isSending, setIsSending] = useState(false);
   const [viewMode, setViewMode] = useState<"builder" | "preview">("builder");
   const [alignmentGuide, setAlignmentGuide] = useState<AlignmentGuide>({});
+  const [previewDrafts, setPreviewDrafts] = useState<Record<string, string>>({});
   const blockIdCounter = useRef(0);
 
   function createBlockId(prefix: string) {
@@ -998,6 +999,7 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
     const nextType = normalizeDocumentType(value);
     setDocType(nextType);
     setPages([createPaperPage(1, nextType ? buildBlocks(nextType, language) : [], nextType, language)]);
+    setPreviewDrafts({});
     setActivePageId("page-1");
     setAiResult(null);
     setAiError("");
@@ -1040,7 +1042,9 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
       }
 
       setAiResult(data);
-      setPages((currentPages) => applyAiResultToPages(currentPages, data, language));
+      const nextPages = applyAiResultToPages(pages, data, language);
+      setPages(nextPages);
+      setPreviewDrafts(createPreviewDrafts(nextPages));
       setActivePageId("page-1");
       setActiveBlock(null);
       setViewMode("preview");
@@ -1054,19 +1058,36 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
   function downloadPdf() {
     const filename = sanitizeFileName(aiResult?.title || documentTypeLabelForPdf(docType, language));
     const printablePages = pages.map((page, index) => ({
-      blocks: page.blocks.map((block) => ({
-        align: block.align,
-        content: block.content,
-        fontSize: block.fontSize,
-        fontWeight: block.fontWeight,
-        height: block.height,
-        lineHeight: block.lineHeight,
-        title: aiResult ? "" : block.title,
-        underline: block.underline,
-        width: block.width,
-        x: block.x,
-        y: block.y,
-      })),
+      blocks:
+        viewMode === "preview"
+          ? [
+              {
+                align: "left" as const,
+                content: previewDrafts[page.id] ?? pageToPreviewText(page),
+                fontSize: 13,
+                fontWeight: "normal" as const,
+                height: 900,
+                lineHeight: 1.5,
+                title: "",
+                underline: false,
+                width: 600,
+                x: 56,
+                y: 58,
+              },
+            ]
+          : page.blocks.map((block) => ({
+              align: block.align,
+              content: block.content,
+              fontSize: block.fontSize,
+              fontWeight: block.fontWeight,
+              height: block.height,
+              lineHeight: block.lineHeight,
+              title: aiResult ? "" : block.title,
+              underline: block.underline,
+              width: block.width,
+              x: block.x,
+              y: block.y,
+            })),
       title: aiResult && index === 0 ? aiResult.title : page.title,
     }));
     const pdfBlob = createPdfBlob(printablePages);
@@ -1107,60 +1128,6 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
     );
     setCustomTitle("");
     setCustomContent("");
-  }
-
-  function addPreviewTextAt(event: ReactPointerEvent<HTMLDivElement>, pageId: string) {
-    if (viewMode !== "preview") return;
-    if (event.pointerType === "mouse" && event.button !== 0) return;
-
-    const target = event.target as HTMLElement;
-    if (target.closest("textarea, input, button, select, [contenteditable='true'], [data-preview-block='true']")) return;
-    event.preventDefault();
-
-    const pageBounds = event.currentTarget.getBoundingClientRect();
-    const pageWidth = 720;
-    const pageHeight = (pageWidth * 297) / 210;
-    const clickX = ((event.clientX - pageBounds.left) / pageBounds.width) * pageWidth;
-    const clickY = ((event.clientY - pageBounds.top) / pageBounds.height) * pageHeight;
-    const blockWidth = Math.max(220, pageWidth - clickX - 48);
-    const blockHeight = 120;
-    const x = clamp(clickX, 30, pageWidth - blockWidth - 30);
-    const y = clamp(clickY, 30, pageHeight - blockHeight - 30);
-    const title = language === "ms" ? "Teks tambahan" : "Additional text";
-    const blockId = createBlockId("preview-text");
-
-    setActivePageId(pageId);
-    setActiveBlock({ blockId, pageId });
-    setPages((currentPages) =>
-      currentPages.map((page) =>
-        page.id === pageId
-          ? {
-              ...page,
-              blocks: [
-                ...page.blocks,
-                {
-                  ...getDefaultBlockFormat(title),
-                  content: "",
-                  height: blockHeight,
-                  id: blockId,
-                  lineHeight: 1.45,
-                  slot: inferSlot(title),
-                  title,
-                  width: blockWidth,
-                  x,
-                  y,
-                },
-              ],
-            }
-          : page,
-      ),
-    );
-
-    requestAnimationFrame(() => {
-      const field = document.querySelector<HTMLTextAreaElement>(`textarea[data-block-id="${blockId}"]`);
-      field?.focus();
-      field?.setSelectionRange(field.value.length, field.value.length);
-    });
   }
 
   function addPage() {
@@ -1232,6 +1199,16 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
   const selectedBlock = activeBlock
     ? pages.find((page) => page.id === activeBlock.pageId)?.blocks.find((block) => block.id === activeBlock.blockId)
     : null;
+  const showPreview = () => {
+    setPreviewDrafts((currentDrafts) => createPreviewDrafts(pages, currentDrafts));
+    setViewMode("preview");
+  };
+  const updatePreviewDraft = (pageId: string, value: string) => {
+    setPreviewDrafts((currentDrafts) => ({
+      ...currentDrafts,
+      [pageId]: value,
+    }));
+  };
   const renderItemButton = (item: string) => (
     <button
       className="group cursor-grab rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-left text-sm text-[#dce3f1] transition hover:border-[#9db4ff]/50 hover:bg-white/[0.08] active:cursor-grabbing"
@@ -1322,7 +1299,7 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
                   className={`rounded-full px-4 py-2 text-xs font-bold tracking-[0.14em] transition ${
                     viewMode === "preview" ? "bg-white text-black" : "text-white/55 hover:text-white"
                   }`}
-                  onClick={() => setViewMode("preview")}
+                  onClick={showPreview}
                   type="button"
                 >
                   {t.previewResult}
@@ -1367,8 +1344,16 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
               }`}
               onDragOver={(event) => event.preventDefault()}
               onDrop={(event) => dropItem(event, page.id)}
-              onPointerDown={(event) => addPreviewTextAt(event, page.id)}
             >
+              {viewMode === "preview" ? (
+                <textarea
+                  className="preview-editable absolute inset-12 z-20 block resize-none overflow-hidden border-0 bg-transparent p-0 text-left text-[13px] leading-[1.5] text-black/85 outline-none"
+                  onChange={(event) => updatePreviewDraft(page.id, event.target.value)}
+                  spellCheck
+                  value={previewDrafts[page.id] ?? pageToPreviewText(page)}
+                />
+              ) : (
+                <>
               {typeof alignmentGuide.x === "number" ? (
                 <div
                   className="pointer-events-none absolute bottom-0 top-0 z-30 w-px bg-[#4f7dff]/80 shadow-[0_0_16px_rgba(79,125,255,0.75)]"
@@ -1381,22 +1366,17 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
                   style={{ top: alignmentGuide.y }}
                 />
               ) : null}
-              <div className={`absolute inset-0 z-10 ${viewMode === "preview" ? "cursor-text" : ""}`}>
+              <div className="absolute inset-0 z-10">
                 {page.blocks.map((block) => (
                   <motion.div
-                    className={`group absolute ${
-                      viewMode === "builder"
-                        ? `cursor-grab resize overflow-hidden rounded-xl border bg-white/95 p-4 shadow-sm transition active:cursor-grabbing ${
-                            activeBlock?.blockId === block.id && activeBlock.pageId === page.id
-                              ? "border-[#4f7dff]/70 ring-2 ring-[#4f7dff]/25"
-                              : "border-black/10"
-                          }`
-                        : "cursor-text overflow-visible bg-transparent p-0"
+                    className={`group absolute cursor-grab resize overflow-hidden rounded-xl border bg-white/95 p-4 shadow-sm transition active:cursor-grabbing ${
+                      activeBlock?.blockId === block.id && activeBlock.pageId === page.id
+                        ? "border-[#4f7dff]/70 ring-2 ring-[#4f7dff]/25"
+                        : "border-black/10"
                     }`}
-                    animate={viewMode === "builder" ? { opacity: 1, scale: 1 } : undefined}
-                    initial={viewMode === "builder" ? { opacity: 0, scale: 0.98 } : false}
+                    animate={{ opacity: 1, scale: 1 }}
+                    initial={{ opacity: 0, scale: 0.98 }}
                     key={block.id}
-                    data-preview-block={viewMode === "preview" ? "true" : undefined}
                     onPointerDown={(event) => startPaperItemDrag(event, block, page.id)}
                     style={{
                       height: block.height,
@@ -1405,50 +1385,29 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
                       width: block.width,
                       zIndex: 20,
                     }}
-                    transition={viewMode === "builder" ? { duration: 0.18 } : { duration: 0 }}
+                    transition={{ duration: 0.18 }}
                   >
-                    {viewMode === "builder" ? (
-                      <p className="truncate text-xs font-bold uppercase tracking-[0.18em] text-black/40">
-                        {block.title}
-                      </p>
-                    ) : null}
-                    {viewMode === "builder" ? (
-                      <div
-                        className="editable-block mt-3 min-h-12 cursor-text whitespace-pre-wrap text-black/80"
-                        contentEditable
-                        onInput={(event) => updateBlockContent(page.id, block.id, event.currentTarget.textContent ?? "")}
-                        style={{
-                          fontSize: block.fontSize,
-                          fontWeight: block.fontWeight,
-                          lineHeight: block.lineHeight,
-                          textAlign: block.align,
-                          textDecoration: block.underline ? "underline" : "none",
-                        }}
-                        suppressContentEditableWarning
-                      >
-                        {block.content}
-                      </div>
-                    ) : (
-                      <textarea
-                        data-block-id={block.id}
-                        className="preview-editable block h-full w-full cursor-text resize-none overflow-hidden border-0 bg-transparent p-0 text-black/80 outline-none"
-                        onChange={(event) => updateBlockContent(page.id, block.id, event.target.value)}
-                        spellCheck
-                        style={{
-                          fontSize: block.content.length > 420 ? Math.max(10, block.fontSize - 2) : block.fontSize,
-                          fontWeight: block.fontWeight,
-                          lineHeight: block.lineHeight,
-                          textAlign: block.align,
-                          textDecoration: block.underline ? "underline" : "none",
-                        }}
-                        value={block.content}
-                      />
-                    )}
-                    {viewMode === "builder" ? (
-                      <span className="pointer-events-none absolute bottom-1 right-2 text-[0.65rem] font-bold uppercase tracking-[0.14em] text-black/25 opacity-0 transition group-hover:opacity-100">
-                        resize
-                      </span>
-                    ) : null}
+                    <p className="truncate text-xs font-bold uppercase tracking-[0.18em] text-black/40">
+                      {block.title}
+                    </p>
+                    <div
+                      className="editable-block mt-3 min-h-12 cursor-text whitespace-pre-wrap text-black/80"
+                      contentEditable
+                      onInput={(event) => updateBlockContent(page.id, block.id, event.currentTarget.textContent ?? "")}
+                      style={{
+                        fontSize: block.fontSize,
+                        fontWeight: block.fontWeight,
+                        lineHeight: block.lineHeight,
+                        textAlign: block.align,
+                        textDecoration: block.underline ? "underline" : "none",
+                      }}
+                      suppressContentEditableWarning
+                    >
+                      {block.content}
+                    </div>
+                    <span className="pointer-events-none absolute bottom-1 right-2 text-[0.65rem] font-bold uppercase tracking-[0.14em] text-black/25 opacity-0 transition group-hover:opacity-100">
+                      resize
+                    </span>
                   </motion.div>
                 ))}
               </div>
@@ -1457,6 +1416,8 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
                   <p className="max-w-xs text-sm leading-6 text-black/45">{t.dropHint}</p>
                 </div>
               ) : null}
+                </>
+              )}
             </div>
                 </div>
               ))}
@@ -1661,8 +1622,19 @@ function isInstructionPlaceholder(content: string) {
   return lower.includes("klik untuk edit") || lower.includes("click to edit") || lower.includes("tuliskan") || lower.includes("write the");
 }
 
-function clamp(value: number, min: number, max: number) {
-  return Math.min(Math.max(value, min), max);
+function createPreviewDrafts(pages: PaperPage[], currentDrafts: Record<string, string> = {}) {
+  return pages.reduce<Record<string, string>>((drafts, page) => {
+    drafts[page.id] = currentDrafts[page.id] ?? pageToPreviewText(page);
+    return drafts;
+  }, {});
+}
+
+function pageToPreviewText(page: PaperPage) {
+  return [...page.blocks]
+    .sort((firstBlock, secondBlock) => firstBlock.y - secondBlock.y || firstBlock.x - secondBlock.x)
+    .map((block) => block.content.trim())
+    .filter(Boolean)
+    .join("\n\n");
 }
 
 function createPaperPage(pageNumber: number, blocks: PaperBlock[], type: DocumentTypeId | "", language: Language): PaperPage {
