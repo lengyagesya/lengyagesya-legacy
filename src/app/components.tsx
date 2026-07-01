@@ -872,7 +872,6 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
   const [isSending, setIsSending] = useState(false);
   const [viewMode, setViewMode] = useState<"builder" | "preview">("builder");
   const [alignmentGuide, setAlignmentGuide] = useState<AlignmentGuide>({});
-  const [previewDrafts, setPreviewDrafts] = useState<Record<string, string>>({});
   const blockIdCounter = useRef(0);
 
   function createBlockId(prefix: string) {
@@ -999,7 +998,6 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
     const nextType = normalizeDocumentType(value);
     setDocType(nextType);
     setPages([createPaperPage(1, nextType ? buildBlocks(nextType, language) : [], nextType, language)]);
-    setPreviewDrafts({});
     setActivePageId("page-1");
     setAiResult(null);
     setAiError("");
@@ -1044,7 +1042,6 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
       setAiResult(data);
       const nextPages = applyAiResultToPages(pages, data, language);
       setPages(nextPages);
-      setPreviewDrafts(createPreviewDrafts(nextPages));
       setActivePageId("page-1");
       setActiveBlock(null);
       setViewMode("preview");
@@ -1058,36 +1055,19 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
   function downloadPdf() {
     const filename = sanitizeFileName(aiResult?.title || documentTypeLabelForPdf(docType, language));
     const printablePages = pages.map((page, index) => ({
-      blocks:
-        viewMode === "preview"
-          ? [
-              {
-                align: "left" as const,
-                content: previewDrafts[page.id] ?? pageToPreviewText(page),
-                fontSize: 13,
-                fontWeight: "normal" as const,
-                height: 900,
-                lineHeight: 1.5,
-                title: "",
-                underline: false,
-                width: 600,
-                x: 56,
-                y: 58,
-              },
-            ]
-          : page.blocks.map((block) => ({
-              align: block.align,
-              content: block.content,
-              fontSize: block.fontSize,
-              fontWeight: block.fontWeight,
-              height: block.height,
-              lineHeight: block.lineHeight,
-              title: aiResult ? "" : block.title,
-              underline: block.underline,
-              width: block.width,
-              x: block.x,
-              y: block.y,
-            })),
+      blocks: page.blocks.map((block) => ({
+        align: block.align,
+        content: block.content,
+        fontSize: block.fontSize,
+        fontWeight: block.fontWeight,
+        height: block.height,
+        lineHeight: block.lineHeight,
+        title: viewMode === "preview" || aiResult ? "" : block.title,
+        underline: block.underline,
+        width: block.width,
+        x: block.x,
+        y: block.y,
+      })),
       title: aiResult && index === 0 ? aiResult.title : page.title,
     }));
     const pdfBlob = createPdfBlob(printablePages);
@@ -1199,16 +1179,7 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
   const selectedBlock = activeBlock
     ? pages.find((page) => page.id === activeBlock.pageId)?.blocks.find((block) => block.id === activeBlock.blockId)
     : null;
-  const showPreview = () => {
-    setPreviewDrafts((currentDrafts) => createPreviewDrafts(pages, currentDrafts));
-    setViewMode("preview");
-  };
-  const updatePreviewDraft = (pageId: string, value: string) => {
-    setPreviewDrafts((currentDrafts) => ({
-      ...currentDrafts,
-      [pageId]: value,
-    }));
-  };
+  const showPreview = () => setViewMode("preview");
   const renderItemButton = (item: string) => (
     <button
       className="group cursor-grab rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-left text-sm text-[#dce3f1] transition hover:border-[#9db4ff]/50 hover:bg-white/[0.08] active:cursor-grabbing"
@@ -1346,14 +1317,36 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
               onDrop={(event) => dropItem(event, page.id)}
             >
               {viewMode === "preview" ? (
-                <div
-                  className="preview-editable absolute inset-12 z-20 cursor-text whitespace-pre-wrap text-left text-[13px] leading-[1.55] text-black/85 outline-none"
-                  contentEditable
-                  onInput={(event) => updatePreviewDraft(page.id, readPageEditorText(event.currentTarget))}
-                  spellCheck
-                  suppressContentEditableWarning
-                >
-                  {previewDrafts[page.id] ?? pageToPreviewText(page)}
+                <div className="absolute inset-0 z-20">
+                  {page.blocks.map((block) => (
+                    <div
+                      className="absolute overflow-visible bg-transparent p-0"
+                      key={block.id}
+                      style={{
+                        height: block.height,
+                        left: block.x,
+                        top: block.y,
+                        width: block.width,
+                      }}
+                    >
+                      <div
+                        className="preview-editable h-full w-full cursor-text whitespace-pre-wrap text-black/85 outline-none"
+                        contentEditable
+                        onInput={(event) => updateBlockContent(page.id, block.id, readPreviewBlockText(event.currentTarget))}
+                        spellCheck
+                        style={{
+                          fontSize: block.content.length > 420 ? Math.max(10, block.fontSize - 2) : block.fontSize,
+                          fontWeight: block.fontWeight,
+                          lineHeight: block.lineHeight,
+                          textAlign: block.align,
+                          textDecoration: block.underline ? "underline" : "none",
+                        }}
+                        suppressContentEditableWarning
+                      >
+                        {block.content}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ) : (
                 <>
@@ -1625,22 +1618,7 @@ function isInstructionPlaceholder(content: string) {
   return lower.includes("klik untuk edit") || lower.includes("click to edit") || lower.includes("tuliskan") || lower.includes("write the");
 }
 
-function createPreviewDrafts(pages: PaperPage[], currentDrafts: Record<string, string> = {}) {
-  return pages.reduce<Record<string, string>>((drafts, page) => {
-    drafts[page.id] = currentDrafts[page.id] ?? pageToPreviewText(page);
-    return drafts;
-  }, {});
-}
-
-function pageToPreviewText(page: PaperPage) {
-  return [...page.blocks]
-    .sort((firstBlock, secondBlock) => firstBlock.y - secondBlock.y || firstBlock.x - secondBlock.x)
-    .map((block) => block.content.trim())
-    .filter(Boolean)
-    .join("\n\n");
-}
-
-function readPageEditorText(element: HTMLElement) {
+function readPreviewBlockText(element: HTMLElement) {
   return element.innerText.replace(/\u00a0/g, " ");
 }
 
