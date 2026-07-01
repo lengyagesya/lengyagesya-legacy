@@ -1320,14 +1320,14 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
               <div className="absolute inset-0 z-10">
                 {page.blocks.map((block) => (
                   <motion.div
-                    className={`group absolute overflow-hidden p-4 transition ${
+                    className={`group absolute transition ${
                       viewMode === "builder"
-                        ? `cursor-grab resize rounded-xl border bg-white/95 shadow-sm active:cursor-grabbing ${
+                        ? `cursor-grab resize overflow-hidden rounded-xl border bg-white/95 p-4 shadow-sm active:cursor-grabbing ${
                             activeBlock?.blockId === block.id && activeBlock.pageId === page.id
                               ? "border-[#4f7dff]/70 ring-2 ring-[#4f7dff]/25"
                               : "border-black/10"
                           }`
-                        : "bg-transparent"
+                        : "overflow-visible bg-transparent p-0"
                     }`}
                     animate={{ opacity: 1, scale: 1 }}
                     initial={{ opacity: 0, scale: 0.98 }}
@@ -1348,8 +1348,8 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
                       </p>
                     ) : null}
                     <div
-                      className={`editable-block min-h-12 cursor-text whitespace-pre-wrap text-black/80 ${
-                        viewMode === "builder" ? "mt-3" : "mt-0"
+                      className={`cursor-text whitespace-pre-wrap text-black/80 ${
+                        viewMode === "builder" ? "editable-block mt-3 min-h-12" : "preview-editable min-h-0"
                       }`}
                       contentEditable
                       onInput={(event) => updateBlockContent(page.id, block.id, event.currentTarget.textContent ?? "")}

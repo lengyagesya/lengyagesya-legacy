@@ -116,6 +116,10 @@ body {
   outline-offset: 3px;
 }
 
+.preview-editable:focus {
+  outline: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
