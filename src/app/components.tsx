@@ -1346,12 +1346,15 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
               onDrop={(event) => dropItem(event, page.id)}
             >
               {viewMode === "preview" ? (
-                <textarea
-                  className="preview-editable absolute inset-12 z-20 block resize-none overflow-hidden border-0 bg-transparent p-0 text-left text-[13px] leading-[1.5] text-black/85 outline-none"
-                  onChange={(event) => updatePreviewDraft(page.id, event.target.value)}
+                <div
+                  className="preview-editable absolute inset-12 z-20 cursor-text whitespace-pre-wrap text-left text-[13px] leading-[1.55] text-black/85 outline-none"
+                  contentEditable
+                  onInput={(event) => updatePreviewDraft(page.id, readPageEditorText(event.currentTarget))}
                   spellCheck
-                  value={previewDrafts[page.id] ?? pageToPreviewText(page)}
-                />
+                  suppressContentEditableWarning
+                >
+                  {previewDrafts[page.id] ?? pageToPreviewText(page)}
+                </div>
               ) : (
                 <>
               {typeof alignmentGuide.x === "number" ? (
@@ -1635,6 +1638,10 @@ function pageToPreviewText(page: PaperPage) {
     .map((block) => block.content.trim())
     .filter(Boolean)
     .join("\n\n");
+}
+
+function readPageEditorText(element: HTMLElement) {
+  return element.innerText.replace(/\u00a0/g, " ");
 }
 
 function createPaperPage(pageNumber: number, blocks: PaperBlock[], type: DocumentTypeId | "", language: Language): PaperPage {
