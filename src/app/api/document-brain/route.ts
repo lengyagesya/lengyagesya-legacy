@@ -115,6 +115,8 @@ export async function POST(request: Request) {
               "- Laporan: title, date, purpose/objective, details, findings, conclusion/recommendation.",
               "- Laporan kes / case report: use LAPORAN KES and sections: case_info, background, issue, observation, action_taken, current_status, recommendation, conclusion.",
               "- For laporan kes, do not force recipient, salutation or closing unless user provided a layout slot for them.",
+              "- If the document is laporan kes / case report, return documentType 'laporan_kes', title 'LAPORAN KES', and sections using slots exactly: title, case_info, background, issue, observation, action_taken, current_status, recommendation, conclusion.",
+              "- For Auto Layout reports, report-specific slots are preferred even when the current layout slots look like a letter template.",
               "- Minit mesyuarat: title, date, time, venue, attendance, agenda, decisions, actions.",
               "- Borang: label + blank/fillable areas; use placeholders only where data is meant to be filled.",
               "- Jadual: arrange by day/date/time/category when suitable.",
@@ -138,7 +140,7 @@ export async function POST(request: Request) {
               "- content must be ready to print in an A4 preview.",
               `Layout mode: ${body.layoutMode === "auto" ? "Auto Layout Dokumen" : "Guna Layout Saya"}`,
               body.layoutMode === "auto"
-                ? "- Auto Layout Dokumen is active. For reports/laporan/laporan kes, prefer one-column report sections from top to bottom."
+                ? "- Auto Layout Dokumen is active. For reports/laporan/laporan kes, ignore unsuitable letter-style slots and return one-column report sections from top to bottom."
                 : "- Guna Layout Saya is active. Respect the user's existing slot positions.",
               `Current A4 layout slots: ${JSON.stringify(layoutSlots)}`,
               `User request: ${prompt}`,

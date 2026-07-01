@@ -879,7 +879,7 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
   const [aiResult, setAiResult] = useState<DocumentBrainResult | null>(null);
   const [isSending, setIsSending] = useState(false);
   const [viewMode, setViewMode] = useState<"builder" | "preview">("builder");
-  const [layoutMode, setLayoutMode] = useState<LayoutMode>("user");
+  const [layoutMode, setLayoutMode] = useState<LayoutMode>("auto");
   const [alignmentGuide, setAlignmentGuide] = useState<AlignmentGuide>({});
   const blockIdCounter = useRef(0);
 
@@ -1655,7 +1655,7 @@ function createAutoLayoutPages(result: DocumentBrainResult, language: Language):
     ...section,
     slot: normalizeSlot(section.slot || section.type || "section"),
   }));
-  const orderedSections = orderReportSections(normalizedSections);
+  const orderedSections = orderReportSections(ensureReportSections(result, normalizedSections));
   const blocks: PaperBlock[] = [];
   let y = 52;
   let pageNumber = 1;
@@ -1745,6 +1745,69 @@ function createAutoLayoutPages(result: DocumentBrainResult, language: Language):
 function isReportDocument(result: DocumentBrainResult) {
   const value = `${result.documentType} ${result.title}`.toLowerCase();
   return value.includes("laporan") || value.includes("report") || value.includes("case") || value.includes("kes");
+}
+
+function isCaseReportDocument(result: DocumentBrainResult) {
+  const documentType = result.documentType.toLowerCase().trim();
+  const value = `${result.documentType} ${result.title}`.toLowerCase();
+  return documentType === "kes" || value.includes("laporan_kes") || value.includes("laporan kes") || value.includes("case report");
+}
+
+function ensureReportSections(result: DocumentBrainResult, sections: Array<DocumentBrainSection & { slot: string }>) {
+  if (!isCaseReportDocument(result)) {
+    return sections;
+  }
+
+  const existingSlots = new Set(sections.map((section) => section.slot));
+  const requiredCaseSections: Array<DocumentBrainSection & { slot: string }> = [
+    {
+      content: "LAPORAN KES",
+      formatHint: "heading",
+      slot: "title",
+    },
+    {
+      content: "Tajuk Kes: [TAJUK KES]\nTarikh: [TARIKH]\nDisediakan oleh: [NAMA]",
+      formatHint: "section",
+      slot: "case_info",
+    },
+    {
+      content: "Latar belakang kes ini perlu dilengkapkan berdasarkan maklumat sebenar kes.",
+      formatHint: "paragraph",
+      slot: "background",
+    },
+    {
+      content: "Isu utama yang dikenal pasti perlu dihuraikan dengan jelas berdasarkan keadaan sebenar.",
+      formatHint: "paragraph",
+      slot: "issue",
+    },
+    {
+      content: "Pemerhatian perlu direkodkan secara ringkas berdasarkan maklumat yang diperoleh.",
+      formatHint: "paragraph",
+      slot: "observation",
+    },
+    {
+      content: "Tindakan yang telah diambil perlu dinyatakan secara tersusun.",
+      formatHint: "paragraph",
+      slot: "action_taken",
+    },
+    {
+      content: "Status terkini kes perlu dikemas kini berdasarkan perkembangan semasa.",
+      formatHint: "paragraph",
+      slot: "current_status",
+    },
+    {
+      content: "Cadangan atau syor penambahbaikan perlu dinyatakan mengikut keperluan kes.",
+      formatHint: "paragraph",
+      slot: "recommendation",
+    },
+    {
+      content: "Kesimpulannya, kes ini memerlukan perhatian dan tindakan susulan yang sesuai.",
+      formatHint: "paragraph",
+      slot: "conclusion",
+    },
+  ];
+
+  return [...sections, ...requiredCaseSections.filter((section) => !existingSlots.has(section.slot))];
 }
 
 function orderReportSections(sections: Array<DocumentBrainSection & { slot: string }>) {
