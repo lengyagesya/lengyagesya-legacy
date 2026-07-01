@@ -46,7 +46,7 @@ export async function POST(request: Request) {
     );
   }
 
-  let body: { language?: string; layout?: unknown; prompt?: string };
+  let body: { language?: string; layout?: unknown; layoutMode?: string; prompt?: string };
   try {
     body = await request.json();
   } catch {
@@ -113,6 +113,8 @@ export async function POST(request: Request) {
               "- Slip gaji: employee, employer, pay period, earnings, deductions, gross/net pay. Do not invent amounts.",
               "- Invoice / quotation: document number if provided or placeholder, date, customer, item list, quantity, price, total. Calculate totals from provided amounts.",
               "- Laporan: title, date, purpose/objective, details, findings, conclusion/recommendation.",
+              "- Laporan kes / case report: use LAPORAN KES and sections: case_info, background, issue, observation, action_taken, current_status, recommendation, conclusion.",
+              "- For laporan kes, do not force recipient, salutation or closing unless user provided a layout slot for them.",
               "- Minit mesyuarat: title, date, time, venue, attendance, agenda, decisions, actions.",
               "- Borang: label + blank/fillable areas; use placeholders only where data is meant to be filled.",
               "- Jadual: arrange by day/date/time/category when suitable.",
@@ -134,6 +136,10 @@ export async function POST(request: Request) {
               "- Do not create a new visual layout. Fill the user's existing layout slots.",
               "- missingFields must list only important missing details.",
               "- content must be ready to print in an A4 preview.",
+              `Layout mode: ${body.layoutMode === "auto" ? "Auto Layout Dokumen" : "Guna Layout Saya"}`,
+              body.layoutMode === "auto"
+                ? "- Auto Layout Dokumen is active. For reports/laporan/laporan kes, prefer one-column report sections from top to bottom."
+                : "- Guna Layout Saya is active. Respect the user's existing slot positions.",
               `Current A4 layout slots: ${JSON.stringify(layoutSlots)}`,
               `User request: ${prompt}`,
             ].join("\n"),

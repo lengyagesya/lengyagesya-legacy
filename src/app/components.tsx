@@ -41,6 +41,7 @@ type ActiveBlock = {
   blockId: string;
   pageId: string;
 } | null;
+type LayoutMode = "user" | "auto";
 type DocumentBrainSection = {
   content: string;
   formatHint?: string;
@@ -170,6 +171,9 @@ const copy = {
     selectDocumentPlaceholder: "Pilih jenis dokumen",
     documentBrief: "Penerangan dokumen",
     documentBriefPlaceholder: "Contoh: Saya mahu buat surat rasmi memohon kebenaran mengadakan program di sekolah.",
+    layoutMode: "Mode layout",
+    useMyLayout: "Guna Layout Saya",
+    autoLayoutDocument: "Auto Layout Dokumen",
     itemTools: "Tools item",
     itemToolsBody: "Pilih atau drag item masuk ke dalam kertas.",
     itemTitle: "Nama item",
@@ -249,6 +253,9 @@ const copy = {
     selectDocumentPlaceholder: "Select document type",
     documentBrief: "Document brief",
     documentBriefPlaceholder: "Example: I want to create a formal letter requesting permission to run a school programme.",
+    layoutMode: "Layout mode",
+    useMyLayout: "Use My Layout",
+    autoLayoutDocument: "Auto Document Layout",
     itemTools: "Item tools",
     itemToolsBody: "Choose or drag an item into the paper.",
     itemTitle: "Item name",
@@ -872,6 +879,7 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
   const [aiResult, setAiResult] = useState<DocumentBrainResult | null>(null);
   const [isSending, setIsSending] = useState(false);
   const [viewMode, setViewMode] = useState<"builder" | "preview">("builder");
+  const [layoutMode, setLayoutMode] = useState<LayoutMode>("user");
   const [alignmentGuide, setAlignmentGuide] = useState<AlignmentGuide>({});
   const blockIdCounter = useRef(0);
 
@@ -1013,6 +1021,7 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
       const response = await fetch("/api/document-brain", {
         body: JSON.stringify({
           language,
+          layoutMode,
           layout: pages.map((page) => ({
             blocks: page.blocks.map((block) => ({
               content: block.content,
@@ -1041,7 +1050,7 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
       }
 
       setAiResult(data);
-      const nextPages = applyAiResultToPages(pages, data, language);
+      const nextPages = layoutMode === "auto" && isReportDocument(data) ? createAutoLayoutPages(data, language) : applyAiResultToPages(pages, data, language);
       setPages(nextPages);
       setActivePageId("page-1");
       setActiveBlock(null);
@@ -1222,6 +1231,26 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
               placeholder={t.documentBriefPlaceholder}
               value={documentBrief}
             />
+            <p className="mt-4 text-sm text-[#aeb6c6]">{t.layoutMode}</p>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              {([
+                ["user", t.useMyLayout],
+                ["auto", t.autoLayoutDocument],
+              ] as const).map(([mode, label]) => (
+                <button
+                  className={`rounded-xl border px-3 py-2 text-xs font-bold transition ${
+                    layoutMode === mode
+                      ? "border-white bg-white text-black"
+                      : "border-white/10 bg-white/[0.04] text-[#dce3f1] hover:border-[#9db4ff]/45"
+                  }`}
+                  key={mode}
+                  onClick={() => setLayoutMode(mode)}
+                  type="button"
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
             <button
               className="button-secondary mt-4 w-full disabled:cursor-not-allowed disabled:opacity-55"
               disabled={isSending}
@@ -1617,6 +1646,161 @@ function applyAiResultToPages(pages: PaperPage[], result: DocumentBrainResult, l
   }));
 }
 
+function createAutoLayoutPages(result: DocumentBrainResult, language: Language): PaperPage[] {
+  if (!isReportDocument(result)) {
+    return [createAiPaperPage(result, language)];
+  }
+
+  const normalizedSections = result.sections.map((section) => ({
+    ...section,
+    slot: normalizeSlot(section.slot || section.type || "section"),
+  }));
+  const orderedSections = orderReportSections(normalizedSections);
+  const blocks: PaperBlock[] = [];
+  let y = 52;
+  let pageNumber = 1;
+  const pages: PaperPage[] = [];
+
+  function pushPage() {
+    pages.push({
+      blocks: [...blocks],
+      id: `page-${pageNumber}`,
+      title: `${result.title || (language === "ms" ? "Laporan" : "Report")} ${pageNumber}`,
+    });
+    blocks.length = 0;
+    pageNumber += 1;
+    y = 52;
+  }
+
+  const titleContent = normalizedSections.find((section) => section.slot === "title")?.content || result.title || (language === "ms" ? "LAPORAN" : "REPORT");
+  blocks.push({
+    align: "center",
+    content: titleContent.toUpperCase(),
+    fontSize: 17,
+    fontWeight: "bold",
+    height: 54,
+    id: `auto-title-${pageNumber}`,
+    lineHeight: 1.25,
+    slot: "title",
+    title: language === "ms" ? "Tajuk" : "Title",
+    underline: false,
+    width: 604,
+    x: 58,
+    y,
+  });
+  y += 72;
+
+  orderedSections
+    .filter((section) => section.slot !== "title" && section.content.trim())
+    .forEach((section, index) => {
+      const heading = reportSectionHeading(section.slot, section.type, language);
+      const contentHeight = estimateReportBlockHeight(section.content);
+      const neededHeight = 28 + contentHeight + 18;
+      if (y + neededHeight > 950 && blocks.length > 1) {
+        pushPage();
+      }
+
+      blocks.push({
+        align: "left",
+        content: heading,
+        fontSize: 12,
+        fontWeight: "bold",
+        height: 24,
+        id: `auto-heading-${pageNumber}-${index}`,
+        lineHeight: 1.25,
+        slot: `${section.slot}-heading`,
+        title: heading,
+        underline: false,
+        width: 604,
+        x: 58,
+        y,
+      });
+      y += 28;
+
+      blocks.push({
+        align: "left",
+        content: section.content,
+        fontSize: 11.5,
+        fontWeight: "normal",
+        height: contentHeight,
+        id: `auto-section-${pageNumber}-${index}`,
+        lineHeight: 1.45,
+        slot: section.slot,
+        title: heading,
+        underline: false,
+        width: 604,
+        x: 58,
+        y,
+      });
+      y += contentHeight + 18;
+    });
+
+  if (blocks.length > 0) {
+    pushPage();
+  }
+
+  return pages;
+}
+
+function isReportDocument(result: DocumentBrainResult) {
+  const value = `${result.documentType} ${result.title}`.toLowerCase();
+  return value.includes("laporan") || value.includes("report") || value.includes("case") || value.includes("kes");
+}
+
+function orderReportSections(sections: Array<DocumentBrainSection & { slot: string }>) {
+  const order = [
+    "title",
+    "case-info",
+    "case_info",
+    "background",
+    "issue",
+    "observation",
+    "action-taken",
+    "action_taken",
+    "current-status",
+    "current_status",
+    "recommendation",
+    "conclusion",
+    "objective",
+    "body",
+    "summary",
+    "remarks",
+  ];
+
+  return [...sections].sort((first, second) => {
+    const firstIndex = order.indexOf(first.slot);
+    const secondIndex = order.indexOf(second.slot);
+    return (firstIndex === -1 ? 999 : firstIndex) - (secondIndex === -1 ? 999 : secondIndex);
+  });
+}
+
+function reportSectionHeading(slot: string, type: string | undefined, language: Language) {
+  const headings: Record<string, string> = {
+    "action-taken": "Tindakan Diambil",
+    action_taken: "Tindakan Diambil",
+    background: "Latar Belakang",
+    body: language === "ms" ? "Butiran Laporan" : "Report Details",
+    "case-info": "Maklumat Kes",
+    case_info: "Maklumat Kes",
+    conclusion: "Kesimpulan",
+    "current-status": "Status Terkini",
+    current_status: "Status Terkini",
+    issue: "Isu / Masalah",
+    objective: language === "ms" ? "Objektif / Tujuan" : "Objective / Purpose",
+    observation: "Pemerhatian",
+    recommendation: "Cadangan / Syor",
+    remarks: language === "ms" ? "Catatan" : "Remarks",
+    summary: language === "ms" ? "Ringkasan" : "Summary",
+  };
+
+  return headings[slot] || type || slot.replace(/[-_]+/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function estimateReportBlockHeight(content: string) {
+  const lineCount = content.split("\n").reduce((count, line) => count + Math.max(1, Math.ceil(line.length / 82)), 0);
+  return Math.min(220, Math.max(48, lineCount * 18 + 10));
+}
+
 function isInstructionPlaceholder(content: string) {
   const lower = content.toLowerCase();
   return lower.includes("klik untuk edit") || lower.includes("click to edit") || lower.includes("tuliskan") || lower.includes("write the");
@@ -1706,6 +1890,13 @@ function normalizeSlot(value: string) {
   if (lower.includes("kepala") || lower.includes("header")) return "header";
   if (lower.includes("kaki") || lower.includes("footer")) return "footer";
   if (lower.includes("logo")) return "logo";
+  if (lower.includes("maklumat kes") || lower.includes("case info") || lower.includes("case_info")) return "case_info";
+  if (lower.includes("latar belakang") || lower.includes("background")) return "background";
+  if (lower.includes("isu") || lower.includes("masalah") || lower.includes("issue")) return "issue";
+  if (lower.includes("tindakan") || lower.includes("action taken") || lower.includes("action_taken")) return "action_taken";
+  if (lower.includes("status terkini") || lower.includes("current status") || lower.includes("current_status")) return "current_status";
+  if (lower.includes("cadangan") || lower.includes("syor") || lower.includes("recommendation")) return "recommendation";
+  if (lower.includes("kesimpulan") || lower.includes("conclusion")) return "conclusion";
   if (lower.includes("isi") || lower.includes("body") || lower.includes("content") || lower.includes("perenggan")) return "body";
   if (lower.includes("paragraph") || lower.includes("para")) return "paragraph";
   if (lower.includes("penutup") || lower.includes("closing")) return "closing";
