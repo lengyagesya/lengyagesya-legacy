@@ -1352,7 +1352,13 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
                         viewMode === "builder" ? "editable-block mt-3 min-h-12" : "preview-editable min-h-0"
                       }`}
                       contentEditable
-                      onInput={(event) => updateBlockContent(page.id, block.id, event.currentTarget.textContent ?? "")}
+                      onInput={(event) => updateBlockContent(page.id, block.id, readEditableText(event.currentTarget))}
+                      onKeyDown={(event) => {
+                        if (event.key !== "Enter") return;
+                        event.preventDefault();
+                        insertEditableLineBreak();
+                        updateBlockContent(page.id, block.id, readEditableText(event.currentTarget));
+                      }}
                       style={{
                         fontSize: viewMode === "preview" && block.content.length > 420 ? Math.max(10, block.fontSize - 2) : block.fontSize,
                         fontWeight: block.fontWeight,
@@ -1579,6 +1585,26 @@ function applyAiResultToPages(pages: PaperPage[], result: DocumentBrainResult, l
 function isInstructionPlaceholder(content: string) {
   const lower = content.toLowerCase();
   return lower.includes("klik untuk edit") || lower.includes("click to edit") || lower.includes("tuliskan") || lower.includes("write the");
+}
+
+function readEditableText(element: HTMLElement) {
+  return element.innerText.replace(/\u00a0/g, " ");
+}
+
+function insertEditableLineBreak() {
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0) return;
+
+  const range = selection.getRangeAt(0);
+  range.deleteContents();
+
+  const lineBreak = document.createTextNode("\n");
+  range.insertNode(lineBreak);
+  range.setStartAfter(lineBreak);
+  range.collapse(true);
+
+  selection.removeAllRanges();
+  selection.addRange(range);
 }
 
 function createPaperPage(pageNumber: number, blocks: PaperBlock[], type: DocumentTypeId | "", language: Language): PaperPage {
