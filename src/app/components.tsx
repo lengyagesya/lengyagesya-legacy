@@ -1324,6 +1324,12 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
             >
               {viewMode === "preview" ? (
                 <div className="absolute inset-0 z-20">
+                  <div className="pointer-events-none absolute inset-[38px] border border-black/[0.045]" />
+                  <div className="pointer-events-none absolute left-[48px] right-[48px] top-[34px] h-px bg-black/20" />
+                  <div className="pointer-events-none absolute bottom-[34px] left-[48px] right-[48px] h-px bg-black/12" />
+                  <div className="pointer-events-none absolute bottom-[18px] right-[48px] text-[9px] tracking-[0.24em] text-black/25">
+                    lY Docs
+                  </div>
                   {page.blocks.map((block) => (
                     <div
                       className={`absolute overflow-visible ${getPreviewBlockFrameClass(block)}`}
@@ -1710,11 +1716,12 @@ function decorateBlockFromSection(block: PaperBlock, section: DocumentBrainSecti
   const style = getSectionDocumentStyle(section, blockSlot);
   const isTitle = blockSlot === "title" || section.formatHint === "heading";
   const isTotal = style.boxType === "totalBox";
+  const content = getDecoratedSectionContent(section, blockSlot);
 
   return {
     ...block,
     align: isTitle ? "center" : isTotal ? "right" : block.align,
-    content: section.content,
+    content,
     fontSize: isTitle ? Math.max(block.fontSize, 16) : isTotal ? Math.max(block.fontSize, 12.5) : block.fontSize,
     fontWeight: getFontWeightForSection(section, block.fontWeight),
     lineHeight: isTitle ? 1.25 : block.lineHeight,
@@ -1722,6 +1729,27 @@ function decorateBlockFromSection(block: PaperBlock, section: DocumentBrainSecti
     style,
     underline: block.underline || Boolean(style.underline || style.signatureLine),
   };
+}
+
+function getDecoratedSectionContent(section: DocumentBrainSection, slot: string) {
+  const content = section.content.trim();
+  const normalizedSlot = normalizeSlot(slot || section.slot || section.type || "");
+  const formatHint = section.formatHint?.toLowerCase();
+  const shouldPrefixHeading =
+    !["title", "body", "paragraph", "content", "date", "footer"].includes(normalizedSlot) &&
+    (formatHint === "section" ||
+      formatHint === "summary" ||
+      formatHint === "signature" ||
+      formatHint === "table" ||
+      formatHint === "total" ||
+      ["case_info", "meeting_info", "customer_info", "employee_info", "employer_info", "background", "issue", "observation", "action_taken", "current_status", "recommendation", "conclusion", "objective", "summary"].includes(normalizedSlot));
+
+  if (!shouldPrefixHeading) {
+    return content;
+  }
+
+  const heading = reportSectionHeading(normalizedSlot, section.type, "ms").toUpperCase();
+  return content.toUpperCase().startsWith(heading) ? content : `${heading}\n${content}`;
 }
 
 function getSectionDocumentStyle(section: DocumentBrainSection, slot: string): DocumentBlockStyle {
@@ -2267,6 +2295,10 @@ function getPreviewBlockFrameClass(block: PaperBlock) {
     return "rounded-[3px] border border-black/45 bg-white px-4 py-3 shadow-[inset_0_1px_0_rgba(0,0,0,0.08)]";
   }
 
+  if (style.sectionHeading || style.divider) {
+    return "border-l-2 border-black/30 bg-transparent py-1 pl-3 pr-0";
+  }
+
   if (style.box || style.border) {
     return "rounded-[3px] border border-black/25 bg-black/[0.015] px-4 py-3";
   }
@@ -2405,6 +2437,17 @@ function createPdfBlob(
 
   pages.forEach((page) => {
     const lines: string[] = [];
+    const marginX = 40;
+    lines.push(
+      "q",
+      "0.35 w",
+      `${formatPdfNumber(marginX)} ${formatPdfNumber(pageHeight - 28)} m`,
+      `${formatPdfNumber(pageWidth - marginX)} ${formatPdfNumber(pageHeight - 28)} l`,
+      `${formatPdfNumber(marginX)} 26 m`,
+      `${formatPdfNumber(pageWidth - marginX)} 26 l`,
+      "S",
+      "Q",
+    );
 
     page.blocks.forEach((block) => {
       const blockX = block.x * scaleX;
@@ -2432,6 +2475,17 @@ function createPdfBlob(
         cursorY -= 7;
       }
 
+      if ((block.style?.sectionHeading || block.style?.divider) && !block.style?.box && !block.style?.border && !block.style?.tableBorder) {
+        lines.push(
+          "q",
+          "1.1 w",
+          `${formatPdfNumber(blockX)} ${formatPdfNumber(blockTop)} m`,
+          `${formatPdfNumber(blockX)} ${formatPdfNumber(blockTop - blockHeight)} l`,
+          "S",
+          "Q",
+        );
+      }
+
       if (block.title) {
         lines.push(
           "BT",
@@ -2443,7 +2497,7 @@ function createPdfBlob(
         cursorY -= 12;
       }
 
-      contentLines.forEach((line) => {
+      contentLines.forEach((line, lineIndex) => {
         const estimatedWidth = Math.min(blockWidth, line.length * fontSize * 0.49);
         const textX =
           block.align === "center"
@@ -2452,9 +2506,14 @@ function createPdfBlob(
               ? blockX + blockWidth - estimatedWidth - textInset
               : blockX + textInset;
 
+        const lineFontName =
+          (lineIndex === 0 && (block.style?.documentHeader || block.style?.sectionHeading || block.style?.divider)) || block.fontWeight === "bold"
+            ? "F2"
+            : "F1";
+
         lines.push(
           "BT",
-          `/${fontName} ${formatPdfNumber(fontSize)} Tf`,
+          `/${lineFontName || fontName} ${formatPdfNumber(fontSize)} Tf`,
           `1 0 0 1 ${formatPdfNumber(textX)} ${formatPdfNumber(cursorY)} Tm`,
           `(${escapePdfText(line)}) Tj`,
           "ET",
