@@ -51,7 +51,7 @@ type ActiveBlock = {
   blockId: string;
   pageId: string;
 } | null;
-type LayoutMode = "user" | "auto";
+type LayoutMode = "auto" | "smart" | "user";
 type DocumentBrainSection = {
   content: string;
   formatHint?: string;
@@ -868,7 +868,7 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
   const [aiResult, setAiResult] = useState<DocumentBrainResult | null>(null);
   const [isSending, setIsSending] = useState(false);
   const [viewMode, setViewMode] = useState<"builder" | "preview">("builder");
-  const layoutMode: LayoutMode = "user";
+  const layoutMode: LayoutMode = "smart";
   const [alignmentGuide, setAlignmentGuide] = useState<AlignmentGuide>({});
   const blockIdCounter = useRef(0);
 
@@ -1001,9 +1001,13 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
           layout: pages.map((page) => ({
             blocks: page.blocks.map((block) => ({
               content: block.content,
+              height: block.height,
               id: block.id,
               slot: block.slot,
               title: block.title,
+              width: block.width,
+              x: block.x,
+              y: block.y,
             })),
             id: page.id,
             title: page.title,
@@ -1026,7 +1030,12 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
       }
 
       setAiResult(data);
-      const nextPages = layoutMode === "auto" ? createAutoLayoutPages(data, language) : applyAiResultToPages(pages, data, language);
+      const nextPages =
+        layoutMode === "auto"
+          ? createAutoLayoutPages(data, language)
+          : layoutMode === "smart"
+            ? applySmartAiResultToPages(pages, data, language)
+            : applyAiResultToPages(pages, data, language);
       setPages(nextPages);
       setActivePageId("page-1");
       setActiveBlock(null);
@@ -1542,6 +1551,102 @@ function applyAiResultToPages(pages: PaperPage[], result: DocumentBrainResult, l
           };
     }),
   }));
+}
+
+function applySmartAiResultToPages(pages: PaperPage[], result: DocumentBrainResult, language: Language) {
+  const sections = result.sections.map((section, index) => ({
+    ...section,
+    index,
+    slot: normalizeSlot(section.slot || section.type || "content"),
+  }));
+
+  const hasBlocks = pages.some((page) => page.blocks.length > 0);
+  if (!hasBlocks) {
+    return [createAiPaperPage(result, language)];
+  }
+
+  const usedSectionIndexes = new Set<number>();
+  const filledPages = pages.map((page) => ({
+    ...page,
+    blocks: page.blocks.map((block) => {
+      const blockSlot = normalizeSlot(block.slot || block.title);
+      const matchedSection =
+        sections.find((section) => !usedSectionIndexes.has(section.index) && section.slot === blockSlot) ||
+        sections.find((section) => !usedSectionIndexes.has(section.index) && normalizeSlot(section.type || section.slot || "") === blockSlot) ||
+        sections.find((section) => !usedSectionIndexes.has(section.index) && (blockSlot.includes(section.slot) || section.slot.includes(blockSlot)));
+
+      if (matchedSection) {
+        usedSectionIndexes.add(matchedSection.index);
+        return {
+          ...block,
+          content: matchedSection.content,
+          fontWeight: getFontWeightForSection(matchedSection, block.fontWeight),
+          slot: blockSlot,
+          style: normalizeStyleHint(matchedSection.styleHint),
+          underline: block.underline || Boolean(matchedSection.styleHint?.underline || matchedSection.styleHint?.signatureLine),
+        };
+      }
+
+      return {
+        ...block,
+        content: isInstructionPlaceholder(block.content) ? "" : block.content,
+        slot: blockSlot,
+      };
+    }),
+  }));
+
+  const unmatchedSections = sections.filter((section) => !usedSectionIndexes.has(section.index) && section.slot !== "title" && section.content.trim());
+  if (unmatchedSections.length === 0) {
+    return filledPages;
+  }
+
+  const nextPages = filledPages.map((page) => ({ ...page, blocks: [...page.blocks] }));
+  let targetPage = nextPages[nextPages.length - 1];
+  let y = Math.max(64, ...targetPage.blocks.map((block) => block.y + block.height + 18));
+
+  unmatchedSections.forEach((section, index) => {
+    const height = estimateAutoBlockHeight(section.content, 604, 11.5);
+    if (y + height > 965) {
+      targetPage = {
+        blocks: [],
+        id: `page-${nextPages.length + 1}`,
+        title: `${result.title || (language === "ms" ? "Dokumen" : "Document")} ${nextPages.length + 1}`,
+      };
+      nextPages.push(targetPage);
+      y = 58;
+    }
+
+    targetPage.blocks.push(createSmartSectionBlock(section, language, index, y));
+    y += height + 18;
+  });
+
+  return nextPages;
+}
+
+function createSmartSectionBlock(section: DocumentBrainSection & { index: number; slot: string }, language: Language, index: number, y: number): PaperBlock {
+  const heading = reportSectionHeading(section.slot, section.type, language);
+  const includeHeading = !["body", "paragraph", "content"].includes(section.slot);
+  const content = includeHeading ? `${heading}\n${section.content}` : section.content;
+  const style = normalizeStyleHint(section.styleHint);
+  const height = estimateAutoBlockHeight(content, 604, 11.5);
+
+  return createAutoBlock({
+    content,
+    fontSize: 11.5,
+    fontWeight: getFontWeightForSection(section, "normal"),
+    height,
+    id: `smart-section-${section.slot}-${index}`,
+    lineHeight: 1.45,
+    slot: section.slot,
+    style: {
+      divider: section.formatHint === "section" || section.formatHint === "summary" || style.divider,
+      ...style,
+    },
+    title: heading,
+    width: 604,
+    x: 58,
+    y,
+  });
 }
 
 function createAutoLayoutPages(result: DocumentBrainResult, language: Language): PaperPage[] {

@@ -49,9 +49,13 @@ const requiredShape: DocumentBrainResponse = {
 
 type LayoutBlock = {
   content?: string;
+  height?: number;
   id?: string;
   slot?: string;
   title?: string;
+  width?: number;
+  x?: number;
+  y?: number;
 };
 
 type LayoutPage = {
@@ -113,6 +117,7 @@ export async function POST(request: Request) {
               "10. Match every content section to the most suitable layout slot.",
               "11. If Auto Layout is selected, choose a professional layout based on documentType.",
               "12. If User Layout is selected, do not change the user's layout; fill available slots.",
+              "12a. If Smart Compose is selected, generate a complete new document while using the user's slot order, position, labels, and rough structure as the main guide.",
               "13. Treat layout slots as anchors.",
               "14. Adapt writing style, structure, and styling based on documentType.",
               "15. Use document styling such as divider, table, border, box, underline, and signature line only when appropriate.",
@@ -185,16 +190,20 @@ export async function POST(request: Request) {
               "- sections must contain slot, content, formatHint and styleHint when useful.",
               "- Use the provided current A4 layout slots when possible.",
               "- If a layout slot exists, return content for that exact slot.",
-              "- Do not create a new visual layout. Fill the user's existing layout slots.",
+              body.layoutMode === "smart"
+                ? "- Smart Compose is active. Create a complete document from the user's instruction, but follow the user's A4 item order, positions, labels, and structure. Fill existing slots first. Add extra sections only when they are genuinely needed for a professional document."
+                : "- Do not create a new visual layout. Fill the user's existing layout slots.",
               "- missingFields must list only important missing details.",
               "- content must be ready to print in an A4 preview.",
               "- content must sound human, specific, and professionally edited.",
               "- Avoid AI-like filler, repeated openings, repeated conclusions, and generic corporate language.",
               "- If the user gives little information, generate a clean short draft instead of adding long assumptions.",
-              `Layout mode: ${body.layoutMode === "auto" ? "Auto Layout Dokumen" : "Guna Layout Saya"}`,
+              `Layout mode: ${body.layoutMode === "auto" ? "Auto Layout Dokumen" : body.layoutMode === "smart" ? "Smart Compose" : "Guna Layout Saya"}`,
               body.layoutMode === "auto"
                 ? "- Auto Layout Dokumen is active. Return professional document-specific slots and styleHint. Ignore unsuitable letter-style slots when the document is not a letter."
-                : "- Guna Layout Saya is active. Respect the user's existing slot positions.",
+                : body.layoutMode === "smart"
+                  ? "- Smart Compose is active. Produce a polished full document. Respect the user's visible item sequence and use slot names as anchors, but you may return extra useful sections after matching the existing slots."
+                  : "- Guna Layout Saya is active. Respect the user's existing slot positions.",
               `Current A4 layout slots: ${JSON.stringify(layoutSlots)}`,
               `User request: ${prompt}`,
             ].join("\n"),
@@ -306,9 +315,13 @@ function extractLayoutSlots(layout: unknown) {
 
     return pageRecord.blocks.map((block) => ({
       contentHint: block.content || "",
+      height: typeof block.height === "number" ? block.height : undefined,
       id: block.id || "",
       slot: block.slot || block.title || "",
       title: block.title || block.slot || "",
+      width: typeof block.width === "number" ? block.width : undefined,
+      x: typeof block.x === "number" ? block.x : undefined,
+      y: typeof block.y === "number" ? block.y : undefined,
     }));
   });
 }
