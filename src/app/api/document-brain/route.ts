@@ -15,12 +15,19 @@ type DocumentBrainSection = {
     tableBorder?: boolean;
     underline?: boolean;
   };
+  targetBlockId?: string;
   type?: string;
 };
 
 type DocumentBrainResponse = {
   confidence: number;
   documentType: string;
+  plan?: {
+    documentGoal?: string;
+    layoutStrategy?: string;
+    sectionOrder?: string[];
+    writingStyle?: string;
+  };
   missingFields: string[];
   sections: DocumentBrainSection[];
   title: string;
@@ -30,6 +37,12 @@ const requiredShape: DocumentBrainResponse = {
   confidence: 0,
   documentType: "",
   missingFields: [],
+  plan: {
+    documentGoal: "",
+    layoutStrategy: "",
+    sectionOrder: [],
+    writingStyle: "",
+  },
   sections: [
     {
       content: "",
@@ -44,6 +57,7 @@ const requiredShape: DocumentBrainResponse = {
         tableBorder: false,
         underline: false,
       },
+      targetBlockId: "",
     },
   ],
   title: "",
@@ -137,6 +151,12 @@ export async function POST(request: Request) {
               "26. Do not over-polish with excessive formal connectors. Use natural Malaysian formal writing.",
               "27. Do not repeat the same idea in multiple sections.",
               "28. Each section must add useful content, not generic explanation.",
+              "29. Before writing sections, internally plan the document goal, section order, layout strategy and suitable target block for each section.",
+              "30. Return that plan in the JSON 'plan' field. The plan must be short and useful for layout mapping.",
+              "31. If a current A4 block is a strong match, include targetBlockId in the section using that block id.",
+              "32. Use targetBlockId only when the content genuinely belongs in that block.",
+              "33. Keep each section length suitable for the target block size. Small blocks need concise content; large body blocks can use fuller paragraphs.",
+              "34. If content is too long for one likely block, split it into multiple logical sections with clear slots.",
               "",
               "Universal slots include: title, subtitle, date, reference, recipient, sender, salutation, body, paragraph, closing, signature, name, address, phone, email, table, list, amount, total, description, remarks, footer, header, logo, section, case_info, background, issue, observation, action_taken, current_status, recommendation, conclusion, meeting_info, attendees, agenda, discussion, decision, follow_up, employee_info, employer_info, customer_info, item_table, payment_info, custom.",
               "If a custom slot label is provided, infer its purpose from the label and contentHint.",
@@ -192,11 +212,12 @@ export async function POST(request: Request) {
               "Return exactly this JSON shape:",
               JSON.stringify(requiredShape),
               "- confidence must be a number from 0 to 1.",
-              "- sections must contain slot, content, formatHint and styleHint when useful.",
+              "- plan must summarize documentGoal, sectionOrder, layoutStrategy and writingStyle.",
+              "- sections must contain slot, content, formatHint, styleHint and targetBlockId when useful.",
               "- Use the provided current A4 layout slots when possible.",
               "- If a layout slot exists, return content for that exact slot.",
               body.layoutMode === "smart"
-                ? "- Smart Compose is active. Create a complete document from the user's instruction, but follow the user's A4 item order, positions, labels, and structure. Fill existing slots first. Add extra sections only when they are genuinely needed for a professional document."
+                ? "- Smart Compose is active. Create a complete document from the user's instruction, but follow the user's A4 item order, positions, labels, sizes and structure. Fill existing slots first. Add extra sections only when they are genuinely needed for a professional document."
                 : "- Do not create a new visual layout. Fill the user's existing layout slots.",
               "- missingFields must list only important missing details.",
               "- content must be ready to print in an A4 preview.",
@@ -289,6 +310,7 @@ function isDocumentBrainResponse(value: unknown): value is DocumentBrainResponse
 
   return (
     typeof record.documentType === "string" &&
+    (typeof record.plan === "undefined" || isDocumentPlan(record.plan)) &&
     typeof record.title === "string" &&
     Array.isArray(record.sections) &&
     record.sections.every(
@@ -302,12 +324,26 @@ function isDocumentBrainResponse(value: unknown): value is DocumentBrainResponse
           typeof (section as Record<string, unknown>).slot === "string") &&
         (typeof (section as Record<string, unknown>).styleHint === "undefined" ||
           typeof (section as Record<string, unknown>).styleHint === "object") &&
+        (typeof (section as Record<string, unknown>).targetBlockId === "undefined" ||
+          typeof (section as Record<string, unknown>).targetBlockId === "string") &&
         (typeof (section as Record<string, unknown>).type === "undefined" ||
           typeof (section as Record<string, unknown>).type === "string"),
     ) &&
     Array.isArray(record.missingFields) &&
     record.missingFields.every((field) => typeof field === "string") &&
     typeof record.confidence === "number"
+  );
+}
+
+function isDocumentPlan(value: unknown) {
+  if (!value || typeof value !== "object") return false;
+  const record = value as Record<string, unknown>;
+  return (
+    (typeof record.documentGoal === "undefined" || typeof record.documentGoal === "string") &&
+    (typeof record.layoutStrategy === "undefined" || typeof record.layoutStrategy === "string") &&
+    (typeof record.writingStyle === "undefined" || typeof record.writingStyle === "string") &&
+    (typeof record.sectionOrder === "undefined" ||
+      (Array.isArray(record.sectionOrder) && record.sectionOrder.every((section) => typeof section === "string")))
   );
 }
 

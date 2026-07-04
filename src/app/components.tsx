@@ -57,11 +57,22 @@ type DocumentBrainSection = {
   formatHint?: string;
   slot?: string;
   styleHint?: DocumentBlockStyle;
+  targetBlockId?: string;
   type?: string;
+};
+type SmartDocumentSection = DocumentBrainSection & {
+  index: number;
+  slot: string;
 };
 type DocumentBrainResult = {
   confidence: number;
   documentType: string;
+  plan?: {
+    documentGoal?: string;
+    layoutStrategy?: string;
+    sectionOrder?: string[];
+    writingStyle?: string;
+  };
   missingFields: string[];
   layout?: string;
   paperSize?: "A4";
@@ -1493,6 +1504,7 @@ function isDocumentBrainResult(value: unknown): value is DocumentBrainResult {
     typeof record.documentType === "string" &&
     (typeof record.layout === "undefined" || typeof record.layout === "string") &&
     (typeof record.paperSize === "undefined" || record.paperSize === "A4") &&
+    (typeof record.plan === "undefined" || isDocumentPlan(record.plan)) &&
     typeof record.title === "string" &&
     Array.isArray(record.sections) &&
     record.sections.every(
@@ -1506,12 +1518,26 @@ function isDocumentBrainResult(value: unknown): value is DocumentBrainResult {
           typeof (section as Record<string, unknown>).slot === "string") &&
         (typeof (section as Record<string, unknown>).styleHint === "undefined" ||
           typeof (section as Record<string, unknown>).styleHint === "object") &&
+        (typeof (section as Record<string, unknown>).targetBlockId === "undefined" ||
+          typeof (section as Record<string, unknown>).targetBlockId === "string") &&
         (typeof (section as Record<string, unknown>).type === "undefined" ||
           typeof (section as Record<string, unknown>).type === "string"),
     ) &&
     Array.isArray(record.missingFields) &&
     record.missingFields.every((field) => typeof field === "string") &&
     typeof record.confidence === "number"
+  );
+}
+
+function isDocumentPlan(value: unknown) {
+  if (!value || typeof value !== "object") return false;
+  const record = value as Record<string, unknown>;
+  return (
+    (typeof record.documentGoal === "undefined" || typeof record.documentGoal === "string") &&
+    (typeof record.layoutStrategy === "undefined" || typeof record.layoutStrategy === "string") &&
+    (typeof record.writingStyle === "undefined" || typeof record.writingStyle === "string") &&
+    (typeof record.sectionOrder === "undefined" ||
+      (Array.isArray(record.sectionOrder) && record.sectionOrder.every((section) => typeof section === "string")))
   );
 }
 
@@ -1566,25 +1592,26 @@ function applySmartAiResultToPages(pages: PaperPage[], result: DocumentBrainResu
   }
 
   const usedSectionIndexes = new Set<number>();
+  const orderedBlocks = pages
+    .flatMap((page, pageIndex) => page.blocks.map((block) => ({ block, pageIndex })))
+    .sort((first, second) => first.pageIndex - second.pageIndex || first.block.y - second.block.y || first.block.x - second.block.x)
+    .map((item) => item.block);
   const filledPages = pages.map((page) => ({
     ...page,
     blocks: page.blocks.map((block) => {
       const blockSlot = normalizeSlot(block.slot || block.title);
-      const matchedSection =
-        sections.find((section) => !usedSectionIndexes.has(section.index) && section.slot === blockSlot) ||
-        sections.find((section) => !usedSectionIndexes.has(section.index) && normalizeSlot(section.type || section.slot || "") === blockSlot) ||
-        sections.find((section) => !usedSectionIndexes.has(section.index) && (blockSlot.includes(section.slot) || section.slot.includes(blockSlot)));
+      const matchedSection = findBestSectionForBlock(block, sections, usedSectionIndexes, orderedBlocks);
 
       if (matchedSection) {
         usedSectionIndexes.add(matchedSection.index);
-        return {
+        return fitContentToBlock({
           ...block,
           content: matchedSection.content,
           fontWeight: getFontWeightForSection(matchedSection, block.fontWeight),
           slot: blockSlot,
           style: normalizeStyleHint(matchedSection.styleHint),
           underline: block.underline || Boolean(matchedSection.styleHint?.underline || matchedSection.styleHint?.signatureLine),
-        };
+        });
       }
 
       return {
@@ -1623,7 +1650,52 @@ function applySmartAiResultToPages(pages: PaperPage[], result: DocumentBrainResu
   return nextPages;
 }
 
-function createSmartSectionBlock(section: DocumentBrainSection & { index: number; slot: string }, language: Language, index: number, y: number): PaperBlock {
+function findBestSectionForBlock(
+  block: PaperBlock,
+  sections: SmartDocumentSection[],
+  usedSectionIndexes: Set<number>,
+  orderedBlocks: PaperBlock[],
+): SmartDocumentSection | null {
+  const availableSections = sections.filter((section) => !usedSectionIndexes.has(section.index));
+  let bestMatch: SmartDocumentSection | null = null;
+  let bestScore = 0;
+
+  availableSections.forEach((section) => {
+    const score = getSectionBlockScore(section, block, orderedBlocks);
+    if (score > bestScore) {
+      bestScore = score;
+      bestMatch = section;
+    }
+  });
+
+  return bestScore >= 4 ? bestMatch : null;
+}
+
+function getSectionBlockScore(section: SmartDocumentSection, block: PaperBlock, orderedBlocks: PaperBlock[]) {
+  const blockSlot = normalizeSlot(block.slot || block.title);
+  const blockText = `${block.title} ${block.content}`.toLowerCase();
+  const sectionSlot = normalizeSlot(section.slot || section.type || "");
+  const sectionText = `${section.slot || ""} ${section.type || ""} ${section.formatHint || ""}`.toLowerCase();
+  let score = 0;
+
+  if (section.targetBlockId && section.targetBlockId === block.id) score += 12;
+  if (sectionSlot === blockSlot) score += 9;
+  if (sectionSlot && (blockSlot.includes(sectionSlot) || sectionSlot.includes(blockSlot))) score += 5;
+  if (blockText.includes(sectionSlot.replace(/-/g, " "))) score += 3;
+  if (sectionText.includes(blockSlot.replace(/-/g, " "))) score += 3;
+  if (section.formatHint === "heading" && blockSlot === "title") score += 4;
+  if (section.formatHint === "signature" && blockSlot === "signature") score += 4;
+  if (section.formatHint === "table" && ["table", "item_table"].includes(blockSlot)) score += 4;
+  if (section.formatHint === "total" && blockSlot === "total") score += 4;
+
+  const blockOrder = Math.max(0, orderedBlocks.findIndex((orderedBlock) => orderedBlock.id === block.id));
+  const orderDistance = Math.abs(section.index - blockOrder);
+  score += Math.max(0, 3 - orderDistance);
+
+  return score;
+}
+
+function createSmartSectionBlock(section: SmartDocumentSection, language: Language, index: number, y: number): PaperBlock {
   const heading = reportSectionHeading(section.slot, section.type, language);
   const includeHeading = !["body", "paragraph", "content"].includes(section.slot);
   const content = includeHeading ? `${heading}\n${section.content}` : section.content;
@@ -1647,6 +1719,28 @@ function createSmartSectionBlock(section: DocumentBrainSection & { index: number
     x: 58,
     y,
   });
+}
+
+function fitContentToBlock(block: PaperBlock): PaperBlock {
+  const nextBlock = { ...block };
+  let estimatedHeight = estimateAutoBlockHeight(nextBlock.content, nextBlock.width, nextBlock.fontSize);
+  const maxBottom = 990;
+  const availableHeight = Math.max(42, maxBottom - nextBlock.y);
+
+  if (estimatedHeight > nextBlock.height && nextBlock.height < availableHeight) {
+    nextBlock.height = Math.min(availableHeight, Math.max(nextBlock.height, estimatedHeight));
+  }
+
+  while (estimatedHeight > nextBlock.height && nextBlock.fontSize > 9.5) {
+    nextBlock.fontSize = Number((nextBlock.fontSize - 0.5).toFixed(1));
+    estimatedHeight = estimateAutoBlockHeight(nextBlock.content, nextBlock.width, nextBlock.fontSize);
+  }
+
+  if (estimatedHeight > nextBlock.height) {
+    nextBlock.lineHeight = Math.max(1.25, Number((nextBlock.lineHeight - 0.1).toFixed(2)));
+  }
+
+  return nextBlock;
 }
 
 function createAutoLayoutPages(result: DocumentBrainResult, language: Language): PaperPage[] {
