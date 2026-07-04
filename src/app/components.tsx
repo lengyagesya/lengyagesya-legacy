@@ -868,7 +868,7 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
   const [aiResult, setAiResult] = useState<DocumentBrainResult | null>(null);
   const [isSending, setIsSending] = useState(false);
   const [viewMode, setViewMode] = useState<"builder" | "preview">("builder");
-  const layoutMode: LayoutMode = "auto";
+  const layoutMode: LayoutMode = "user";
   const [alignmentGuide, setAlignmentGuide] = useState<AlignmentGuide>({});
   const blockIdCounter = useRef(0);
 
