@@ -1,3 +1,5 @@
+import { buildDocumentBrainReference } from "@/app/document-brain/references";
+
 export const runtime = "nodejs";
 
 type DocumentBrainSection = {
@@ -88,6 +90,7 @@ export async function POST(request: Request) {
 
   const language = body.language === "en" ? "English" : "Bahasa Melayu";
   const layoutSlots = extractLayoutSlots(body.layout);
+  const internalReference = buildDocumentBrainReference(prompt);
 
   try {
     const openAiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -178,6 +181,8 @@ export async function POST(request: Request) {
               "",
               "formatHint values: heading, subheading, paragraph, list, table, amount, total, signature, date, contact, footer, form, section, summary.",
               "boxType values: infoBox, tableBox, totalBox, signatureBox, formBox, summaryBox, warningBox, plainBox.",
+              "",
+              internalReference,
             ].join("\n"),
             role: "system",
           },
