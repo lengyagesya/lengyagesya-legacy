@@ -121,6 +121,14 @@ export async function POST(request: Request) {
               "18. For reports and minutes, use section headings, dividers, and one-column structure by default.",
               "19. Return missingFields for important missing data, but still generate a usable draft.",
               "20. Do not output builder instructions such as 'Klik untuk edit' or 'Masukkan'.",
+              "21. Write like a skilled Malaysian office/admin worker, teacher, clerk, HR assistant, or business operator would write.",
+              "22. Do not write like a chatbot, marketing copy, essay, or AI-generated explanation.",
+              "23. Avoid generic AI-sounding phrases such as 'dokumen ini bertujuan', 'secara keseluruhannya', 'adalah diharapkan agar', 'dengan ini dimaklumkan bahawa' unless they are natural for the document.",
+              "24. Use specific wording from the user's facts. If facts are limited, keep the sentence plain and usable instead of adding filler.",
+              "25. Prefer short professional paragraphs over long robotic paragraphs.",
+              "26. Do not over-polish with excessive formal connectors. Use natural Malaysian formal writing.",
+              "27. Do not repeat the same idea in multiple sections.",
+              "28. Each section must add useful content, not generic explanation.",
               "",
               "Universal slots include: title, subtitle, date, reference, recipient, sender, salutation, body, paragraph, closing, signature, name, address, phone, email, table, list, amount, total, description, remarks, footer, header, logo, section, case_info, background, issue, observation, action_taken, current_status, recommendation, conclusion, meeting_info, attendees, agenda, discussion, decision, follow_up, employee_info, employer_info, customer_info, item_table, payment_info, custom.",
               "If a custom slot label is provided, infer its purpose from the label and contentHint.",
@@ -130,6 +138,14 @@ export async function POST(request: Request) {
               "- If a general term can work, use it instead of a placeholder. Examples: Pihak Sekolah, Pihak Tuan/Puan, Pelanggan, Majikan.",
               "- Do not invent IC numbers, addresses, money amounts, exact dates, full names, or sensitive facts.",
               "- For forms, placeholders are acceptable when the form is meant to be filled.",
+              "- Avoid placeholder-heavy writing. One or two key placeholders are acceptable; a full document filled with brackets is not acceptable.",
+              "",
+              "Human writing quality:",
+              "- Make the output feel written by a competent person preparing a real document for work.",
+              "- Use clean grammar, natural punctuation, correct capitalization, and a steady professional tone.",
+              "- Avoid unnecessary words like 'amat', 'sangat', 'pelbagai', 'komprehensif', 'holistik', 'selaras dengan keperluan semasa' unless the user asked for that style.",
+              "- Avoid vague filler such as 'perkara ini penting untuk memastikan kelancaran urusan' unless it adds real meaning.",
+              "- For reports, write direct observations and actions. For letters, write clear request/reason. For resume, write credible human achievements. For invoice/slip, keep it factual.",
               "",
               "Document-specific behavior:",
               "- Surat rasmi / surat permohonan / surat rayuan: uppercase title, suitable recipient, salutation, clear reason/request, polite closing and signature.",
@@ -172,6 +188,9 @@ export async function POST(request: Request) {
               "- Do not create a new visual layout. Fill the user's existing layout slots.",
               "- missingFields must list only important missing details.",
               "- content must be ready to print in an A4 preview.",
+              "- content must sound human, specific, and professionally edited.",
+              "- Avoid AI-like filler, repeated openings, repeated conclusions, and generic corporate language.",
+              "- If the user gives little information, generate a clean short draft instead of adding long assumptions.",
               `Layout mode: ${body.layoutMode === "auto" ? "Auto Layout Dokumen" : "Guna Layout Saya"}`,
               body.layoutMode === "auto"
                 ? "- Auto Layout Dokumen is active. Return professional document-specific slots and styleHint. Ignore unsuitable letter-style slots when the document is not a letter."
@@ -184,7 +203,7 @@ export async function POST(request: Request) {
         ],
         model: "gpt-4o-mini",
         response_format: { type: "json_object" },
-        temperature: 0.25,
+        temperature: 0.18,
       }),
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -218,13 +237,36 @@ export async function POST(request: Request) {
       return Response.json({ error: "AI JSON tidak mengikut struktur yang diperlukan." }, { status: 502 });
     }
 
-    return Response.json(parsed);
+    return Response.json(polishDocumentBrainResponse(parsed));
   } catch (error) {
     return Response.json(
       { error: error instanceof Error ? error.message : "Ralat tidak dijangka semasa memanggil OpenAI API." },
       { status: 500 },
     );
   }
+}
+
+function polishDocumentBrainResponse(response: DocumentBrainResponse): DocumentBrainResponse {
+  return {
+    ...response,
+    sections: response.sections.map((section) => ({
+      ...section,
+      content: polishDocumentText(section.content),
+    })),
+    title: polishDocumentText(response.title),
+  };
+}
+
+function polishDocumentText(value: string) {
+  return value
+    .replace(/\bsebagai (sebuah )?(model )?ai\b[:,]?\s*/gi, "")
+    .replace(/\bberikut (adalah|ialah) (draf|dokumen|contoh)[^:\n]*:\s*/gi, "")
+    .replace(/\bsemoga (dokumen|maklumat) ini (dapat )?membantu[^.\n]*\.?\s*/gi, "")
+    .replace(/\bsecara keseluruhannya,\s*/gi, "")
+    .replace(/\badalah diharapkan agar\s*/gi, "")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 function isDocumentBrainResponse(value: unknown): value is DocumentBrainResponse {
