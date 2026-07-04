@@ -11,6 +11,8 @@ type DocumentBrainSection = {
     box?: boolean;
     boxType?: string;
     divider?: boolean;
+    documentHeader?: boolean;
+    sectionHeading?: boolean;
     signatureLine?: boolean;
     tableBorder?: boolean;
     underline?: boolean;
@@ -53,6 +55,8 @@ const requiredShape: DocumentBrainResponse = {
         box: false,
         boxType: "",
         divider: false,
+        documentHeader: false,
+        sectionHeading: false,
         signatureLine: false,
         tableBorder: false,
         underline: false,
@@ -138,6 +142,7 @@ export async function POST(request: Request) {
               "13. Treat layout slots as anchors.",
               "14. Adapt writing style, structure, and styling based on documentType.",
               "15. Use document styling such as divider, table, border, box, underline, and signature line only when appropriate.",
+              "15a. Use documentHeader for the main title/header block. Use sectionHeading for blocks that start with a section title.",
               "16. For formal letters, avoid excessive boxes and use signature line only where needed.",
               "17. For invoices, quotations, payslips, forms, schedules, and statements, use tables, boxes, totals, and clear lines.",
               "18. For reports and minutes, use section headings, dividers, and one-column structure by default.",
@@ -200,6 +205,7 @@ export async function POST(request: Request) {
               "- Forms: use formBox, underline and simple input lines.",
               "",
               "formatHint values: heading, subheading, paragraph, list, table, amount, total, signature, date, contact, footer, form, section, summary.",
+              "styleHint may include documentHeader and sectionHeading to make the A4 preview look like a real document.",
               "boxType values: infoBox, tableBox, totalBox, signatureBox, formBox, summaryBox, warningBox, plainBox.",
               "",
               internalReference,

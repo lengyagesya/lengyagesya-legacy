@@ -10,6 +10,8 @@ type DocumentBlockStyle = {
   box?: boolean;
   boxType?: string;
   divider?: boolean;
+  documentHeader?: boolean;
+  sectionHeading?: boolean;
   signatureLine?: boolean;
   tableBorder?: boolean;
   underline?: boolean;
@@ -1334,7 +1336,7 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
                       }}
                     >
                       <div
-                        className="preview-editable h-full w-full cursor-text whitespace-pre-wrap text-black/85 outline-none"
+                        className={getPreviewTextClass(block)}
                         contentEditable
                         onInput={(event) => updateBlockContent(page.id, block.id, readPreviewBlockText(event.currentTarget))}
                         spellCheck
@@ -1562,14 +1564,7 @@ function applyAiResultToPages(pages: PaperPage[], result: DocumentBrainResult, l
         sections.find((section) => blockSlot.includes(section.slot) || section.slot.includes(blockSlot));
 
       return matchedSection
-        ? {
-            ...block,
-            content: matchedSection.content,
-            fontWeight: getFontWeightForSection(matchedSection, block.fontWeight),
-            slot: blockSlot,
-            style: normalizeStyleHint(matchedSection.styleHint),
-            underline: block.underline || Boolean(matchedSection.styleHint?.underline || matchedSection.styleHint?.signatureLine),
-          }
+        ? decorateBlockFromSection(block, matchedSection, blockSlot)
         : {
             ...block,
             content: isInstructionPlaceholder(block.content) ? "" : block.content,
@@ -1604,14 +1599,7 @@ function applySmartAiResultToPages(pages: PaperPage[], result: DocumentBrainResu
 
       if (matchedSection) {
         usedSectionIndexes.add(matchedSection.index);
-        return fitContentToBlock({
-          ...block,
-          content: matchedSection.content,
-          fontWeight: getFontWeightForSection(matchedSection, block.fontWeight),
-          slot: blockSlot,
-          style: normalizeStyleHint(matchedSection.styleHint),
-          underline: block.underline || Boolean(matchedSection.styleHint?.underline || matchedSection.styleHint?.signatureLine),
-        });
+        return fitContentToBlock(decorateBlockFromSection(block, matchedSection, blockSlot));
       }
 
       return {
@@ -1699,7 +1687,7 @@ function createSmartSectionBlock(section: SmartDocumentSection, language: Langua
   const heading = reportSectionHeading(section.slot, section.type, language);
   const includeHeading = !["body", "paragraph", "content"].includes(section.slot);
   const content = includeHeading ? `${heading}\n${section.content}` : section.content;
-  const style = normalizeStyleHint(section.styleHint);
+  const style = getSectionDocumentStyle(section, section.slot);
   const height = estimateAutoBlockHeight(content, 604, 11.5);
 
   return createAutoBlock({
@@ -1710,15 +1698,68 @@ function createSmartSectionBlock(section: SmartDocumentSection, language: Langua
     id: `smart-section-${section.slot}-${index}`,
     lineHeight: 1.45,
     slot: section.slot,
-    style: {
-      divider: section.formatHint === "section" || section.formatHint === "summary" || style.divider,
-      ...style,
-    },
+    style,
     title: heading,
     width: 604,
     x: 58,
     y,
   });
+}
+
+function decorateBlockFromSection(block: PaperBlock, section: DocumentBrainSection, blockSlot: string): PaperBlock {
+  const style = getSectionDocumentStyle(section, blockSlot);
+  const isTitle = blockSlot === "title" || section.formatHint === "heading";
+  const isTotal = style.boxType === "totalBox";
+
+  return {
+    ...block,
+    align: isTitle ? "center" : isTotal ? "right" : block.align,
+    content: section.content,
+    fontSize: isTitle ? Math.max(block.fontSize, 16) : isTotal ? Math.max(block.fontSize, 12.5) : block.fontSize,
+    fontWeight: getFontWeightForSection(section, block.fontWeight),
+    lineHeight: isTitle ? 1.25 : block.lineHeight,
+    slot: blockSlot,
+    style,
+    underline: block.underline || Boolean(style.underline || style.signatureLine),
+  };
+}
+
+function getSectionDocumentStyle(section: DocumentBrainSection, slot: string): DocumentBlockStyle {
+  const style = normalizeStyleHint(section.styleHint);
+  const formatHint = section.formatHint?.toLowerCase();
+  const normalizedSlot = normalizeSlot(slot || section.slot || section.type || "");
+  const infoSlots = new Set(["case_info", "meeting_info", "customer_info", "employee_info", "employer_info", "student_info", "payment_info"]);
+  const sectionSlots = new Set(["background", "issue", "observation", "action_taken", "current_status", "recommendation", "conclusion", "objective", "summary", "education", "skills", "experience"]);
+
+  if (normalizedSlot === "title" || formatHint === "heading") {
+    return { ...style, divider: true, documentHeader: true };
+  }
+
+  if (formatHint === "table" || normalizedSlot === "table" || normalizedSlot === "item_table") {
+    return { ...style, box: true, boxType: "tableBox", tableBorder: true };
+  }
+
+  if (formatHint === "total" || normalizedSlot === "total" || normalizedSlot === "amount") {
+    return { ...style, border: true, box: true, boxType: "totalBox" };
+  }
+
+  if (formatHint === "signature" || normalizedSlot === "signature") {
+    return { ...style, boxType: "signatureBox", sectionHeading: true, signatureLine: true };
+  }
+
+  if (formatHint === "form" || normalizedSlot === "declaration") {
+    return { ...style, border: true, box: true, boxType: "formBox", underline: style.underline };
+  }
+
+  if (infoSlots.has(normalizedSlot)) {
+    return { ...style, border: true, box: true, boxType: "infoBox" };
+  }
+
+  if (formatHint === "section" || formatHint === "summary" || sectionSlots.has(normalizedSlot)) {
+    return { ...style, divider: true, sectionHeading: true };
+  }
+
+  return style;
 }
 
 function fitContentToBlock(block: PaperBlock): PaperBlock {
@@ -2182,6 +2223,8 @@ function normalizeStyleHint(styleHint: unknown): DocumentBlockStyle {
     box: typeof record.box === "boolean" ? record.box : undefined,
     boxType: typeof record.boxType === "string" ? record.boxType : undefined,
     divider: typeof record.divider === "boolean" ? record.divider : undefined,
+    documentHeader: typeof record.documentHeader === "boolean" ? record.documentHeader : undefined,
+    sectionHeading: typeof record.sectionHeading === "boolean" ? record.sectionHeading : undefined,
     signatureLine: typeof record.signatureLine === "boolean" ? record.signatureLine : undefined,
     tableBorder: typeof record.tableBorder === "boolean" ? record.tableBorder : undefined,
     underline: typeof record.underline === "boolean" ? record.underline : undefined,
@@ -2200,19 +2243,57 @@ function getPreviewBlockFrameClass(block: PaperBlock) {
   const style = block.style;
   if (!style) return "bg-transparent p-0";
 
+  if (style.documentHeader) {
+    return "border-b border-black/35 bg-transparent px-0 pb-3";
+  }
+
   if (style.boxType === "totalBox") {
-    return "rounded-sm border border-black/50 bg-black/[0.03] p-3";
+    return "rounded-[3px] border border-black/55 bg-black/[0.04] px-4 py-3";
+  }
+
+  if (style.boxType === "infoBox" || style.boxType === "summaryBox") {
+    return "rounded-[3px] border border-black/25 bg-[#f7f7f2] px-4 py-3";
+  }
+
+  if (style.boxType === "signatureBox") {
+    return "rounded-[3px] border border-black/15 bg-transparent px-3 py-3";
+  }
+
+  if (style.boxType === "formBox") {
+    return "rounded-[3px] border border-black/30 bg-white px-4 py-3";
   }
 
   if (style.tableBorder) {
-    return "rounded-sm border border-black/45 bg-white p-3";
+    return "rounded-[3px] border border-black/45 bg-white px-4 py-3 shadow-[inset_0_1px_0_rgba(0,0,0,0.08)]";
   }
 
   if (style.box || style.border) {
-    return "rounded-sm border border-black/25 bg-black/[0.015] p-3";
+    return "rounded-[3px] border border-black/25 bg-black/[0.015] px-4 py-3";
   }
 
   return "bg-transparent p-0";
+}
+
+function getPreviewTextClass(block: PaperBlock) {
+  const classes = ["preview-editable", "h-full", "w-full", "cursor-text", "whitespace-pre-wrap", "text-black/85", "outline-none"];
+
+  if (block.style?.documentHeader || block.slot === "title") {
+    classes.push("tracking-[0.04em]", "first-line:font-bold");
+  }
+
+  if (block.style?.sectionHeading || block.style?.divider) {
+    classes.push("first-line:font-bold");
+  }
+
+  if (block.style?.tableBorder) {
+    classes.push("font-mono", "text-[0.94em]");
+  }
+
+  if (block.style?.boxType === "totalBox") {
+    classes.push("font-semibold");
+  }
+
+  return classes.join(" ");
 }
 
 function normalizeSlot(value: string) {
