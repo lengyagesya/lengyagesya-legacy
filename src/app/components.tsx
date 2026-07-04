@@ -182,22 +182,11 @@ const copy = {
     selectDocumentPlaceholder: "Pilih jenis dokumen",
     documentBrief: "Penerangan dokumen",
     documentBriefPlaceholder: "Contoh: Saya mahu buat surat rasmi memohon kebenaran mengadakan program di sekolah.",
-    layoutMode: "Mode layout",
-    useMyLayout: "Guna Layout Saya",
-    autoLayoutDocument: "Auto Layout Dokumen",
     itemTools: "Tools item",
     itemToolsBody: "Pilih atau drag item masuk ke dalam kertas.",
     itemTitle: "Nama item",
     itemContent: "Isi item",
     addToPaper: "Simpan ke kertas",
-    formatTools: "Format item",
-    boldText: "Tebal",
-    underlineText: "Garisan",
-    alignLeft: "Kiri",
-    alignCenter: "Tengah",
-    alignRight: "Kanan",
-    fontSize: "Saiz teks",
-    lineSpacing: "Jarak tulisan",
     quickItems: "Item pantas",
     itemShelf: "Item untuk kertas",
     itemShelfBody: "Klik Pilih atau slide/drag item ke atas kertas.",
@@ -264,22 +253,11 @@ const copy = {
     selectDocumentPlaceholder: "Select document type",
     documentBrief: "Document brief",
     documentBriefPlaceholder: "Example: I want to create a formal letter requesting permission to run a school programme.",
-    layoutMode: "Layout mode",
-    useMyLayout: "Use My Layout",
-    autoLayoutDocument: "Auto Document Layout",
     itemTools: "Item tools",
     itemToolsBody: "Choose or drag an item into the paper.",
     itemTitle: "Item name",
     itemContent: "Item content",
     addToPaper: "Save to paper",
-    formatTools: "Item format",
-    boldText: "Bold",
-    underlineText: "Line",
-    alignLeft: "Left",
-    alignCenter: "Center",
-    alignRight: "Right",
-    fontSize: "Text size",
-    lineSpacing: "Line spacing",
     quickItems: "Quick items",
     itemShelf: "Paper items",
     itemShelfBody: "Click Choose or slide/drag an item onto the paper.",
@@ -890,7 +868,7 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
   const [aiResult, setAiResult] = useState<DocumentBrainResult | null>(null);
   const [isSending, setIsSending] = useState(false);
   const [viewMode, setViewMode] = useState<"builder" | "preview">("builder");
-  const [layoutMode, setLayoutMode] = useState<LayoutMode>("auto");
+  const layoutMode: LayoutMode = "auto";
   const [alignmentGuide, setAlignmentGuide] = useState<AlignmentGuide>({});
   const blockIdCounter = useRef(0);
 
@@ -920,19 +898,6 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
           ? {
               ...page,
               blocks: page.blocks.map((block) => (block.id === blockId ? { ...block, content } : block)),
-            }
-          : page,
-      ),
-    );
-  }
-
-  function updateBlockFormat(pageId: string, blockId: string, patch: Partial<Pick<PaperBlock, "align" | "fontSize" | "fontWeight" | "lineHeight" | "underline">>) {
-    setPages((currentPages) =>
-      currentPages.map((page) =>
-        page.id === pageId
-          ? {
-              ...page,
-              blocks: page.blocks.map((block) => (block.id === blockId ? { ...block, ...patch } : block)),
             }
           : page,
       ),
@@ -1198,9 +1163,6 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
 
   const documentItems = docType ? templates[language][docType] : [];
   const baseItems = [...baseItemLibrary[language], ...assetItemLibrary[language]];
-  const selectedBlock = activeBlock
-    ? pages.find((page) => page.id === activeBlock.pageId)?.blocks.find((block) => block.id === activeBlock.blockId)
-    : null;
   const showPreview = () => setViewMode("preview");
   const renderItemButton = (item: string) => (
     <button
@@ -1243,26 +1205,6 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
               placeholder={t.documentBriefPlaceholder}
               value={documentBrief}
             />
-            <p className="mt-4 text-sm text-[#aeb6c6]">{t.layoutMode}</p>
-            <div className="mt-2 grid grid-cols-2 gap-2">
-              {([
-                ["user", t.useMyLayout],
-                ["auto", t.autoLayoutDocument],
-              ] as const).map(([mode, label]) => (
-                <button
-                  className={`rounded-xl border px-3 py-2 text-xs font-bold transition ${
-                    layoutMode === mode
-                      ? "border-white bg-white text-black"
-                      : "border-white/10 bg-white/[0.04] text-[#dce3f1] hover:border-[#9db4ff]/45"
-                  }`}
-                  key={mode}
-                  onClick={() => setLayoutMode(mode)}
-                  type="button"
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
             <button
               className="button-secondary mt-4 w-full disabled:cursor-not-allowed disabled:opacity-55"
               disabled={isSending}
@@ -1492,69 +1434,6 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
               <div className="mt-3 flex max-h-72 flex-col gap-2 overflow-auto pr-1">
                 {baseItems.map(renderItemButton)}
               </div>
-              {selectedBlock && activeBlock ? (
-                <div className="mt-6 border-t border-white/10 pt-5">
-                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#9db4ff]">{t.formatTools}</p>
-                  <p className="mt-2 truncate text-sm font-semibold text-white">{selectedBlock.title}</p>
-                  <div className="mt-3 grid grid-cols-2 gap-2">
-                    <button
-                      className={`rounded-xl border px-3 py-2 text-sm font-semibold transition ${
-                        selectedBlock.fontWeight === "bold" ? "border-white bg-white text-black" : "border-white/10 bg-white/[0.04] text-[#dce3f1]"
-                      }`}
-                      onClick={() =>
-                        updateBlockFormat(activeBlock.pageId, activeBlock.blockId, {
-                          fontWeight: selectedBlock.fontWeight === "bold" ? "normal" : "bold",
-                        })
-                      }
-                      type="button"
-                    >
-                      {t.boldText}
-                    </button>
-                    <button
-                      className={`rounded-xl border px-3 py-2 text-sm font-semibold transition ${
-                        selectedBlock.underline ? "border-white bg-white text-black" : "border-white/10 bg-white/[0.04] text-[#dce3f1]"
-                      }`}
-                      onClick={() => updateBlockFormat(activeBlock.pageId, activeBlock.blockId, { underline: !selectedBlock.underline })}
-                      type="button"
-                    >
-                      {t.underlineText}
-                    </button>
-                  </div>
-                  <div className="mt-3 grid grid-cols-3 gap-2">
-                    {(["left", "center", "right"] as const).map((align) => (
-                      <button
-                        className={`rounded-xl border px-2 py-2 text-xs font-bold transition ${
-                          selectedBlock.align === align ? "border-white bg-white text-black" : "border-white/10 bg-white/[0.04] text-[#dce3f1]"
-                        }`}
-                        key={align}
-                        onClick={() => updateBlockFormat(activeBlock.pageId, activeBlock.blockId, { align })}
-                        type="button"
-                      >
-                        {align === "left" ? t.alignLeft : align === "center" ? t.alignCenter : t.alignRight}
-                      </button>
-                    ))}
-                  </div>
-                  <label className="mt-4 block text-sm text-[#aeb6c6]">{t.fontSize}</label>
-                  <input
-                    className="mt-2 w-full accent-[#9db4ff]"
-                    max={22}
-                    min={10}
-                    onChange={(event) => updateBlockFormat(activeBlock.pageId, activeBlock.blockId, { fontSize: Number(event.target.value) })}
-                    type="range"
-                    value={selectedBlock.fontSize}
-                  />
-                  <label className="mt-4 block text-sm text-[#aeb6c6]">{t.lineSpacing}</label>
-                  <input
-                    className="mt-2 w-full accent-[#9db4ff]"
-                    max={2.2}
-                    min={1}
-                    onChange={(event) => updateBlockFormat(activeBlock.pageId, activeBlock.blockId, { lineHeight: Number(event.target.value) })}
-                    step={0.05}
-                    type="range"
-                    value={selectedBlock.lineHeight}
-                  />
-                </div>
-              ) : null}
               <div className="mt-6 border-t border-white/10 pt-5">
                 <label className="block text-sm text-[#aeb6c6]">{t.itemTitle}</label>
                 <input
