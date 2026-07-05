@@ -22,7 +22,13 @@ type DocumentBrainSection = {
   type?: string;
 };
 
+type BlockContentUpdate = {
+  blockId: string;
+  content: string;
+};
+
 type DocumentBrainResponse = {
+  blockUpdates?: BlockContentUpdate[];
   confidence: number;
   documentFamily?: DocumentFamily;
   documentType: string;
@@ -38,44 +44,16 @@ type DocumentBrainResponse = {
   title: string;
 };
 
-const requiredShape: DocumentBrainResponse = {
-  confidence: 0,
-  documentFamily: "LETTER_DOCUMENT",
-  documentType: "",
-  missingFields: [],
-  plan: {
-    documentGoal: "",
-    layoutStrategy: "",
-    sectionOrder: [],
-    writingStyle: "",
-  },
-  sections: [
-    {
-      content: "",
-      formatHint: "",
-      slot: "",
-      styleHint: {
-        border: false,
-        box: false,
-        boxType: "",
-        divider: false,
-        documentHeader: false,
-        sectionHeading: false,
-        signatureLine: false,
-        tableBorder: false,
-        underline: false,
-      },
-      targetBlockId: "",
-    },
-  ],
-  styleMode: "malaysia_formal",
-  title: "",
-};
-
 type LayoutBlock = {
   content?: string;
+  editable?: boolean;
   height?: number;
   id?: string;
+  label?: string;
+  required?: boolean;
+  role?: string;
+  showInEditMode?: boolean;
+  showInFinalMode?: boolean;
   slot?: string;
   title?: string;
   width?: number;
@@ -122,35 +100,33 @@ export async function POST(request: Request) {
           {
             content: [
               "You are a universal AI document engine for Malaysian users.",
+              "Current mode: Block-First Document Filling System.",
               "",
               "Your job is to generate complete, professional, print-ready documents based on:",
-              "- document type",
               "- user instruction",
               "- provided user data",
-              "- available layout slots",
-              "- uploaded template/image if available",
+              "- available editable blocks",
+              "- each block label and role",
               "",
               "Rules:",
               "1. Output valid JSON only.",
               "2. Do not chat casually.",
               "3. Do not explain your answer.",
-              "4. Generate a complete document, not an empty template.",
+              "4. Fill the user's existing blocks. Do not create visual layout.",
               "5. Use Malay by default unless the user asks another language.",
               "6. Preserve user-provided names, dates, places, numbers, and facts exactly.",
               "7. Do not invent sensitive personal details, IDs, addresses, amounts, or legal facts.",
               "8. Use minimal placeholders only when important information is missing.",
               "9. Do not overuse placeholders.",
-              "10. Match every content section to the most suitable layout slot.",
-              "11. If Auto Layout is selected, choose a professional layout based on documentType.",
-              "12. If User Layout is selected, do not change the user's layout; fill available slots.",
-              "12a. If Smart Compose is selected, generate a complete new document while using the user's slot order, position, labels, and rough structure as the main guide.",
-              "13. Treat layout slots as anchors.",
-              "14. Adapt writing style, structure, and styling based on documentType.",
-              "15. Use document styling such as divider, table, border, box, underline, and signature line only when appropriate.",
-              "15a. Use documentHeader for the main title/header block. Use sectionHeading for blocks that start with a section title.",
-              "16. For formal letters, avoid excessive boxes and use signature line only where needed.",
-              "17. For invoices, quotations, payslips, forms, schedules, and statements, use tables, boxes, totals, and clear lines.",
-              "18. For reports and minutes, use section headings, dividers, and one-column structure by default.",
+              "10. Return one blockUpdates item for every editable text block that should be filled.",
+              "11. Use blockId exactly as provided. Never invent blockId.",
+              "12. Do not change layout, block order, block size or block position.",
+              "13. Use the block role as the main instruction. The label helps clarify meaning.",
+              "14. If a block is image or logo, do not fill it with text unless user explicitly asks.",
+              "15. If editable is false or showInFinalMode is false, avoid updating it.",
+              "16. For table role, use clean text table rows separated by new lines and columns with |.",
+              "17. For signature roles, use appropriate signature placeholders and spacing.",
+              "18. For amount_summary, keep numbers factual and use placeholders if amounts are missing.",
               "19. Return missingFields for important missing data, but still generate a usable draft.",
               "20. Do not output builder instructions such as 'Klik untuk edit' or 'Masukkan'.",
               "21. Write like a skilled Malaysian office/admin worker, teacher, clerk, HR assistant, or business operator would write.",
@@ -161,32 +137,20 @@ export async function POST(request: Request) {
               "26. Do not over-polish with excessive formal connectors. Use natural Malaysian formal writing.",
               "27. Do not repeat the same idea in multiple sections.",
               "28. Each section must add useful content, not generic explanation.",
-              "29. Before writing sections, internally plan the document goal, section order, layout strategy and suitable target block for each section.",
-              "30. Return that plan in the JSON 'plan' field. The plan must be short and useful for layout mapping.",
-              "31. If a current A4 block is a strong match, include targetBlockId in the section using that block id.",
-              "32. Use targetBlockId only when the content genuinely belongs in that block.",
-              "33. Keep each section length suitable for the target block size. Small blocks need concise content; large body blocks can use fuller paragraphs.",
-              "34. If content is too long for one likely block, split it into multiple logical sections with clear slots.",
-              "35. Make the output look like a real printed document, not plain text. Use documentHeader for title, sectionHeading for sections, infoBox/summaryBox for key metadata, signatureLine for signatures, tableBorder for tables and totalBox for totals.",
-              "36. Treat the output as a final office draft. It must be usable immediately after light editing, not merely a skeleton.",
-              "37. Every section must contain context-aware content. Avoid empty administrative phrases that do not add facts, actions or decisions.",
-              "38. If the user asks for a document with limited details, write a concise high-quality version using only safe general terms.",
-              "39. If a section needs missing information, include one clean placeholder inside the sentence instead of making the whole section placeholder-heavy.",
-              "40. Use varied sentence openings across sections so the document sounds human and professionally edited.",
-              "41. Before returning JSON, do an internal editor pass for grammar, punctuation, capitalization, section order, duplication and document realism.",
-              "42. For Malay documents, use natural Malaysian formal wording. Avoid direct English-style translations.",
+              "29. Keep content length suitable for each block width and height.",
+              "30. Small blocks need concise content; large content blocks can contain fuller paragraphs.",
+              "31. Treat the output as a final office draft. It must be usable immediately after light editing, not merely a skeleton.",
+              "32. Every updated block must contain context-aware content. Avoid empty administrative phrases that do not add facts, actions or decisions.",
+              "33. If the user asks for a document with limited details, write a concise high-quality version using only safe general terms.",
+              "34. If a block needs missing information, include one clean placeholder inside the sentence instead of making the whole block placeholder-heavy.",
+              "35. Use varied sentence openings across blocks so the document sounds human and professionally edited.",
+              "36. Before returning JSON, do an internal editor pass for grammar, punctuation, capitalization, duplication and document realism.",
+              "37. For Malay documents, use natural Malaysian formal wording. Avoid direct English-style translations.",
               "",
-              "Universal slots include: title, subtitle, date, reference, recipient, sender, salutation, body, paragraph, closing, signature, name, address, phone, email, table, list, amount, total, description, remarks, footer, header, logo, section, case_info, background, issue, observation, action_taken, current_status, recommendation, conclusion, meeting_info, attendees, agenda, discussion, decision, follow_up, employee_info, employer_info, customer_info, item_table, payment_info, custom.",
-              "If a custom slot label is provided, infer its purpose from the label and contentHint.",
+              "Supported block roles: date, reference, sender, recipient, document_title, subtitle, main_content, section, paragraph, list, table, amount_summary, closing, signature, witness_signature, footer, checkbox, image, logo.",
+              "If a custom label is provided, infer its purpose from label and existing content.",
               "",
-              "Document family system:",
-              "- LETTER_DOCUMENT: surat rasmi, surat rayuan, surat permohonan, surat tidak hadir, surat akuan, surat sokongan.",
-              "- REPORT_DOCUMENT: laporan aktiviti, laporan kes, laporan program, laporan kerja, laporan harian, laporan lawatan, RPA, RPH, RPI.",
-              "- FINANCIAL_DOCUMENT: slip gaji, invoice, resit, sebut harga, penyata bayaran, tuntutan bayaran.",
-              "- MEETING_DOCUMENT: minit mesyuarat, agenda mesyuarat, senarai kehadiran, tindakan susulan.",
-              "- AGREEMENT_DOCUMENT: surat perjanjian ringkas, perjanjian sewa, perjanjian kerja, akuan terima, surat persetujuan.",
-              "- FORM_DOCUMENT: borang ringkas, borang maklumat diri, checklist, rekod harian.",
-              "Always return the correct documentFamily. Do not make every document look like a letter.",
+              "You may infer documentType only as a short summary for metadata, but it is not required for layout.",
               "",
               "Placeholder policy:",
               "- Placeholder only for important data the user did not provide.",
@@ -239,17 +203,16 @@ export async function POST(request: Request) {
             content: [
               `Language: ${language}`,
               "Return exactly this JSON shape:",
-              JSON.stringify(requiredShape),
+              JSON.stringify({
+                blockUpdates: [{ blockId: "", content: "" }],
+                confidence: 0,
+                documentType: "",
+                missingFields: [],
+                title: "",
+              }),
               "- confidence must be a number from 0 to 1.",
-              "- documentFamily must be one of LETTER_DOCUMENT, REPORT_DOCUMENT, FINANCIAL_DOCUMENT, MEETING_DOCUMENT, AGREEMENT_DOCUMENT, FORM_DOCUMENT.",
-              "- styleMode must be simple, malaysia_formal, or premium.",
-              "- plan must summarize documentGoal, sectionOrder, layoutStrategy and writingStyle.",
-              "- sections must contain slot, content, formatHint, styleHint and targetBlockId when useful.",
-              "- Use the provided current A4 layout slots when possible.",
-              "- If a layout slot exists, return content for that exact slot.",
-              body.layoutMode === "smart"
-                ? "- Smart Compose is active. Create a complete document from the user's instruction, but follow the user's A4 item order, positions, labels, sizes and structure. Fill existing slots first. Add extra sections only when they are genuinely needed for a professional document."
-                : "- Do not create a new visual layout. Fill the user's existing layout slots.",
+              "- blockUpdates is required and must contain only blockId and content.",
+              "- Use the provided current A4 blocks. Fill by role and label.",
               "- missingFields must list only important missing details.",
               "- content must be ready to print in an A4 preview.",
               "- content must sound human, specific, and professionally edited.",
@@ -258,13 +221,8 @@ export async function POST(request: Request) {
               "- Prefer concrete office-style wording: what happened, what is requested, what action was taken, what is recommended.",
               "- Do not produce vague filler just to make the document longer.",
               "- If the user gives little information, generate a clean short draft instead of adding long assumptions.",
-              `Layout mode: ${body.layoutMode === "auto" ? "Auto Layout Dokumen" : body.layoutMode === "smart" ? "Smart Compose" : "Guna Layout Saya"}`,
-              body.layoutMode === "auto"
-                ? "- Auto Layout Dokumen is active. Return professional document-specific slots and styleHint. Ignore unsuitable letter-style slots when the document is not a letter."
-                : body.layoutMode === "smart"
-                  ? "- Smart Compose is active. Produce a polished full document. Respect the user's visible item sequence and use slot names as anchors, but you may return extra useful sections after matching the existing slots."
-                  : "- Guna Layout Saya is active. Respect the user's existing slot positions.",
-              `Current A4 layout slots: ${JSON.stringify(layoutSlots)}`,
+              "Block-first mode is active. Do not return HTML. Do not return layout instructions. Do not create sections that do not map to blockId.",
+              `Current A4 blocks: ${JSON.stringify(layoutSlots)}`,
               `User request: ${prompt}`,
             ].join("\n"),
             role: "user",
@@ -302,6 +260,10 @@ export async function POST(request: Request) {
       return Response.json({ error: "AI response bukan JSON yang sah. Sila cuba semula." }, { status: 502 });
     }
 
+    if (isBlockFirstResponse(parsed)) {
+      return Response.json(normalizeBlockFirstResponse(parsed, prompt));
+    }
+
     if (!isDocumentBrainResponse(parsed)) {
       return Response.json({ error: "AI JSON tidak mengikut struktur yang diperlukan." }, { status: 502 });
     }
@@ -313,6 +275,41 @@ export async function POST(request: Request) {
       { status: 500 },
     );
   }
+}
+
+function normalizeBlockFirstResponse(response: {
+  blockUpdates: BlockContentUpdate[];
+  confidence: number;
+  documentType?: string;
+  missingFields?: string[];
+  title?: string;
+}, prompt: string): DocumentBrainResponse {
+  const title = polishDocumentText(response.title || response.documentType || "Dokumen");
+  return {
+    blockUpdates: response.blockUpdates.map((update) => ({
+      blockId: update.blockId,
+      content: polishDocumentText(update.content),
+    })),
+    confidence: response.confidence,
+    documentFamily: detectDocumentFamily(`${response.documentType || ""} ${title} ${prompt}`),
+    documentType: response.documentType || "block_first",
+    missingFields: response.missingFields || [],
+    plan: {
+      documentGoal: "Isi kandungan berdasarkan blok yang disusun oleh pengguna.",
+      layoutStrategy: "Kekalkan layout pengguna dan hanya kemas kandungan dalam block.",
+      sectionOrder: response.blockUpdates.map((update) => update.blockId),
+      writingStyle: "Bahasa dokumen profesional Malaysia.",
+    },
+    sections: response.blockUpdates.map((update) => ({
+      content: polishDocumentText(update.content),
+      formatHint: "paragraph",
+      slot: "block",
+      targetBlockId: update.blockId,
+      type: "block_update",
+    })),
+    styleMode: "malaysia_formal",
+    title,
+  };
 }
 
 function polishDocumentBrainResponse(response: DocumentBrainResponse): DocumentBrainResponse {
@@ -374,6 +371,33 @@ function isDocumentBrainResponse(value: unknown): value is DocumentBrainResponse
   );
 }
 
+function isBlockFirstResponse(value: unknown): value is {
+  blockUpdates: BlockContentUpdate[];
+  confidence: number;
+  documentType?: string;
+  missingFields?: string[];
+  title?: string;
+} {
+  if (!value || typeof value !== "object") return false;
+  const record = value as Record<string, unknown>;
+
+  return (
+    Array.isArray(record.blockUpdates) &&
+    record.blockUpdates.every(
+      (update) =>
+        update &&
+        typeof update === "object" &&
+        typeof (update as Record<string, unknown>).blockId === "string" &&
+        typeof (update as Record<string, unknown>).content === "string",
+    ) &&
+    typeof record.confidence === "number" &&
+    (typeof record.documentType === "undefined" || typeof record.documentType === "string") &&
+    (typeof record.title === "undefined" || typeof record.title === "string") &&
+    (typeof record.missingFields === "undefined" ||
+      (Array.isArray(record.missingFields) && record.missingFields.every((field) => typeof field === "string")))
+  );
+}
+
 function isDocumentFamily(value: unknown): value is DocumentFamily {
   return (
     value === "AGREEMENT_DOCUMENT" ||
@@ -410,8 +434,14 @@ function extractLayoutSlots(layout: unknown) {
 
     return pageRecord.blocks.map((block) => ({
       contentHint: block.content || "",
+      editable: block.editable !== false,
       height: typeof block.height === "number" ? block.height : undefined,
       id: block.id || "",
+      label: block.label || block.title || block.slot || "",
+      required: Boolean(block.required),
+      role: block.role || "",
+      showInEditMode: block.showInEditMode !== false,
+      showInFinalMode: block.showInFinalMode !== false,
       slot: block.slot || block.title || "",
       title: block.title || block.slot || "",
       width: typeof block.width === "number" ? block.width : undefined,

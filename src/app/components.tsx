@@ -28,14 +28,40 @@ type DocumentBlockStyle = {
   tableBorder?: boolean;
   underline?: boolean;
 };
+type BlockRole =
+  | "amount_summary"
+  | "checkbox"
+  | "closing"
+  | "date"
+  | "document_title"
+  | "footer"
+  | "image"
+  | "list"
+  | "logo"
+  | "main_content"
+  | "paragraph"
+  | "recipient"
+  | "reference"
+  | "section"
+  | "sender"
+  | "signature"
+  | "subtitle"
+  | "table"
+  | "witness_signature";
 type PaperBlock = {
   align: "center" | "left" | "right";
   content: string;
+  editable: boolean;
   fontSize: number;
   fontWeight: "bold" | "normal";
   height: number;
   id: string;
+  label: string;
   lineHeight: number;
+  required: boolean;
+  role: BlockRole;
+  showInEditMode: boolean;
+  showInFinalMode: boolean;
   slot: string;
   style?: DocumentBlockStyle;
   title: string;
@@ -74,6 +100,10 @@ type DocumentBrainSection = {
   targetBlockId?: string;
   type?: string;
 };
+type BlockContentUpdate = {
+  blockId: string;
+  content: string;
+};
 type SmartDocumentSection = DocumentBrainSection & {
   index: number;
   slot: string;
@@ -91,6 +121,7 @@ type DocumentBrainResult = {
   missingFields: string[];
   layout?: string;
   paperSize?: "A4";
+  blockUpdates?: BlockContentUpdate[];
   sections: DocumentBrainSection[];
   styleMode?: StyleMode;
   title: string;
@@ -1049,8 +1080,14 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
           layout: pages.map((page) => ({
             blocks: page.blocks.map((block) => ({
               content: block.content,
+              editable: block.editable,
               height: block.height,
               id: block.id,
+              label: block.label || block.title,
+              required: block.required,
+              role: block.role || inferBlockRole(block.slot || block.title),
+              showInEditMode: block.showInEditMode,
+              showInFinalMode: block.showInFinalMode,
               slot: block.slot,
               title: block.title,
               width: block.width,
@@ -1079,7 +1116,9 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
 
       setAiResult(data);
       const nextPages =
-        layoutMode === "auto"
+        data.blockUpdates && data.blockUpdates.length > 0
+          ? applyBlockUpdatesToPages(pages, data.blockUpdates)
+          : layoutMode === "auto"
           ? createAutoLayoutPages(data, language, styleMode)
           : layoutMode === "smart"
             ? applySmartAiResultToPages(pages, data, language)
@@ -1128,7 +1167,7 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
   function downloadPdf() {
     const filename = sanitizeFileName(aiResult?.title || documentTypeLabelForPdf(docType, language));
     const printablePages = pages.map((page, index) => ({
-        blocks: page.blocks.map((block) => ({
+        blocks: page.blocks.filter((block) => block.showInFinalMode !== false).map((block) => ({
           align: block.align,
           content: isInstructionPlaceholder(block.content) ? "" : block.content,
           fontSize: block.fontSize,
@@ -1168,6 +1207,7 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
             {
               ...blockFormat,
               content: cleanContent,
+              ...createBlockMetadata(cleanTitle, inferSlot(cleanTitle)),
               height: isAssetItem(cleanTitle, language) ? 92 : 132,
               id: `${blockId}-${page.blocks.length}`,
               slot: inferSlot(cleanTitle),
@@ -1440,7 +1480,7 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
                   <div className="pointer-events-none absolute bottom-[18px] right-[48px] text-[9px] tracking-[0.24em] text-black/25">
                     lY Docs
                   </div>
-                  {page.blocks.map((block) => (
+                  {page.blocks.filter((block) => block.showInFinalMode !== false).map((block) => (
                     <div
                       className={`absolute overflow-visible ${getPreviewBlockFrameClass(block)}`}
                       key={block.id}
@@ -1487,7 +1527,7 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
                 />
               ) : null}
               <div className="absolute inset-0 z-10">
-                {page.blocks.map((block) => (
+                {page.blocks.filter((block) => block.showInEditMode !== false).map((block) => (
                   <motion.div
                     className={`group absolute cursor-grab resize overflow-hidden rounded-xl border bg-white/95 p-4 shadow-sm transition active:cursor-grabbing ${
                       activeBlock?.blockId === block.id && activeBlock.pageId === page.id
@@ -1622,6 +1662,15 @@ function isDocumentBrainResult(value: unknown): value is DocumentBrainResult {
     typeof record.documentType === "string" &&
     (typeof record.layout === "undefined" || typeof record.layout === "string") &&
     (typeof record.paperSize === "undefined" || record.paperSize === "A4") &&
+    (typeof record.blockUpdates === "undefined" ||
+      (Array.isArray(record.blockUpdates) &&
+        record.blockUpdates.every(
+          (update) =>
+            update &&
+            typeof update === "object" &&
+            typeof (update as Record<string, unknown>).blockId === "string" &&
+            typeof (update as Record<string, unknown>).content === "string",
+        ))) &&
     (typeof record.plan === "undefined" || isDocumentPlan(record.plan)) &&
     typeof record.title === "string" &&
     Array.isArray(record.sections) &&
@@ -1752,6 +1801,23 @@ function applySmartAiResultToPages(pages: PaperPage[], result: DocumentBrainResu
   });
 
   return nextPages;
+}
+
+function applyBlockUpdatesToPages(pages: PaperPage[], updates: BlockContentUpdate[]) {
+  const updateMap = new Map(updates.map((update) => [update.blockId, update.content]));
+
+  return pages.map((page) => ({
+    ...page,
+    blocks: page.blocks.map((block) => {
+      const nextContent = updateMap.get(block.id);
+      return typeof nextContent === "string"
+        ? fitContentToBlock({
+            ...block,
+            content: nextContent,
+          })
+        : block;
+    }),
+  }));
 }
 
 function findBestSectionForBlock(
@@ -2028,10 +2094,19 @@ function createAutoLayoutPages(result: DocumentBrainResult, language: Language, 
 
 type AutoLayoutKind = "form" | "generic" | "invoice" | "letter" | "minutes" | "payroll" | "report" | "resume";
 
-function createAutoBlock(block: Omit<PaperBlock, "align" | "underline"> & { align?: PaperBlock["align"]; underline?: boolean }): PaperBlock {
+function createAutoBlock(
+  block: Omit<PaperBlock, "align" | "editable" | "label" | "required" | "role" | "showInEditMode" | "showInFinalMode" | "underline"> & {
+    align?: PaperBlock["align"];
+    label?: string;
+    underline?: boolean;
+  },
+): PaperBlock {
+  const slot = block.slot || inferSlot(block.title);
   return {
     ...block,
     align: block.align ?? "left",
+    ...createBlockMetadata(block.label || block.title, slot),
+    slot,
     underline: block.underline ?? Boolean(block.style?.underline || block.style?.signatureLine),
   };
 }
@@ -2395,6 +2470,7 @@ function createAiPaperPage(result: DocumentBrainResult, language: Language): Pap
   const titleBlock: PaperBlock = {
     ...getDefaultBlockFormat(language === "ms" ? "Tajuk" : "Title"),
     content: result.title,
+    ...createBlockMetadata(language === "ms" ? "Tajuk" : "Title", "title"),
     height: 90,
     id: "ai-title",
     slot: "title",
@@ -2410,6 +2486,7 @@ function createAiPaperPage(result: DocumentBrainResult, language: Language): Pap
     return {
       ...getDefaultBlockFormat(sectionTitle),
       content: section.content,
+      ...createBlockMetadata(sectionTitle, normalizeSlot(section.slot || section.type || "content")),
       height: isWide ? 150 : 132,
       id: `ai-section-${index}`,
       slot: normalizeSlot(section.slot || section.type || "content"),
@@ -2430,6 +2507,51 @@ function createAiPaperPage(result: DocumentBrainResult, language: Language): Pap
 
 function inferSlot(title: string) {
   return normalizeSlot(title);
+}
+
+function createBlockMetadata(label: string, slot = inferSlot(label)): Pick<
+  PaperBlock,
+  "editable" | "label" | "required" | "role" | "showInEditMode" | "showInFinalMode"
+> {
+  const role = inferBlockRole(`${slot} ${label}`);
+  return {
+    editable: role !== "image" && role !== "logo",
+    label,
+    required: ["date", "document_title", "main_content", "recipient", "signature"].includes(role),
+    role,
+    showInEditMode: true,
+    showInFinalMode: true,
+  };
+}
+
+function inferBlockRole(value: string): BlockRole {
+  const normalized = value.toLowerCase();
+
+  if (matchesBlockRole(normalized, ["tarikh", "date"])) return "date";
+  if (matchesBlockRole(normalized, ["rujukan", "reference", "ref"])) return "reference";
+  if (matchesBlockRole(normalized, ["pengirim", "sender", "daripada"])) return "sender";
+  if (matchesBlockRole(normalized, ["penerima", "recipient", "kepada"])) return "recipient";
+  if (matchesBlockRole(normalized, ["tajuk", "title", "perkara"])) return "document_title";
+  if (matchesBlockRole(normalized, ["subtajuk", "subtitle"])) return "subtitle";
+  if (matchesBlockRole(normalized, ["isi", "content", "body", "butiran", "main"])) return "main_content";
+  if (matchesBlockRole(normalized, ["seksyen", "section", "maklumat", "objektif", "catatan", "rumusan", "cadangan"])) return "section";
+  if (matchesBlockRole(normalized, ["perenggan", "paragraph"])) return "paragraph";
+  if (matchesBlockRole(normalized, ["senarai", "bullet", "list"])) return "list";
+  if (matchesBlockRole(normalized, ["jadual", "table", "item", "kuantiti"])) return "table";
+  if (matchesBlockRole(normalized, ["jumlah", "amount", "total", "bayaran", "harga"])) return "amount_summary";
+  if (matchesBlockRole(normalized, ["penutup", "closing"])) return "closing";
+  if (matchesBlockRole(normalized, ["saksi", "witness"])) return "witness_signature";
+  if (matchesBlockRole(normalized, ["tandatangan", "signature", "disemak", "pengesahan"])) return "signature";
+  if (matchesBlockRole(normalized, ["footer", "kaki"])) return "footer";
+  if (matchesBlockRole(normalized, ["checkbox", "semak"])) return "checkbox";
+  if (matchesBlockRole(normalized, ["logo"])) return "logo";
+  if (matchesBlockRole(normalized, ["gambar", "image", "cop", "stamp"])) return "image";
+
+  return "paragraph";
+}
+
+function matchesBlockRole(value: string, keywords: string[]) {
+  return keywords.some((keyword) => value.includes(keyword));
 }
 
 function getDefaultBlockFormat(title: string): Pick<PaperBlock, "align" | "fontSize" | "fontWeight" | "lineHeight" | "underline"> {
@@ -2873,6 +2995,7 @@ function buildBlocks(type: DocumentTypeId, language: Language) {
     return {
       ...getDefaultBlockFormat(title),
       content: defaultContent(title, language),
+      ...createBlockMetadata(title, inferSlot(title)),
       height: layout.height,
       id: `${type}-${title}-${index}`,
       slot: inferSlot(title),
