@@ -1,4 +1,5 @@
 import { buildDocumentBrainReference } from "@/app/document-brain/references";
+import { detectDocumentFamily, type DocumentFamily, type StyleMode } from "@/app/document-brain/families";
 
 export const runtime = "nodejs";
 
@@ -23,6 +24,7 @@ type DocumentBrainSection = {
 
 type DocumentBrainResponse = {
   confidence: number;
+  documentFamily?: DocumentFamily;
   documentType: string;
   plan?: {
     documentGoal?: string;
@@ -31,12 +33,14 @@ type DocumentBrainResponse = {
     writingStyle?: string;
   };
   missingFields: string[];
+  styleMode?: StyleMode;
   sections: DocumentBrainSection[];
   title: string;
 };
 
 const requiredShape: DocumentBrainResponse = {
   confidence: 0,
+  documentFamily: "LETTER_DOCUMENT",
   documentType: "",
   missingFields: [],
   plan: {
@@ -64,6 +68,7 @@ const requiredShape: DocumentBrainResponse = {
       targetBlockId: "",
     },
   ],
+  styleMode: "malaysia_formal",
   title: "",
 };
 
@@ -163,9 +168,25 @@ export async function POST(request: Request) {
               "33. Keep each section length suitable for the target block size. Small blocks need concise content; large body blocks can use fuller paragraphs.",
               "34. If content is too long for one likely block, split it into multiple logical sections with clear slots.",
               "35. Make the output look like a real printed document, not plain text. Use documentHeader for title, sectionHeading for sections, infoBox/summaryBox for key metadata, signatureLine for signatures, tableBorder for tables and totalBox for totals.",
+              "36. Treat the output as a final office draft. It must be usable immediately after light editing, not merely a skeleton.",
+              "37. Every section must contain context-aware content. Avoid empty administrative phrases that do not add facts, actions or decisions.",
+              "38. If the user asks for a document with limited details, write a concise high-quality version using only safe general terms.",
+              "39. If a section needs missing information, include one clean placeholder inside the sentence instead of making the whole section placeholder-heavy.",
+              "40. Use varied sentence openings across sections so the document sounds human and professionally edited.",
+              "41. Before returning JSON, do an internal editor pass for grammar, punctuation, capitalization, section order, duplication and document realism.",
+              "42. For Malay documents, use natural Malaysian formal wording. Avoid direct English-style translations.",
               "",
               "Universal slots include: title, subtitle, date, reference, recipient, sender, salutation, body, paragraph, closing, signature, name, address, phone, email, table, list, amount, total, description, remarks, footer, header, logo, section, case_info, background, issue, observation, action_taken, current_status, recommendation, conclusion, meeting_info, attendees, agenda, discussion, decision, follow_up, employee_info, employer_info, customer_info, item_table, payment_info, custom.",
               "If a custom slot label is provided, infer its purpose from the label and contentHint.",
+              "",
+              "Document family system:",
+              "- LETTER_DOCUMENT: surat rasmi, surat rayuan, surat permohonan, surat tidak hadir, surat akuan, surat sokongan.",
+              "- REPORT_DOCUMENT: laporan aktiviti, laporan kes, laporan program, laporan kerja, laporan harian, laporan lawatan, RPA, RPH, RPI.",
+              "- FINANCIAL_DOCUMENT: slip gaji, invoice, resit, sebut harga, penyata bayaran, tuntutan bayaran.",
+              "- MEETING_DOCUMENT: minit mesyuarat, agenda mesyuarat, senarai kehadiran, tindakan susulan.",
+              "- AGREEMENT_DOCUMENT: surat perjanjian ringkas, perjanjian sewa, perjanjian kerja, akuan terima, surat persetujuan.",
+              "- FORM_DOCUMENT: borang ringkas, borang maklumat diri, checklist, rekod harian.",
+              "Always return the correct documentFamily. Do not make every document look like a letter.",
               "",
               "Placeholder policy:",
               "- Placeholder only for important data the user did not provide.",
@@ -220,6 +241,8 @@ export async function POST(request: Request) {
               "Return exactly this JSON shape:",
               JSON.stringify(requiredShape),
               "- confidence must be a number from 0 to 1.",
+              "- documentFamily must be one of LETTER_DOCUMENT, REPORT_DOCUMENT, FINANCIAL_DOCUMENT, MEETING_DOCUMENT, AGREEMENT_DOCUMENT, FORM_DOCUMENT.",
+              "- styleMode must be simple, malaysia_formal, or premium.",
               "- plan must summarize documentGoal, sectionOrder, layoutStrategy and writingStyle.",
               "- sections must contain slot, content, formatHint, styleHint and targetBlockId when useful.",
               "- Use the provided current A4 layout slots when possible.",
@@ -231,6 +254,9 @@ export async function POST(request: Request) {
               "- content must be ready to print in an A4 preview.",
               "- content must sound human, specific, and professionally edited.",
               "- Avoid AI-like filler, repeated openings, repeated conclusions, and generic corporate language.",
+              "- Each content section must be strong enough to stand alone in a printed document.",
+              "- Prefer concrete office-style wording: what happened, what is requested, what action was taken, what is recommended.",
+              "- Do not produce vague filler just to make the document longer.",
               "- If the user gives little information, generate a clean short draft instead of adding long assumptions.",
               `Layout mode: ${body.layoutMode === "auto" ? "Auto Layout Dokumen" : body.layoutMode === "smart" ? "Smart Compose" : "Guna Layout Saya"}`,
               body.layoutMode === "auto"
@@ -290,12 +316,15 @@ export async function POST(request: Request) {
 }
 
 function polishDocumentBrainResponse(response: DocumentBrainResponse): DocumentBrainResponse {
+  const family = response.documentFamily || detectDocumentFamily(`${response.documentType} ${response.title}`);
   return {
     ...response,
+    documentFamily: family,
     sections: response.sections.map((section) => ({
       ...section,
       content: polishDocumentText(section.content),
     })),
+    styleMode: response.styleMode || "malaysia_formal",
     title: polishDocumentText(response.title),
   };
 }
@@ -318,6 +347,7 @@ function isDocumentBrainResponse(value: unknown): value is DocumentBrainResponse
 
   return (
     typeof record.documentType === "string" &&
+    (typeof record.documentFamily === "undefined" || isDocumentFamily(record.documentFamily)) &&
     (typeof record.plan === "undefined" || isDocumentPlan(record.plan)) &&
     typeof record.title === "string" &&
     Array.isArray(record.sections) &&
@@ -339,8 +369,24 @@ function isDocumentBrainResponse(value: unknown): value is DocumentBrainResponse
     ) &&
     Array.isArray(record.missingFields) &&
     record.missingFields.every((field) => typeof field === "string") &&
+    (typeof record.styleMode === "undefined" || isStyleMode(record.styleMode)) &&
     typeof record.confidence === "number"
   );
+}
+
+function isDocumentFamily(value: unknown): value is DocumentFamily {
+  return (
+    value === "AGREEMENT_DOCUMENT" ||
+    value === "FINANCIAL_DOCUMENT" ||
+    value === "FORM_DOCUMENT" ||
+    value === "LETTER_DOCUMENT" ||
+    value === "MEETING_DOCUMENT" ||
+    value === "REPORT_DOCUMENT"
+  );
+}
+
+function isStyleMode(value: unknown): value is StyleMode {
+  return value === "malaysia_formal" || value === "premium" || value === "simple";
 }
 
 function isDocumentPlan(value: unknown) {

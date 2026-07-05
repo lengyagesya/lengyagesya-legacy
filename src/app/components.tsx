@@ -3,6 +3,18 @@
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { type DragEvent, type PointerEvent as ReactPointerEvent, createContext, useContext, useEffect, useRef, useState } from "react";
+import {
+  detectDocumentFamily,
+  evaluateDocumentQuality,
+  familyLabels,
+  getFamilyOrder,
+  isFinancialSlot,
+  isSignatureSlot,
+  normalizeSlotForFamily,
+  type DocumentFamily,
+  type DocumentQualityReport,
+  type StyleMode,
+} from "./document-brain/families";
 
 type Language = "ms" | "en";
 type DocumentBlockStyle = {
@@ -68,6 +80,7 @@ type SmartDocumentSection = DocumentBrainSection & {
 };
 type DocumentBrainResult = {
   confidence: number;
+  documentFamily?: DocumentFamily;
   documentType: string;
   plan?: {
     documentGoal?: string;
@@ -79,6 +92,7 @@ type DocumentBrainResult = {
   layout?: string;
   paperSize?: "A4";
   sections: DocumentBrainSection[];
+  styleMode?: StyleMode;
   title: string;
 };
 type DocumentTypeId =
@@ -192,6 +206,15 @@ const copy = {
     previewResult: "Preview Hasil",
     aiResult: "Hasil AI",
     missingFields: "Maklumat belum lengkap",
+    styleMode: "Gaya dokumen",
+    simpleStyle: "Simple",
+    malaysiaFormalStyle: "Malaysia Formal",
+    premiumStyle: "Premium",
+    checkDocument: "Semak Dokumen",
+    professionalize: "Jadikan Profesional",
+    autoFix: "Baiki Automatik",
+    qualityScore: "Skor Profesional",
+    documentFamily: "Family",
     selectDocumentPlaceholder: "Pilih jenis dokumen",
     documentBrief: "Penerangan dokumen",
     documentBriefPlaceholder: "Contoh: Saya mahu buat surat rasmi memohon kebenaran mengadakan program di sekolah.",
@@ -263,6 +286,15 @@ const copy = {
     previewResult: "Preview Result",
     aiResult: "AI result",
     missingFields: "Missing information",
+    styleMode: "Document style",
+    simpleStyle: "Simple",
+    malaysiaFormalStyle: "Malaysia Formal",
+    premiumStyle: "Premium",
+    checkDocument: "Check Document",
+    professionalize: "Professionalize",
+    autoFix: "Auto Fix",
+    qualityScore: "Professional Score",
+    documentFamily: "Family",
     selectDocumentPlaceholder: "Select document type",
     documentBrief: "Document brief",
     documentBriefPlaceholder: "Example: I want to create a formal letter requesting permission to run a school programme.",
@@ -881,6 +913,8 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
   const [aiResult, setAiResult] = useState<DocumentBrainResult | null>(null);
   const [isSending, setIsSending] = useState(false);
   const [viewMode, setViewMode] = useState<"builder" | "preview">("builder");
+  const [styleMode, setStyleMode] = useState<StyleMode>("malaysia_formal");
+  const [qualityReport, setQualityReport] = useState<DocumentQualityReport | null>(null);
   const layoutMode: LayoutMode = "smart";
   const [alignmentGuide, setAlignmentGuide] = useState<AlignmentGuide>({});
   const blockIdCounter = useRef(0);
@@ -999,6 +1033,7 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
     setActivePageId("page-1");
     setAiResult(null);
     setAiError("");
+    setQualityReport(null);
     setViewMode("builder");
   }
 
@@ -1045,11 +1080,12 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
       setAiResult(data);
       const nextPages =
         layoutMode === "auto"
-          ? createAutoLayoutPages(data, language)
+          ? createAutoLayoutPages(data, language, styleMode)
           : layoutMode === "smart"
             ? applySmartAiResultToPages(pages, data, language)
             : applyAiResultToPages(pages, data, language);
       setPages(nextPages);
+      setQualityReport(evaluateDocumentQuality(nextPages, getResultFamily(data, documentBrief, docType)));
       setActivePageId("page-1");
       setActiveBlock(null);
       setViewMode("preview");
@@ -1058,6 +1094,35 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
     } finally {
       setIsSending(false);
     }
+  }
+
+  function checkDocument() {
+    const family = getResultFamily(aiResult, documentBrief, docType);
+    setQualityReport(evaluateDocumentQuality(pages, family));
+  }
+
+  function professionalizeDocument() {
+    const sourceResult = aiResult ?? createResultFromCurrentPages(pages, docType, documentBrief, language);
+    const nextResult = {
+      ...sourceResult,
+      documentFamily: getResultFamily(sourceResult, documentBrief, docType),
+      styleMode,
+    };
+    const professionalPages = createAutoLayoutPages(nextResult, language, styleMode);
+    setAiResult(nextResult);
+    setPages(professionalPages);
+    setQualityReport(evaluateDocumentQuality(professionalPages, nextResult.documentFamily));
+    setActiveBlock(null);
+    setActivePageId(professionalPages[0]?.id ?? "page-1");
+    setViewMode("preview");
+  }
+
+  function autoFixDocument() {
+    const compactPages = compactPagesForPrint(pages, styleMode);
+    const family = getResultFamily(aiResult, documentBrief, docType);
+    setPages(compactPages);
+    setQualityReport(evaluateDocumentQuality(compactPages, family));
+    setViewMode("preview");
   }
 
   function downloadPdf() {
@@ -1227,6 +1292,16 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
               placeholder={t.documentBriefPlaceholder}
               value={documentBrief}
             />
+            <label className="mt-4 block text-sm text-[#aeb6c6]">{t.styleMode}</label>
+            <select
+              className="input mt-2"
+              onChange={(event) => setStyleMode(event.target.value as StyleMode)}
+              value={styleMode}
+            >
+              <option value="simple">{t.simpleStyle}</option>
+              <option value="malaysia_formal">{t.malaysiaFormalStyle}</option>
+              <option value="premium">{t.premiumStyle}</option>
+            </select>
             <button
               className="button-secondary mt-4 w-full disabled:cursor-not-allowed disabled:opacity-55"
               disabled={isSending}
@@ -1235,6 +1310,17 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
             >
               {isSending ? t.sending : t.submitLater}
             </button>
+            <div className="mt-3 grid grid-cols-1 gap-2">
+              <button className="rounded-2xl border border-white/10 bg-white/[0.045] px-4 py-3 text-sm font-semibold text-white transition hover:border-[#9db4ff]/50 hover:bg-white/[0.08]" onClick={checkDocument} type="button">
+                {t.checkDocument}
+              </button>
+              <button className="button-primary" onClick={professionalizeDocument} type="button">
+                {t.professionalize}
+              </button>
+              <button className="rounded-2xl border border-white/10 bg-white/[0.045] px-4 py-3 text-sm font-semibold text-white transition hover:border-[#9db4ff]/50 hover:bg-white/[0.08]" onClick={autoFixDocument} type="button">
+                {t.autoFix}
+              </button>
+            </div>
             {aiError ? (
               <p className="mt-3 rounded-2xl border border-red-400/25 bg-red-500/10 p-3 text-xs leading-5 text-red-100">
                 {aiError}
@@ -1247,6 +1333,9 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
                 <p className="mt-1 text-xs leading-5 text-[#aeb6c6]">
                   {aiResult.documentType} · {Math.round(aiResult.confidence * 100)}%
                 </p>
+                <p className="mt-1 text-xs leading-5 text-[#aeb6c6]">
+                  {t.documentFamily}: {familyLabels[getResultFamily(aiResult, documentBrief, docType)]}
+                </p>
                 {aiResult.missingFields.length > 0 ? (
                   <p className="mt-2 text-xs leading-5 text-[#d8def0]">
                     {t.missingFields}: {aiResult.missingFields.join(", ")}
@@ -1255,6 +1344,27 @@ function DocumentBuilderContent({ initialType = "" }: { initialType?: string }) 
                 <button className="button-primary mt-3 w-full" onClick={downloadPdf} type="button">
                   {t.downloadPdf}
                 </button>
+              </div>
+            ) : null}
+            {qualityReport ? (
+              <div className="mt-3 rounded-2xl border border-emerald-300/20 bg-emerald-400/10 p-3">
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-emerald-200">{t.qualityScore}</p>
+                <p className="mt-1 text-3xl font-semibold text-white">{qualityReport.professional}</p>
+                <div className="mt-3 grid grid-cols-2 gap-2 text-[0.7rem] text-[#c9d1df]">
+                  <span>Format {qualityReport.format}</span>
+                  <span>Bahasa {qualityReport.language}</span>
+                  <span>Layout {qualityReport.layout}</span>
+                  <span>PDF {qualityReport.pdfReady}</span>
+                </div>
+                {qualityReport.issues.length > 0 ? (
+                  <div className="mt-3 space-y-2">
+                    {qualityReport.issues.map((issue) => (
+                      <p className="rounded-xl border border-white/10 bg-black/15 p-2 text-xs leading-5 text-[#d8def0]" key={issue.message}>
+                        {issue.message}
+                      </p>
+                    ))}
+                  </div>
+                ) : null}
               </div>
             ) : null}
           </aside>
@@ -1812,16 +1922,18 @@ function fitContentToBlock(block: PaperBlock): PaperBlock {
   return nextBlock;
 }
 
-function createAutoLayoutPages(result: DocumentBrainResult, language: Language): PaperPage[] {
+function createAutoLayoutPages(result: DocumentBrainResult, language: Language, styleMode: StyleMode = "malaysia_formal"): PaperPage[] {
   const normalizedSections = result.sections.map((section) => ({
     ...section,
     slot: normalizeSlot(section.slot || section.type || "section"),
     styleHint: normalizeStyleHint(section.styleHint),
   }));
+  const family = getResultFamily(result, "", "");
   const kind = detectAutoLayoutKind(result);
   const orderedSections = orderAutoLayoutSections(kind, ensureDocumentSections(result, normalizedSections));
   const blocks: PaperBlock[] = [];
-  let y = 52;
+  const pageMargin = getStylePageMargin(styleMode);
+  let y = pageMargin.top;
   let pageNumber = 1;
   const pages: PaperPage[] = [];
   const titleContent = orderedSections.find((section) => section.slot === "title")?.content || result.title || defaultAutoLayoutTitle(kind, language);
@@ -1834,32 +1946,32 @@ function createAutoLayoutPages(result: DocumentBrainResult, language: Language):
     });
     blocks.length = 0;
     pageNumber += 1;
-    y = 52;
+    y = pageMargin.top;
   }
 
   blocks.push(
     createAutoBlock({
       align: kind === "resume" ? "left" : "center",
       content: titleContent.toUpperCase(),
-      fontSize: kind === "resume" ? 20 : 17,
+      fontSize: kind === "resume" ? getStyleTitleSize(styleMode) + 2 : getStyleTitleSize(styleMode),
       fontWeight: "bold",
-      height: kind === "resume" ? 62 : 54,
+      height: kind === "resume" ? 66 : 58,
       id: `auto-title-${pageNumber}`,
       lineHeight: 1.25,
       slot: "title",
-      style: kind === "letter" ? {} : { divider: true },
+      style: kind === "letter" ? { documentHeader: true } : { divider: true, documentHeader: true },
       title: language === "ms" ? "Tajuk" : "Title",
-      width: 604,
-      x: 58,
+      width: pageMargin.width,
+      x: pageMargin.left,
       y,
     }),
   );
-  y += 72;
+  y += styleMode === "premium" ? 82 : 72;
 
   orderedSections
     .filter((section) => section.slot !== "title" && section.content.trim())
     .forEach((section, index) => {
-      const sectionStyle = getAutoSectionStyle(kind, section);
+      const sectionStyle = getAutoSectionStyle(kind, section, styleMode, family);
       const heading = autoSectionHeading(section.slot, section.type, language);
       const headingHeight = sectionStyle.showHeading ? 24 : 0;
       const contentHeight = estimateAutoBlockHeight(section.content, sectionStyle.width, sectionStyle.fontSize);
@@ -1926,6 +2038,12 @@ function createAutoBlock(block: Omit<PaperBlock, "align" | "underline"> & { alig
 
 function detectAutoLayoutKind(result: DocumentBrainResult): AutoLayoutKind {
   const value = `${result.documentType} ${result.title}`.toLowerCase();
+  const family = getResultFamily(result, "", "");
+  if (family === "FINANCIAL_DOCUMENT") return value.includes("slip") || value.includes("gaji") || value.includes("payslip") ? "payroll" : "invoice";
+  if (family === "MEETING_DOCUMENT") return "minutes";
+  if (family === "AGREEMENT_DOCUMENT") return "generic";
+  if (family === "FORM_DOCUMENT") return "form";
+  if (family === "REPORT_DOCUMENT") return "report";
   if (value.includes("resume") || value.includes("cv")) return "resume";
   if (value.includes("slip") || value.includes("gaji") || value.includes("payslip") || value.includes("payroll")) return "payroll";
   if (value.includes("invoice") || value.includes("quotation") || value.includes("resit") || value.includes("receipt") || value.includes("sebut harga")) return "invoice";
@@ -1934,6 +2052,90 @@ function detectAutoLayoutKind(result: DocumentBrainResult): AutoLayoutKind {
   if (isReportDocument(result)) return "report";
   if (value.includes("surat") || value.includes("letter") || value.includes("permohonan") || value.includes("rayuan")) return "letter";
   return "generic";
+}
+
+function getResultFamily(result: DocumentBrainResult | null, brief: string, docType: DocumentTypeId | ""): DocumentFamily {
+  if (result?.documentFamily) {
+    return result.documentFamily;
+  }
+
+  const typeLabel = docType ? `${docType} ${documentTypeLabels.ms[docType]} ${documentTypeLabels.en[docType]}` : "";
+  return detectDocumentFamily(`${result?.documentType || ""} ${result?.title || ""} ${brief} ${typeLabel}`);
+}
+
+function getStylePageMargin(styleMode: StyleMode) {
+  if (styleMode === "premium") {
+    return { left: 66, top: 58, width: 588 };
+  }
+
+  if (styleMode === "simple") {
+    return { left: 54, top: 48, width: 612 };
+  }
+
+  return { left: 58, top: 52, width: 604 };
+}
+
+function getStyleTitleSize(styleMode: StyleMode) {
+  if (styleMode === "premium") return 18;
+  if (styleMode === "simple") return 16;
+  return 17;
+}
+
+function createResultFromCurrentPages(
+  pages: PaperPage[],
+  docType: DocumentTypeId | "",
+  brief: string,
+  language: Language,
+): DocumentBrainResult {
+  const title = docType ? documentTypeLabels[language][docType] : brief.trim() || (language === "ms" ? "Dokumen" : "Document");
+  const sections = pages.flatMap((page) =>
+    page.blocks
+      .filter((block) => block.content.trim())
+      .map((block): DocumentBrainSection => ({
+        content: isInstructionPlaceholder(block.content) ? "" : block.content,
+        formatHint: block.slot === "title" ? "heading" : isSignatureSlot(block.slot) ? "signature" : isFinancialSlot(block.slot) ? "table" : "paragraph",
+        slot: normalizeSlotForFamily(block.slot || block.title),
+        styleHint: block.style,
+        targetBlockId: block.id,
+        type: block.title,
+      })),
+  );
+
+  return {
+    confidence: 0.75,
+    documentFamily: getResultFamily(null, brief, docType),
+    documentType: title,
+    missingFields: [],
+    sections: sections.length > 0 ? sections : [{ content: title, formatHint: "heading", slot: "title" }],
+    styleMode: "malaysia_formal",
+    title,
+  };
+}
+
+function compactPagesForPrint(pages: PaperPage[], styleMode: StyleMode): PaperPage[] {
+  const margin = getStylePageMargin(styleMode);
+  return pages.map((page) => {
+    const sortedBlocks = [...page.blocks].sort((first, second) => first.y - second.y || first.x - second.x);
+    let y = margin.top;
+
+    return {
+      ...page,
+      blocks: sortedBlocks.map((block) => {
+        const width = Math.min(block.width > 0 ? block.width : margin.width, margin.width);
+        const height = Math.max(estimateAutoBlockHeight(block.content, width, block.fontSize), block.style?.signatureLine ? 72 : 42);
+        const nextBlock = {
+          ...block,
+          fontSize: block.fontSize > 22 ? 20 : block.fontSize < 9 ? 9.5 : block.fontSize,
+          height: Math.min(210, height),
+          width,
+          x: margin.left,
+          y,
+        };
+        y += nextBlock.height + (styleMode === "premium" ? 18 : 14);
+        return nextBlock;
+      }),
+    };
+  });
 }
 
 function defaultAutoLayoutTitle(kind: AutoLayoutKind, language: Language) {
@@ -2002,6 +2204,7 @@ function ensureDocumentSections(result: DocumentBrainResult, sections: Array<Doc
 }
 
 function orderAutoLayoutSections(kind: AutoLayoutKind, sections: Array<DocumentBrainSection & { slot: string }>) {
+  const detectedFamily = detectDocumentFamily(`${kind} ${sections.map((section) => `${section.slot} ${section.type || ""}`).join(" ")}`);
   const orders: Record<AutoLayoutKind, string[]> = {
     form: ["title", "section", "name", "date", "description", "declaration", "signature", "footer"],
     generic: ["title", "subtitle", "date", "section", "body", "paragraph", "summary", "remarks", "signature", "footer"],
@@ -2012,7 +2215,7 @@ function orderAutoLayoutSections(kind: AutoLayoutKind, sections: Array<DocumentB
     report: ["title", "case_info", "background", "issue", "objective", "observation", "action_taken", "current_status", "recommendation", "conclusion", "body", "summary", "remarks", "signature"],
     resume: ["title", "name", "contact", "phone", "email", "summary", "education", "skills", "experience", "section", "references"],
   };
-  const order = orders[kind];
+  const order = [...new Set([...getFamilyOrder(detectedFamily), ...orders[kind]])];
 
   return [...sections].sort((first, second) => {
     const firstIndex = order.indexOf(first.slot);
@@ -2021,34 +2224,37 @@ function orderAutoLayoutSections(kind: AutoLayoutKind, sections: Array<DocumentB
   });
 }
 
-function getAutoSectionStyle(kind: AutoLayoutKind, section: DocumentBrainSection & { slot: string }) {
+function getAutoSectionStyle(kind: AutoLayoutKind, section: DocumentBrainSection & { slot: string }, styleMode: StyleMode, family: DocumentFamily) {
   const styleHint = normalizeStyleHint(section.styleHint);
   const formatHint = section.formatHint || "";
   const slot = section.slot;
-  const boxed = Boolean(styleHint.box || styleHint.border || styleHint.tableBorder || ["invoice", "payroll", "form"].includes(kind));
+  const pageMargin = getStylePageMargin(styleMode);
+  const boxed = Boolean(styleHint.box || styleHint.border || styleHint.tableBorder || ["invoice", "payroll", "form"].includes(kind) || family === "FINANCIAL_DOCUMENT" || family === "FORM_DOCUMENT");
   const tableLike = styleHint.tableBorder || formatHint === "table" || slot.includes("table");
   const totalLike = styleHint.boxType === "totalBox" || formatHint === "total" || slot === "total";
   const signatureLike = styleHint.signatureLine || formatHint === "signature" || slot === "signature";
   const showHeading = kind !== "letter" && !["date", "subtitle", "footer"].includes(slot);
+  const premium = styleMode === "premium";
+  const simple = styleMode === "simple";
 
   return {
     contentStyle: {
       border: boxed || totalLike,
       box: boxed || totalLike,
-      boxType: totalLike ? "totalBox" : styleHint.boxType,
-      divider: styleHint.divider || ["report", "minutes", "resume"].includes(kind),
+      boxType: totalLike ? "totalBox" : styleHint.boxType || (boxed ? "infoBox" : undefined),
+      divider: styleHint.divider || (!simple && ["report", "minutes", "resume"].includes(kind)),
       signatureLine: signatureLike,
       tableBorder: tableLike,
       underline: styleHint.underline,
     },
-    fontSize: totalLike ? 13 : 11.5,
+    fontSize: totalLike ? (premium ? 13.5 : 13) : premium ? 11.8 : simple ? 11.2 : 11.5,
     fontWeight: totalLike ? "bold" as const : "normal" as const,
-    gap: kind === "letter" ? 20 : 18,
-    headingStyle: ["report", "minutes", "resume"].includes(kind) ? { divider: true } : {},
-    lineHeight: tableLike ? 1.65 : 1.45,
+    gap: kind === "letter" ? (premium ? 22 : 20) : premium ? 20 : simple ? 14 : 18,
+    headingStyle: ["report", "minutes", "resume"].includes(kind) ? { divider: true, sectionHeading: true } : {},
+    lineHeight: tableLike ? 1.65 : premium ? 1.52 : 1.45,
     showHeading,
-    width: 604,
-    x: 58,
+    width: pageMargin.width,
+    x: pageMargin.left,
   };
 }
 

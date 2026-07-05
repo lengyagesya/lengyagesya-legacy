@@ -1,5 +1,5 @@
 import { getRelevantExamples } from "./examples";
-import { bannedAiToneGuide, malaysianDocumentStyleGuide } from "./style-guide";
+import { bannedAiToneGuide, documentQualityChecklist, malaysianDocumentStyleGuide } from "./style-guide";
 import { getRelevantTemplates } from "./templates";
 
 export function buildDocumentBrainReference(prompt: string) {
@@ -14,6 +14,9 @@ export function buildDocumentBrainReference(prompt: string) {
     "",
     "Avoid these AI-like patterns:",
     bannedAiToneGuide,
+    "",
+    "Final quality checklist:",
+    documentQualityChecklist,
     "",
     "Relevant document structures:",
     ...templates.map((template, index) =>
